@@ -1,0 +1,106 @@
+# ============================================================
+# SHARD Enterprise - Production Overrides
+# ============================================================
+
+global:
+  environment: "production"
+  imageRegistry: "registry.siem.company.com/shard"
+
+replicaCount:
+  core: 5
+  ml: 3
+  modules: 4
+  api: 3
+
+resources:
+  core:
+    requests:
+      cpu: "4"
+      memory: "8Gi"
+    limits:
+      cpu: "8"
+      memory: "16Gi"
+  ml:
+    requests:
+      cpu: "8"
+      memory: "32Gi"
+    limits:
+      cpu: "16"
+      memory: "64Gi"
+    gpu:
+      enabled: true
+      count: 2
+  modules:
+    requests:
+      cpu: "2"
+      memory: "4Gi"
+    limits:
+      cpu: "4"
+      memory: "8Gi"
+
+persistence:
+  size: 500Gi
+  models:
+    size: 200Gi
+  data:
+    size: 1Ti
+  logs:
+    size: 500Gi
+
+ingress:
+  hosts:
+    - host: siem.company.com
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceName: shard-api
+          servicePort: 8080
+
+autoscaling:
+  core:
+    minReplicas: 3
+    maxReplicas: 20
+  ml:
+    minReplicas: 2
+    maxReplicas: 10
+  modules:
+    minReplicas: 3
+    maxReplicas: 15
+
+elasticsearch:
+  enabled: true
+  replicas: 3
+  resources:
+    requests:
+      cpu: "4"
+      memory: "16Gi"
+    limits:
+      cpu: "8"
+      memory: "32Gi"
+  volumeClaimTemplate:
+    resources:
+      requests:
+        storage: 1Ti
+
+postgresql:
+  enabled: true
+  primary:
+    resources:
+      requests:
+        cpu: "2"
+        memory: "4Gi"
+      limits:
+        cpu: "4"
+        memory: "8Gi"
+    persistence:
+      size: 500Gi
+  readReplicas:
+    replicaCount: 2
+
+config:
+  shard:
+    logging:
+      level: "WARNING"
+  secrets:
+    abuseipdb_key: "${ABUSEIPDB_KEY}"
+    virustotal_key: "${VIRUSTOTAL_KEY}"

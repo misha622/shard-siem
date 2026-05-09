@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  shard-siem:
+    build: .
+    container_name: shard-enterprise
+    restart: unless-stopped
+    ports:
+      - "8080:8080"   # Основной дашборд
+      - "8081:8081"   # Резервный дашборд
+      - "9090:9090"   # Prometheus метрики
+      - "5000:5000"   # Mobile API
+      - "2222:2222"   # SSH Honeypot
+      - "3306:3306"   # MySQL Honeypot
+      - "5432:5432"   # PostgreSQL Honeypot
+      - "6379:6379"   # Redis Honeypot
+      - "8443:8443"   # HTTPS Honeypot
+      - "21:21"       # FTP Honeypot
+      - "23:23"       # Telnet Honeypot
+      - "27017:27017" # MongoDB Honeypot
+      - "9200:9200"   # Elasticsearch Honeypot
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./reports:/app/reports
+      - ./models:/app/models
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      - SHARD_ENV=production
+      - SHARD_CONFIG_SECRET=${SHARD_CONFIG_SECRET:-change_me_in_production}
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+
+  # Prometheus для метрик
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: shard-prometheus
+    restart: unless-stopped
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+
+  # Grafana для визуализации
+  grafana:
+    image: grafana/grafana:latest
+    container_name: shard-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=shard2026
+    volumes:
+      - grafana-storage:/var/lib/grafana
+
+volumes:
+  grafana-storage:

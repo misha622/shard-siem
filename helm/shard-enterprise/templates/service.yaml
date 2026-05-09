@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "shard-enterprise.fullname" . }}-api
+  labels:
+    {{- include "shard-enterprise.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.api.port }}
+      targetPort: api
+      protocol: TCP
+      name: api
+    - port: {{ .Values.monitoring.prometheus.port }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+  selector:
+    {{- include "shard-enterprise.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: core
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "shard-enterprise.fullname" . }}-ml
+  labels:
+    {{- include "shard-enterprise.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ml
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: api
+  selector:
+    {{- include "shard-enterprise.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: ml

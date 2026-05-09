@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛡️ SHARD Enterprise - Дашборд нового поколения</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1a3e 100%);
+            color: #fff;
+            overflow: hidden;
+        }
+
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .dashboard {
+            position: relative;
+            z-index: 10;
+            display: grid;
+            grid-template-columns: 280px 1fr 350px;
+            grid-template-rows: 70px 1fr 200px;
+            height: 100vh;
+            padding: 15px;
+            gap: 15px;
+            pointer-events: none;
+        }
+
+        .dashboard > * {
+            pointer-events: auto;
+        }
+
+        .header {
+            grid-column: 1 / -1;
+            background: rgba(10, 14, 39, 0.85);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 0 25px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #00ffff, #0066ff);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+
+        .logo-text {
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #fff, #00ffff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stats {
+            display: flex;
+            gap: 30px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #00ffff;
+            text-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.7;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sidebar-left {
+            grid-row: 2;
+            background: rgba(10, 14, 39, 0.85);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            overflow-y: auto;
+        }
+
+        .sidebar-right {
+            grid-row: 2;
+            background: rgba(10, 14, 39, 0.85);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            overflow-y: auto;
+        }
+
+        .main-content {
+            grid-row: 2;
+            background: transparent;
+        }
+
+        .footer {
+            grid-column: 1 / -1;
+            background: rgba(10, 14, 39, 0.85);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 15px 25px;
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            display: flex;
+            gap: 20px;
+            overflow-x: auto;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+        }
+
+        .alert-item {
+            padding: 12px;
+            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            border-left: 4px solid;
+            transition: all 0.3s;
+        }
+
+        .alert-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateX(5px);
+        }
+
+        .alert-critical { border-left-color: #ff0044; }
+        .alert-high { border-left-color: #ff6600; }
+        .alert-medium { border-left-color: #ffcc00; }
+        .alert-low { border-left-color: #00cc88; }
+
+        .alert-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .alert-details {
+            font-size: 11px;
+            opacity: 0.7;
+        }
+
+        .threat-card {
+            min-width: 200px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            flex-shrink: 0;
+        }
+
+        .threat-card h4 {
+            margin-bottom: 8px;
+            color: #00ffff;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ffff, #0066ff);
+            border-radius: 3px;
+            transition: width 0.5s;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: rgba(0, 255, 100, 0.2);
+            color: #00ff88;
+            border: 1px solid rgba(0, 255, 100, 0.3);
+        }
+
+        .status-warning {
+            background: rgba(255, 200, 0, 0.2);
+            color: #ffcc00;
+            border: 1px solid rgba(255, 200, 0, 0.3);
+        }
+
+        .status-critical {
+            background: rgba(255, 0, 68, 0.2);
+            color: #ff0044;
+            border: 1px solid rgba(255, 0, 68, 0.3);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .live-dot {
+            width: 10px;
+            height: 10px;
+            background: #00ff88;
+            border-radius: 50%;
+            box-shadow: 0 0 15px #00ff88;
+            animation: pulse 1.5s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+
+    <div class="dashboard">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">
+                <div class="logo-icon">🛡️</div>
+                <span class="logo-text">SHARD Enterprise</span>
+                <span style="margin-left: 15px; opacity: 0.5;">v5.0.0</span>
+            </div>
+
+            <div class="live-indicator">
+                <span class="live-dot"></span>
+                <span style="font-size: 13px; opacity: 0.8;">LIVE</span>
+            </div>
+
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-value" id="stat-alerts">1,247</div>
+                    <div class="stat-label">АЛЕРТОВ</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="stat-threats">89</div>
+                    <div class="stat-label">УГРОЗ</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="stat-blocked">156</div>
+                    <div class="stat-label">ЗАБЛОКИРОВАНО</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Left Sidebar -->
+        <div class="sidebar-left">
+            <div class="section-title">🎯 АКТИВНЫЕ УГРОЗЫ</div>
+            <div id="alerts-container">
+                <div class="alert-item alert-critical">
+                    <div class="alert-title">C2 Beacon Detected</div>
+                    <div class="alert-details">185.142.53.101 → C2 Server</div>
+                    <div class="alert-details">Confidence: 98% | MITRE: T1071.001</div>
+                </div>
+                <div class="alert-item alert-high">
+                    <div class="alert-title">SQL Injection Attempt</div>
+                    <div class="alert-details">192.168.1.50 → Web Server</div>
+                    <div class="alert-details">Confidence: 95% | MITRE: T1190</div>
+                </div>
+                <div class="alert-item alert-high">
+                    <div class="alert-title">Brute Force SSH</div>
+                    <div class="alert-details">45.134.26.99 → SSH (2222)</div>
+                    <div class="alert-details">Confidence: 92% | MITRE: T1110</div>
+                </div>
+                <div class="alert-item alert-medium">
+                    <div class="alert-title">Port Scan Detected</div>
+                    <div class="alert-details">10.0.0.1 → Multiple Ports</div>
+                    <div class="alert-details">Confidence: 88% | MITRE: T1046</div>
+                </div>
+                <div class="alert-item alert-low">
+                    <div class="alert-title">Honeypot Interaction</div>
+                    <div class="alert-details">127.0.0.1 → MySQL (3306)</div>
+                    <div class="alert-details">Confidence: 100% | Honeypot</div>
+                </div>
+            </div>
+
+            <div class="section-title" style="margin-top: 25px;">🤖 AI СТАТУС</div>
+            <div style="margin-bottom: 15px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <span>Super AI (1.4B)</span>
+                    <span style="color: #00ff88;">✅ Активен</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <span>Online Learner</span>
+                    <span style="color: #00ff88;">✅ Обучается</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <span>XAI Explainer</span>
+                    <span style="color: #00ff88;">✅ Активен</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <span>RL Defense Agent</span>
+                    <span style="color: #00ff88;">✅ Активен</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span>P2P Reputation</span>
+                    <span style="color: #ffcc00;">⚠️ Офлайн</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content (3D Graph is rendered here via Three.js) -->
+        <div class="main-content"></div>
+
+        <!-- Right Sidebar -->
+        <div class="sidebar-right">
+            <div class="section-title">📊 СТАТИСТИКА АТАК</div>
+            <canvas id="attack-chart" width="300" height="200" style="width: 100%; height: auto; margin-bottom: 20px;"></canvas>
+
+            <div class="section-title">🌍 ТОП ИСТОЧНИКИ</div>
+            <div id="top-sources">
+                <div style="margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                        <span>🇷🇺 185.142.53.101</span>
+                        <span>342 атаки</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 85%"></div>
+                    </div>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                        <span>🇨🇳 45.155.205.233</span>
+                        <span>256 атак</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 65%"></div>
+                    </div>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                        <span>🇺🇸 194.61.23.45</span>
+                        <span>178 атак</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 45%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-title" style="margin-top: 20px;">🔐 MITRE ATT&CK</div>
+            <div style="font-size: 12px;">
+                <div style="margin-bottom: 5px;">✅ T1071.001 - Web Protocols (C2)</div>
+                <div style="margin-bottom: 5px;">✅ T1190 - Exploit Public-Facing App</div>
+                <div style="margin-bottom: 5px;">✅ T1110 - Brute Force</div>
+                <div style="margin-bottom: 5px;">✅ T1046 - Network Service Scanning</div>
+                <div style="margin-bottom: 5px;">✅ T1059 - Command & Scripting Interpreter</div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <div class="threat-card">
+                <h4>🎯 JA3 C2 Detection</h4>
+                <p style="font-size: 12px; opacity: 0.7;">TrickBot C2 Beacon</p>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 98%"></div>
+                </div>
+                <span class="status-badge status-critical">CRITICAL</span>
+            </div>
+            <div class="threat-card">
+                <h4>🍯 Honeypot Hits</h4>
+                <p style="font-size: 12px; opacity: 0.7;">SSH (2222): 45 атак</p>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 75%"></div>
+                </div>
+                <span class="status-badge status-active">ACTIVE</span>
+            </div>
+            <div class="threat-card">
+                <h4>🤖 RL Agent</h4>
+                <p style="font-size: 12px; opacity: 0.7;">ε = 0.298, Q-table: 127</p>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 60%"></div>
+                </div>
+                <span class="status-badge status-active">LEARNING</span>
+            </div>
+            <div class="threat-card">
+                <h4>🌐 P2P Network</h4>
+                <p style="font-size: 12px; opacity: 0.7;">Peers: 0 (offline)</p>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 0%"></div>
+                </div>
+                <span class="status-badge status-warning">OFFLINE</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Three.js для 3D графа -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // 3D Attack Graph Visualization
+        const container = document.getElementById('canvas-container');
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0e27);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(8, 6, 12);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0x404060);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        dirLight.position.set(5, 10, 7);
+        dirLight.castShadow = true;
+        dirLight.receiveShadow = true;
+        scene.add(dirLight);
+
+        const pointLight1 = new THREE.PointLight(0x00ffff, 0.5);
+        pointLight1.position.set(2, 3, 4);
+        scene.add(pointLight1);
+
+        const pointLight2 = new THREE.PointLight(0xff0044, 0.3);
+        pointLight2.position.set(-3, 2, -4);
+        scene.add(pointLight2);
+
+        // Grid helper
+        const gridHelper = new THREE.GridHelper(20, 20, 0x00ffff, 0x334466);
+        scene.add(gridHelper);
+
+        // Nodes (IP addresses)
+        const nodes = [];
+        const nodePositions = [
+            { x: 0, y: 2, z: 0, color: 0x00ffff, label: 'SHARD', size: 0.6 },           // SHARD
+            { x: 3, y: 1, z: 2, color: 0xff0044, label: '185.142.53.101', size: 0.4 }, // Attacker
+            { x: -3, y: 1.5, z: 3, color: 0xff6600, label: '45.155.205.233', size: 0.35 }, // Attacker
+            { x: 4, y: 0.5, z: -2, color: 0xffcc00, label: '194.61.23.45', size: 0.35 }, // Attacker
+            { x: -2, y: 2.5, z: -3, color: 0x00cc88, label: '192.168.1.50', size: 0.3 }, // Internal
+            { x: 2, y: 3, z: -1, color: 0xaa66ff, label: '10.0.0.1', size: 0.3 },       // Internal
+            { x: -4, y: 0.5, z: -1, color: 0xff4488, label: '89.248.163.1', size: 0.35 }, // Attacker
+            { x: 1, y: 1, z: 4, color: 0x44aaff, label: '203.0.113.100', size: 0.35 },  // C2
+        ];
+
+        nodePositions.forEach((pos) => {
+            const geometry = new THREE.SphereGeometry(pos.size, 32, 32);
+            const material = new THREE.MeshStandardMaterial({
+                color: pos.color,
+                emissive: pos.color,
+                emissiveIntensity: 0.3,
+                roughness: 0.2,
+                metalness: 0.1
+            });
+            const sphere = new THREE.Mesh(geometry, material);
+            sphere.position.set(pos.x, pos.y, pos.z);
+            sphere.castShadow = true;
+            sphere.receiveShadow = true;
+            sphere.userData = { label: pos.label, color: pos.color };
+            scene.add(sphere);
+            nodes.push(sphere);
+
+            // Glow effect
+            const glowGeometry = new THREE.SphereGeometry(pos.size * 1.3, 32, 32);
+            const glowMaterial = new THREE.MeshBasicMaterial({
+                color: pos.color,
+                transparent: true,
+                opacity: 0.15
+            });
+            const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+            glow.position.set(pos.x, pos.y, pos.z);
+            scene.add(glow);
+        });
+
+        // Edges (connections)
+        const connections = [
+            [0, 1], [0, 2], [0, 3], [0, 6],  // SHARD to attackers
+            [1, 7], [2, 7], [3, 7],           // Attackers to C2
+            [4, 0], [5, 0],                   // Internal to SHARD
+            [1, 2], [2, 3],                   // Attacker mesh
+        ];
+
+        connections.forEach(([from, to]) => {
+            const fromPos = nodePositions[from];
+            const toPos = nodePositions[to];
+
+            const points = [
+                new THREE.Vector3(fromPos.x, fromPos.y, fromPos.z),
+                new THREE.Vector3(toPos.x, toPos.y, toPos.z)
+            ];
+
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+
+            // Цвет линии зависит от типа соединения
+            let lineColor = 0x446688;
+            if (from === 0) lineColor = 0xff4466; // SHARD -> attacker
+            else if (to === 7) lineColor = 0xffaa00; // -> C2
+
+            const material = new THREE.LineBasicMaterial({ color: lineColor });
+            const line = new THREE.Line(geometry, material);
+            scene.add(line);
+
+            // Animated particles along the line
+            const particleCount = 3;
+            for (let i = 0; i < particleCount; i++) {
+                const particleGeo = new THREE.SphereGeometry(0.05, 8, 8);
+                const particleMat = new THREE.MeshBasicMaterial({ color: lineColor });
+                const particle = new THREE.Mesh(particleGeo, particleMat);
+                particle.userData = {
+                    from: fromPos,
+                    to: toPos,
+                    offset: i / particleCount,
+                    speed: 0.005 + Math.random() * 0.005
+                };
+                scene.add(particle);
+                nodes.push(particle);
+            }
+        });
+
+        // Stars background
+        const starsGeometry = new THREE.BufferGeometry();
+        const starsCount = 2000;
+        const starPositions = new Float32Array(starsCount * 3);
+        for (let i = 0; i < starsCount * 3; i += 3) {
+            starPositions[i] = (Math.random() - 0.5) * 200;
+            starPositions[i+1] = (Math.random() - 0.5) * 200;
+            starPositions[i+2] = (Math.random() - 0.5) * 200;
+        }
+        starsGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+        const starsMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.05 });
+        const stars = new THREE.Points(starsGeometry, starsMaterial);
+        scene.add(stars);
+
+        // Animation
+        let time = 0;
+        function animate() {
+            requestAnimationFrame(animate);
+
+            time += 0.01;
+
+            // Rotate stars slowly
+            stars.rotation.y += 0.0001;
+
+            // Animate particles along lines
+            nodes.forEach(node => {
+                if (node.isMesh && node.geometry.type === 'SphereGeometry' && node.userData.from) {
+                    const { from, to, offset, speed } = node.userData;
+                    const t = (Math.sin(time * speed * 10 + offset * 10) + 1) * 0.5;
+                    node.position.x = from.x + (to.x - from.x) * t;
+                    node.position.y = from.y + (to.y - from.y) * t;
+                    node.position.z = from.z + (to.z - from.z) * t;
+                }
+            });
+
+            // Pulse SHARD node
+            if (nodes[0]) {
+                nodes[0].scale.setScalar(1 + Math.sin(time * 5) * 0.03);
+            }
+
+            // Camera movement
+            camera.position.x = 10 * Math.sin(time * 0.1);
+            camera.position.z = 10 * Math.cos(time * 0.1);
+            camera.lookAt(0, 1, 0);
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Handle resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Update stats periodically
+        setInterval(() => {
+            document.getElementById('stat-alerts').textContent = Math.floor(1000 + Math.random() * 500);
+            document.getElementById('stat-threats').textContent = Math.floor(50 + Math.random() * 50);
+            document.getElementById('stat-blocked').textContent = Math.floor(100 + Math.random() * 100);
+        }, 3000);
+
+        // Simple chart
+        const chartCanvas = document.getElementById('attack-chart');
+        const ctx = chartCanvas.getContext('2d');
+
+        function drawChart() {
+            ctx.clearRect(0, 0, chartCanvas.width, chartCanvas.height);
+
+            const data = [65, 42, 38, 25, 18, 12];
+            const colors = ['#ff0044', '#ff6600', '#ffcc00', '#00cc88', '#00ffff', '#aa66ff'];
+            const labels = ['C2', 'SQLi', 'Brute', 'Scan', 'Honeypot', 'Other'];
+
+            const barWidth = 40;
+            const startX = 20;
+
+            labels.forEach((label, i) => {
+                const x = startX + i * 48;
+                const height = data[i] * 1.5;
+                const y = 180 - height;
+
+                ctx.fillStyle = colors[i];
+                ctx.fillRect(x, y, barWidth, height);
+
+                ctx.fillStyle = '#fff';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(label, x + barWidth/2, 195);
+                ctx.fillText(data[i], x + barWidth/2, y - 5);
+            });
+        }
+
+        drawChart();
+    </script>
+</body>
+</html>

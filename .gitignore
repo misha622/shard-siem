@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.pyc
+*.pkl
+*.db
+*.db-shm
+*.db-wal
+*.log
+*.pt
+*.pcap
+
+# Данные
+data/
+models/
+reports/
+pcaps/
+CIC-IDS2017/
+CIC
+CIC.py
+
+# Бэкапы
+*.backup*
+*.save
+*.fixed
+
+# Среда
+.venv-linux/
+.venv/
+.idea/
+
+# Временные
+benchmark_report_*.json
+attacks.log
+*.pkl
+*.pkl.backup*
+shard_enterprise_features.pkl
+shard_enterprise_scaler.pkl
+shard_enterprise_model_*.pkl
+shard_improved_dataset.jsonl
+shard_logs_dataset.*
+shard_real_alerts.jsonl
+shard_training_data.jsonl
+ssl_model.pt
+ensemble_models.pkl

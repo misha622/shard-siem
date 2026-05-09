@@ -1,0 +1,43 @@
+{
+  "title": "SHARD Production Pipeline",
+  "uid": "shard-pipeline",
+  "panels": [
+    {
+      "title": "Packets/sec",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "rate(shard_packets_total[1m])"
+        }
+      ]
+    },
+    {
+      "title": "Alerts/min",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "rate(shard_alerts_total[1m])*60"
+        }
+      ]
+    },
+    {
+      "title": "FP Suppressed",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "shard_fp_suppressed_total"
+        }
+      ]
+    },
+    {
+      "title": "Modules Up",
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "shard_modules_up"
+        }
+      ],
+      "max": 23
+    }
+  ]
+}

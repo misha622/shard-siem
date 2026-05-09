@@ -1,0 +1,37 @@
+apiVersion: v2
+name: shard-enterprise
+description: SHARD Enterprise SIEM - Полный комплект для Kubernetes
+type: application
+version: 5.0.0
+appVersion: "5.0.0"
+kubeVersion: ">=1.24.0"
+
+keywords:
+  - siem
+  - security
+  - threat-detection
+  - machine-learning
+  - ai
+
+home: https://shard.siem
+sources:
+  - https://github.com/shard-enterprise/shard
+maintainers:
+  - name: SHARD Enterprise Team
+    email: support@shard.siem
+
+# Зависимости отключены по умолчанию
+# При необходимости включить в values.yaml
+dependencies:
+  - name: prometheus
+    version: "~25.0"
+    repository: "https://prometheus-community.github.io/helm-charts"
+    condition: prometheus.enabled
+  - name: grafana
+    version: "~7.0"
+    repository: "https://grafana.github.io/helm-charts"
+    condition: grafana.enabled
+  - name: redis
+    version: "~18.0"
+    repository: "oci://registry-1.docker.io/bitnamicharts"
+    condition: redis.enabled

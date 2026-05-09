@@ -1,0 +1,50 @@
+{{- if .Values.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "shard-enterprise.fullname" . }}-core
+  labels:
+    {{- include "shard-enterprise.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "shard-enterprise.fullname" . }}-core
+  minReplicas: {{ .Values.autoscaling.core.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.core.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.autoscaling.core.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.autoscaling.core.targetMemoryUtilizationPercentage }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "shard-enterprise.fullname" . }}-ml
+  labels:
+    {{- include "shard-enterprise.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "shard-enterprise.fullname" . }}-ml
+  minReplicas: {{ .Values.autoscaling.ml.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.ml.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.autoscaling.ml.targetCPUUtilizationPercentage }}
+{{- end }}

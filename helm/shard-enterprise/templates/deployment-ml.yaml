@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "shard-enterprise.fullname" . }}-ml
+  labels:
+    {{- include "shard-enterprise.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ml
+spec:
+  replicas: {{ .Values.replicaCount.ml }}
+  selector:
+    matchLabels:
+      {{- include "shard-enterprise.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: ml
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      labels:
+        {{- include "shard-enterprise.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: ml
+    spec:
+      {{- include "shard-enterprise.imagePullSecret" . | nindent 6 }}
+      serviceAccountName: {{ include "shard-enterprise.serviceAccountName" . }}
+      {{- with .Values.nodeSelector.ml }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations.ml }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity.ml }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: shard-ml
+          image: "{{ .Values.global.imageRegistry }}/{{ .Values.image.ml.repository }}:{{ .Values.image.ml.tag }}"
+          imagePullPolicy: {{ .Values.image.ml.pullPolicy }}
+          command:
+            - python3
+            - -m
+            - shard_ml_worker
+          env:
+            - name: SHARD_ML_DEVICE
+              value: "cuda"
+            - name: CUDA_VISIBLE_DEVICES
+              value: "0"
+            {{- if .Values.redis.enabled }}
+            - name: REDIS_URL
+              value: "redis://:$(REDIS_PASSWORD)@{{ .Release.Name }}-redis-master:6379"
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources.ml | nindent 12 }}
+          {{- if .Values.resources.ml.gpu.enabled }}
+          resources:
+            limits:
+              {{ .Values.resources.ml.gpu.type }}: {{ .Values.resources.ml.gpu.count }}
+          {{- end }}
+          volumeMounts:
+            - name: models
+              mountPath: /data/models
+          livenessProbe:
+            exec:
+              command:
+                - python3
+                - -c
+                - "import torch; print(torch.cuda.is_available())"
+            initialDelaySeconds: 120
+            periodSeconds: 60
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: {{ include "shard-enterprise.fullname" . }}-models

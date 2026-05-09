@@ -1,0 +1,1968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SHARD Enterprise — Cyber Threat Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #05070f;
+    --bg2: #0c0f1e;
+    --bg3: #111528;
+    --bg4: #161b32;
+    --border: rgba(99,120,255,0.12);
+    --border2: rgba(99,120,255,0.22);
+    --accent: #4f6ef7;
+    --accent2: #7c9bff;
+    --accent-glow: rgba(79,110,247,0.18);
+    --red: #f04f5a;
+    --red-dim: rgba(240,79,90,0.15);
+    --orange: #f5933a;
+    --green: #2edd8f;
+    --green-dim: rgba(46,221,143,0.12);
+    --yellow: #f5c842;
+    --text: #e8ecff;
+    --text2: #8892b8;
+    --text3: #4a5278;
+    --font: 'Space Grotesk', sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+    --radius: 10px;
+    --radius-lg: 16px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── AUTH SCREENS ─── */
+  #auth-overlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    transition: opacity 0.5s;
+  }
+  #auth-overlay.hidden { opacity: 0; pointer-events: none; }
+
+  .auth-bg {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 70% 30%, rgba(79,110,247,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 40% at 20% 70%, rgba(240,79,90,0.06) 0%, transparent 50%);
+  }
+  .auth-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(99,120,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(99,120,255,0.04) 1px, transparent 1px);
+    background-size: 60px 60px;
+    mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, black 30%, transparent 100%);
+  }
+
+  .auth-card {
+    position: relative; z-index: 1;
+    width: 420px;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-lg);
+    padding: 40px;
+    box-shadow: 0 0 60px rgba(79,110,247,0.08);
+  }
+
+  .auth-logo {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 32px;
+  }
+  .auth-logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .auth-logo-text { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+  .auth-logo-sub { font-size: 11px; font-family: var(--mono); color: var(--text3); letter-spacing: 2px; margin-top: 2px; }
+
+  .auth-title { font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+  .auth-subtitle { font-size: 14px; color: var(--text2); margin-bottom: 28px; }
+
+  .form-group { margin-bottom: 16px; }
+  .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 7px; letter-spacing: 0.5px; text-transform: uppercase; }
+  .form-input {
+    width: 100%; padding: 11px 14px;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text);
+    font-family: var(--font); font-size: 14px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+  }
+  .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+  .form-input::placeholder { color: var(--text3); }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .btn-primary {
+    width: 100%; padding: 12px;
+    background: var(--accent); border: none; border-radius: var(--radius);
+    color: white; font-family: var(--font); font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+    margin-top: 8px;
+  }
+  .btn-primary:hover { background: var(--accent2); box-shadow: 0 4px 20px rgba(79,110,247,0.35); }
+  .btn-primary:active { transform: scale(0.99); }
+
+  .auth-switch { font-size: 13px; color: var(--text2); text-align: center; margin-top: 20px; }
+  .auth-switch a { color: var(--accent2); cursor: pointer; text-decoration: none; font-weight: 500; }
+  .auth-switch a:hover { text-decoration: underline; }
+
+  .auth-error {
+    background: rgba(240,79,90,0.1); border: 1px solid rgba(240,79,90,0.3);
+    border-radius: var(--radius); padding: 10px 14px;
+    font-size: 13px; color: var(--red); margin-bottom: 16px; display: none;
+  }
+  .auth-success {
+    background: var(--green-dim); border: 1px solid rgba(46,221,143,0.3);
+    border-radius: var(--radius); padding: 10px 14px;
+    font-size: 13px; color: var(--green); margin-bottom: 16px; display: none;
+  }
+
+  .badge-role {
+    display: inline-block; font-size: 10px; font-family: var(--mono);
+    padding: 2px 7px; border-radius: 4px; font-weight: 500; letter-spacing: 0.5px;
+  }
+  .badge-admin { background: rgba(245,147,58,0.15); color: var(--orange); border: 1px solid rgba(245,147,58,0.3); }
+  .badge-analyst { background: rgba(79,110,247,0.15); color: var(--accent2); border: 1px solid rgba(79,110,247,0.3); }
+  .badge-viewer { background: rgba(136,146,184,0.15); color: var(--text2); border: 1px solid rgba(136,146,184,0.25); }
+
+  /* ─── APP SHELL ─── */
+  #app { display: none; min-height: 100vh; }
+  #app.visible { display: flex; flex-direction: column; }
+
+  /* ─── TOPBAR ─── */
+  .topbar {
+    height: 56px; background: var(--bg2); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; padding: 0 20px;
+    gap: 16px; position: sticky; top: 0; z-index: 100;
+    flex-shrink: 0;
+  }
+  .topbar-logo { display: flex; align-items: center; gap: 8px; text-decoration: none; }
+  .topbar-logo-icon {
+    width: 28px; height: 28px; background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 14px;
+  }
+  .topbar-logo-name { font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
+  .topbar-logo-env {
+    font-size: 10px; font-family: var(--mono); background: var(--accent-glow);
+    color: var(--accent2); padding: 2px 7px; border-radius: 4px; border: 1px solid var(--border2);
+  }
+  .topbar-nav { display: flex; gap: 2px; margin-left: 8px; }
+  .nav-btn {
+    padding: 6px 14px; border-radius: 7px; font-size: 13px; font-weight: 500;
+    color: var(--text2); cursor: pointer; border: none; background: transparent;
+    font-family: var(--font); transition: all 0.15s;
+  }
+  .nav-btn:hover { background: var(--bg3); color: var(--text); }
+  .nav-btn.active { background: var(--accent-glow); color: var(--accent2); border: 1px solid var(--border2); }
+  .topbar-spacer { flex: 1; }
+  .topbar-status {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; font-family: var(--mono); color: var(--green);
+  }
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--green);
+    animation: pulse-dot 2s infinite;
+  }
+  @keyframes pulse-dot {
+    0%,100% { box-shadow: 0 0 0 0 rgba(46,221,143,0.5); }
+    50% { box-shadow: 0 0 0 4px rgba(46,221,143,0); }
+  }
+  .topbar-user {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 10px 5px 5px; border-radius: 20px;
+    background: var(--bg3); border: 1px solid var(--border);
+    cursor: pointer; transition: border-color 0.2s;
+  }
+  .topbar-user:hover { border-color: var(--border2); }
+  .user-avatar {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), #a855f7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: white;
+  }
+  .user-name { font-size: 13px; font-weight: 500; }
+
+  /* ─── USER DROPDOWN ─── */
+  .user-dropdown {
+    position: fixed; top: 62px; right: 16px; width: 200px;
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: var(--radius); box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    z-index: 200; display: none;
+  }
+  .user-dropdown.open { display: block; }
+  .dropdown-header { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .dropdown-email { font-size: 12px; color: var(--text2); font-family: var(--mono); margin-top: 2px; word-break: break-all; }
+  .dropdown-item {
+    padding: 9px 14px; font-size: 13px; cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    transition: background 0.15s; color: var(--text2);
+  }
+  .dropdown-item:hover { background: var(--bg4); color: var(--text); }
+  .dropdown-item.danger:hover { color: var(--red); }
+
+  /* ─── MAIN CONTENT ─── */
+  .main { flex: 1; overflow-y: auto; }
+
+  /* ─── PAGE VIEWS ─── */
+  .page { display: none; padding: 24px; }
+  .page.active { display: block; }
+
+  /* ─── DASHBOARD ─── */
+  .page-header { margin-bottom: 20px; }
+  .page-title { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+  .page-subtitle { font-size: 13px; color: var(--text2); margin-top: 4px; }
+
+  .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+  @media(max-width:900px) { .metrics-grid { grid-template-columns: repeat(2,1fr); } }
+
+  .metric-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 18px 20px;
+    transition: border-color 0.2s;
+  }
+  .metric-card:hover { border-color: var(--border2); }
+  .metric-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+  .metric-icon { font-size: 18px; }
+  .metric-delta {
+    font-size: 11px; font-family: var(--mono); padding: 2px 6px;
+    border-radius: 4px; font-weight: 500;
+  }
+  .delta-up { background: var(--red-dim); color: var(--red); }
+  .delta-down { background: var(--green-dim); color: var(--green); }
+  .delta-neutral { background: rgba(136,146,184,0.1); color: var(--text2); }
+  .metric-value { font-size: 28px; font-weight: 700; font-family: var(--mono); letter-spacing: -1px; }
+  .metric-label { font-size: 12px; color: var(--text2); margin-top: 4px; }
+
+  .dashboard-grid { display: grid; grid-template-columns: 1fr 340px; gap: 16px; margin-bottom: 20px; }
+  @media(max-width:1100px) { .dashboard-grid { grid-template-columns: 1fr; } }
+
+  .chart-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 20px;
+  }
+  .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .card-title { font-size: 14px; font-weight: 600; }
+  .card-badge {
+    font-size: 10px; font-family: var(--mono); padding: 3px 8px;
+    background: var(--accent-glow); color: var(--accent2);
+    border-radius: 4px; border: 1px solid var(--border2);
+  }
+
+  /* ─── GEO MAP ─── */
+  .map-container { position: relative; }
+  .geo-map {
+    width: 100%; height: 340px; background: var(--bg3);
+    border-radius: var(--radius); overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  #worldMap { width: 100%; height: 100%; }
+  .map-legend {
+    display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* ─── ATTACK LIST ─── */
+  .attack-list { display: flex; flex-direction: column; gap: 8px; max-height: 380px; overflow-y: auto; }
+  .attack-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; background: var(--bg3);
+    border-radius: var(--radius); border: 1px solid var(--border);
+    transition: border-color 0.15s;
+  }
+  .attack-item:hover { border-color: var(--border2); }
+  .attack-severity {
+    width: 6px; height: 32px; border-radius: 3px; flex-shrink: 0;
+  }
+  .sev-critical { background: var(--red); }
+  .sev-high { background: var(--orange); }
+  .sev-medium { background: var(--yellow); }
+  .sev-low { background: var(--green); }
+  .attack-info { flex: 1; min-width: 0; }
+  .attack-type { font-size: 12px; font-weight: 600; }
+  .attack-source { font-size: 11px; color: var(--text2); font-family: var(--mono); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .attack-time { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+  .attack-score { font-size: 12px; font-family: var(--mono); font-weight: 600; }
+
+  /* ─── ALERTS TABLE ─── */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th {
+    padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 600;
+    color: var(--text3); border-bottom: 1px solid var(--border);
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .data-table td { padding: 11px 14px; border-bottom: 1px solid var(--border); }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+  .data-table tr { transition: background 0.15s; }
+
+  .ip-mono { font-family: var(--mono); font-size: 12px; color: var(--accent2); }
+  .status-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 5px; font-size: 11px; font-weight: 600;
+  }
+  .chip-blocked { background: var(--red-dim); color: var(--red); }
+  .chip-monitored { background: rgba(245,200,66,0.1); color: var(--yellow); }
+  .chip-allowed { background: var(--green-dim); color: var(--green); }
+
+  /* ─── THREAT INTELLIGENCE ─── */
+  .threat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  @media(max-width:800px) { .threat-grid { grid-template-columns: 1fr; } }
+
+  .threat-score-ring {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .ring-wrapper { position: relative; width: 130px; height: 130px; margin-bottom: 12px; }
+  #threatRing { width: 100%; height: 100%; }
+  .ring-center {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+  }
+  .ring-value { font-size: 28px; font-weight: 700; font-family: var(--mono); }
+  .ring-label { font-size: 10px; color: var(--text2); letter-spacing: 1px; font-family: var(--mono); }
+
+  /* ─── ADMIN PANEL ─── */
+  .admin-tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+  .tab-btn {
+    padding: 7px 16px; border-radius: 7px; border: 1px solid var(--border);
+    background: transparent; color: var(--text2); font-family: var(--font);
+    font-size: 13px; cursor: pointer; transition: all 0.15s;
+  }
+  .tab-btn.active { background: var(--accent-glow); border-color: var(--border2); color: var(--accent2); }
+  .tab-btn:hover:not(.active) { background: var(--bg3); color: var(--text); }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* User management */
+  .user-mgmt-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .btn-secondary {
+    padding: 8px 16px; border-radius: var(--radius); border: 1px solid var(--border2);
+    background: var(--accent-glow); color: var(--accent2); font-family: var(--font);
+    font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+  }
+  .btn-secondary:hover { background: var(--accent); color: white; border-color: var(--accent); }
+  .btn-danger {
+    padding: 5px 12px; border-radius: 6px; border: 1px solid rgba(240,79,90,0.3);
+    background: var(--red-dim); color: var(--red); font-family: var(--font);
+    font-size: 12px; cursor: pointer; transition: all 0.15s;
+  }
+  .btn-danger:hover { background: var(--red); color: white; }
+  .btn-sm {
+    padding: 5px 11px; border-radius: 6px; border: 1px solid var(--border2);
+    background: var(--accent-glow); color: var(--accent2); font-family: var(--font);
+    font-size: 12px; cursor: pointer; transition: all 0.15s;
+  }
+  .btn-sm:hover { background: var(--accent); color: white; }
+
+  /* Add user modal */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,0.6);
+    display: none; align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: var(--radius-lg); padding: 28px; width: 400px;
+    max-width: 90vw; box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+  }
+  .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+  .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+  .btn-ghost {
+    padding: 8px 16px; border-radius: var(--radius); border: 1px solid var(--border);
+    background: transparent; color: var(--text2); font-family: var(--font);
+    font-size: 13px; cursor: pointer; transition: all 0.15s;
+  }
+  .btn-ghost:hover { background: var(--bg3); color: var(--text); }
+
+  /* Settings */
+  .settings-section { margin-bottom: 24px; }
+  .settings-title { font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .setting-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 0; border-bottom: 1px solid var(--border);
+  }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-info .setting-name { font-size: 14px; font-weight: 500; }
+  .setting-info .setting-desc { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .toggle {
+    width: 42px; height: 24px; border-radius: 12px;
+    background: var(--bg4); border: 1px solid var(--border);
+    position: relative; cursor: pointer; transition: background 0.2s;
+  }
+  .toggle.on { background: var(--accent); border-color: var(--accent); }
+  .toggle-thumb {
+    width: 16px; height: 16px; border-radius: 50%; background: white;
+    position: absolute; top: 3px; left: 3px; transition: transform 0.2s;
+  }
+  .toggle.on .toggle-thumb { transform: translateX(18px); }
+
+  /* Logs */
+  .log-entry {
+    display: flex; gap: 12px; align-items: flex-start;
+    padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px;
+  }
+  .log-time { font-family: var(--mono); color: var(--text3); flex-shrink: 0; }
+  .log-level {
+    font-family: var(--mono); font-size: 10px; font-weight: 700;
+    padding: 1px 6px; border-radius: 3px; flex-shrink: 0; margin-top: 1px;
+  }
+  .lvl-warn { background: rgba(245,200,66,0.15); color: var(--yellow); }
+  .lvl-error { background: var(--red-dim); color: var(--red); }
+  .lvl-info { background: rgba(79,110,247,0.15); color: var(--accent2); }
+  .log-msg { color: var(--text2); line-height: 1.5; }
+
+  /* Profile */
+  .profile-header {
+    display: flex; align-items: center; gap: 20px; margin-bottom: 28px;
+    padding: 24px; background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
+  .profile-avatar {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), #a855f7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; font-weight: 700; flex-shrink: 0;
+  }
+  .profile-name { font-size: 20px; font-weight: 700; }
+  .profile-meta { font-size: 13px; color: var(--text2); margin-top: 4px; }
+
+  /* Empty state */
+  .empty-state { text-align: center; padding: 48px 24px; color: var(--text2); }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 3px; }
+
+  /* Notification toast */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: var(--radius); padding: 12px 18px;
+    font-size: 13px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    transform: translateY(20px); opacity: 0;
+    transition: all 0.3s; pointer-events: none;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+
+  /* Threat map canvas dots */
+  .pulse-ring {
+    animation: pulse-ring 2s cubic-bezier(.215,.61,.355,1) infinite;
+  }
+  @keyframes pulse-ring {
+    0% { r: 8; opacity: 0.8; }
+    100% { r: 20; opacity: 0; }
+  }
+
+  select.form-input {
+    appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%234a5278' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+    padding-right: 34px;
+  }
+  select.form-input option { background: #111528; }
+</style>
+</head>
+<body>
+
+<!-- ─── AUTH OVERLAY ─── -->
+<div id="auth-overlay">
+  <div class="auth-bg"></div>
+  <div class="auth-grid"></div>
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="auth-logo-icon">🛡️</div>
+      <div>
+        <div class="auth-logo-text">SHARD</div>
+        <div class="auth-logo-sub">ENTERPRISE SECURITY</div>
+      </div>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <div id="login-form">
+      <div class="auth-title">Sign in</div>
+      <div class="auth-subtitle">Access your threat intelligence dashboard</div>
+      <div class="auth-error" id="login-error"></div>
+      <div class="auth-success" id="login-success"></div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" class="form-input" id="login-email" placeholder="you@company.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" class="form-input" id="login-password" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <button class="btn-primary" onclick="doLogin()">Sign in</button>
+      <div class="auth-switch">Don't have an account? <a onclick="showRegister()">Create one</a></div>
+      <div class="auth-switch" style="margin-top:8px;font-size:12px;color:var(--text3);">
+        Demo: admin@shard.io / admin123 &nbsp;|&nbsp; analyst@shard.io / test123
+      </div>
+    </div>
+
+    <!-- REGISTER FORM -->
+    <div id="register-form" style="display:none">
+      <div class="auth-title">Create account</div>
+      <div class="auth-subtitle">Request access to SHARD Enterprise</div>
+      <div class="auth-error" id="reg-error"></div>
+      <div class="auth-success" id="reg-success"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">First name</label>
+          <input type="text" class="form-input" id="reg-fname" placeholder="Jane">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Last name</label>
+          <input type="text" class="form-input" id="reg-lname" placeholder="Smith">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" class="form-input" id="reg-email" placeholder="you@company.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" class="form-input" id="reg-password" placeholder="Min. 8 characters">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Organization</label>
+        <input type="text" class="form-input" id="reg-org" placeholder="Acme Corp">
+      </div>
+      <button class="btn-primary" onclick="doRegister()">Request access</button>
+      <div class="auth-switch">Already have an account? <a onclick="showLogin()">Sign in</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── APP ─── -->
+<div id="app">
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-logo">
+      <div class="topbar-logo-icon">🛡️</div>
+      <span class="topbar-logo-name">SHARD</span>
+      <span class="topbar-logo-env">ENTERPRISE</span>
+    </div>
+    <div class="topbar-nav">
+      <button class="nav-btn active" onclick="showPage('dashboard', this)">Dashboard</button>
+      <button class="nav-btn" onclick="showPage('threats', this)">Threats</button>
+      <button class="nav-btn" onclick="showPage('alerts', this)">Alerts</button>
+      <button class="nav-btn admin-only" onclick="showPage('admin', this)" style="display:none">Admin</button>
+      <button class="nav-btn" onclick="showPage('profile', this)">Profile</button>
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-status"><div class="status-dot"></div><span id="live-label">LIVE</span></div>
+    <div class="topbar-user" onclick="toggleDropdown()">
+      <div class="user-avatar" id="top-avatar"></div>
+      <span class="user-name" id="top-username"></span>
+      <span style="font-size:10px;color:var(--text3);margin-left:4px;">▾</span>
+    </div>
+  </div>
+
+  <!-- USER DROPDOWN -->
+  <div class="user-dropdown" id="user-dropdown">
+    <div class="dropdown-header">
+      <div style="font-size:13px;font-weight:600" id="dd-name"></div>
+      <div class="dropdown-email" id="dd-email"></div>
+      <div style="margin-top:6px"><span class="badge-role" id="dd-role-badge"></span></div>
+    </div>
+    <div class="dropdown-item" onclick="showPage('profile', null); closeDropdown()">⚙️ Profile settings</div>
+    <div class="dropdown-item danger" onclick="doLogout()">→ Sign out</div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main" id="main-scroll">
+
+    <!-- ─── DASHBOARD PAGE ─── -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <div class="page-title">Threat Overview</div>
+        <div class="page-subtitle" id="dash-subtitle">Real-time cyber threat intelligence</div>
+      </div>
+
+      <div class="metrics-grid" id="metrics-grid"></div>
+
+      <div class="dashboard-grid">
+        <div class="chart-card">
+          <div class="card-header">
+            <span class="card-title">🌍 Global Attack Origins</span>
+            <span class="card-badge" id="map-count">0 sources</span>
+          </div>
+          <div class="map-container">
+            <div class="geo-map">
+              <canvas id="worldMap"></canvas>
+            </div>
+            <div class="map-legend" id="map-legend"></div>
+          </div>
+        </div>
+        <div class="chart-card" style="display:flex;flex-direction:column;">
+          <div class="card-header">
+            <span class="card-title">⚡ Live Feed</span>
+            <span class="card-badge" id="feed-badge">updating</span>
+          </div>
+          <div class="attack-list" id="live-feed"></div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+        <div class="chart-card">
+          <div class="card-header">
+            <span class="card-title">📈 Attack Timeline</span>
+          </div>
+          <canvas id="timelineChart" height="140"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="card-header">
+            <span class="card-title">🎯 Attack Categories</span>
+          </div>
+          <canvas id="categoryChart" height="140"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── THREATS PAGE ─── -->
+    <div class="page" id="page-threats">
+      <div class="page-header">
+        <div class="page-title">Threat Intelligence</div>
+        <div class="page-subtitle">Active threats, indicators, and analysis</div>
+      </div>
+      <div class="threat-grid">
+        <div class="chart-card">
+          <div class="card-header"><span class="card-title">🔴 Threat Score</span></div>
+          <div class="threat-score-ring">
+            <div class="ring-wrapper">
+              <canvas id="threatRing"></canvas>
+              <div class="ring-center">
+                <div class="ring-value" id="threat-score-val" style="color:var(--orange)">74</div>
+                <div class="ring-label">HIGH</div>
+              </div>
+            </div>
+            <div style="font-size:12px;color:var(--text2);text-align:center">Overall threat level based on<br>active indicators and patterns</div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="card-header"><span class="card-title">🌐 Top Attack Sources</span></div>
+          <canvas id="sourceChart" height="200"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="card-header">
+          <span class="card-title">⚠️ Active IOCs (Indicators of Compromise)</span>
+          <span class="card-badge" id="ioc-count">0 active</span>
+        </div>
+        <table class="data-table">
+          <thead><tr>
+            <th>Indicator</th><th>Type</th><th>Severity</th><th>Country</th><th>First Seen</th><th>Status</th>
+          </tr></thead>
+          <tbody id="ioc-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ─── ALERTS PAGE ─── -->
+    <div class="page" id="page-alerts">
+      <div class="page-header">
+        <div class="page-title">Security Alerts</div>
+        <div class="page-subtitle">All detected events requiring attention</div>
+      </div>
+      <div class="chart-card">
+        <div class="card-header">
+          <span class="card-title">📋 Alert Log</span>
+          <span class="card-badge" id="alert-count">0 alerts</span>
+        </div>
+        <table class="data-table">
+          <thead><tr>
+            <th>Time</th><th>Source IP</th><th>Country</th><th>Attack Type</th><th>Port</th><th>Score</th><th>Action</th>
+          </tr></thead>
+          <tbody id="alerts-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ─── ADMIN PAGE ─── -->
+    <div class="page" id="page-admin">
+      <div class="page-header">
+        <div class="page-title">Admin Panel</div>
+        <div class="page-subtitle">User management, system settings, audit logs</div>
+      </div>
+      <div class="admin-tabs">
+        <button class="tab-btn active" onclick="switchTab('users', this)">Users</button>
+        <button class="tab-btn" onclick="switchTab('settings', this)">Settings</button>
+        <button class="tab-btn" onclick="switchTab('logs', this)">Audit Logs</button>
+      </div>
+
+      <!-- USERS TAB -->
+      <div class="tab-content active" id="tab-users">
+        <div class="chart-card">
+          <div class="user-mgmt-header">
+            <span class="card-title">Registered Users</span>
+            <button class="btn-secondary" onclick="openAddUser()">+ Add user</button>
+          </div>
+          <table class="data-table">
+            <thead><tr>
+              <th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Last login</th><th>Actions</th>
+            </tr></thead>
+            <tbody id="users-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SETTINGS TAB -->
+      <div class="tab-content" id="tab-settings">
+        <div class="chart-card">
+          <div class="settings-section">
+            <div class="settings-title">Notifications</div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-name">Email alerts</div>
+                <div class="setting-desc">Receive email for critical severity events</div>
+              </div>
+              <div class="toggle on" onclick="toggleSetting(this)"><div class="toggle-thumb"></div></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-name">Webhook notifications</div>
+                <div class="setting-desc">POST to configured endpoint on new alerts</div>
+              </div>
+              <div class="toggle" onclick="toggleSetting(this)"><div class="toggle-thumb"></div></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-name">Daily digest</div>
+                <div class="setting-desc">Morning summary of previous day's activity</div>
+              </div>
+              <div class="toggle on" onclick="toggleSetting(this)"><div class="toggle-thumb"></div></div>
+            </div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-title">Detection</div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-name">Auto-block threshold</div>
+                <div class="setting-desc">Automatically block IPs with score below -0.85</div>
+              </div>
+              <div class="toggle on" onclick="toggleSetting(this)"><div class="toggle-thumb"></div></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-name">Geo-blocking</div>
+                <div class="setting-desc">Block connections from high-risk regions</div>
+              </div>
+              <div class="toggle" onclick="toggleSetting(this)"><div class="toggle-thumb"></div></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-info">
+                <div class="setting-name">Rate limiting</div>
+                <div class="setting-desc">Throttle IPs with repeated connection attempts</div>
+              </div>
+              <div class="toggle on" onclick="toggleSetting(this)"><div class="toggle-thumb"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LOGS TAB -->
+      <div class="tab-content" id="tab-logs">
+        <div class="chart-card">
+          <div class="card-header">
+            <span class="card-title">Audit trail</span>
+            <button class="btn-secondary" onclick="exportLogs()" style="font-size:12px;padding:6px 12px;">Export</button>
+          </div>
+          <div id="audit-log-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── PROFILE PAGE ─── -->
+    <div class="page" id="page-profile">
+      <div class="page-header">
+        <div class="page-title">Profile Settings</div>
+      </div>
+      <div class="profile-header">
+        <div class="profile-avatar" id="profile-avatar-big"></div>
+        <div>
+          <div class="profile-name" id="profile-name"></div>
+          <div class="profile-meta" id="profile-meta"></div>
+          <div style="margin-top:8px"><span class="badge-role" id="profile-role-badge"></span></div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="card-header"><span class="card-title">Update profile</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:4px">
+          <div class="form-group">
+            <label class="form-label">First name</label>
+            <input type="text" class="form-input" id="profile-fname">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last name</label>
+            <input type="text" class="form-input" id="profile-lname">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-input" id="profile-email">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Organization</label>
+            <input type="text" class="form-input" id="profile-org">
+          </div>
+        </div>
+        <button class="btn-primary" style="max-width:180px;margin-top:8px" onclick="saveProfile()">Save changes</button>
+      </div>
+      <div class="chart-card" style="margin-top:16px">
+        <div class="card-header"><span class="card-title">Change password</span></div>
+        <div style="max-width:400px">
+          <div class="form-group">
+            <label class="form-label">Current password</label>
+            <input type="password" class="form-input" id="prof-cur-pass" placeholder="••••••••">
+          </div>
+          <div class="form-group">
+            <label class="form-label">New password</label>
+            <input type="password" class="form-input" id="prof-new-pass" placeholder="Min. 8 characters">
+          </div>
+          <button class="btn-primary" style="max-width:200px" onclick="changePassword()">Update password</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- ADD USER MODAL -->
+<div class="modal-overlay" id="add-user-modal">
+  <div class="modal">
+    <div class="modal-title">Add new user</div>
+    <div class="auth-error" id="add-user-error"></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">First name</label>
+        <input type="text" class="form-input" id="nu-fname" placeholder="Jane">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Last name</label>
+        <input type="text" class="form-input" id="nu-lname" placeholder="Smith">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input type="email" class="form-input" id="nu-email" placeholder="jane@company.com">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input type="password" class="form-input" id="nu-password" placeholder="Temporary password">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Role</label>
+      <select class="form-input" id="nu-role">
+        <option value="viewer">Viewer</option>
+        <option value="analyst">Analyst</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeAddUser()">Cancel</button>
+      <button class="btn-primary" style="width:auto;padding:8px 20px" onclick="addUser()">Add user</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+// API CONFIGURATION
+// ═══════════════════════════════════════════════
+const API_BASE = 'http://localhost:8000/api';
+let authToken = null;
+let ws = null;
+let useAPI = true;
+
+// API Helper
+async function apiCall(endpoint, options = {}) {
+    const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers
+    };
+
+    if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}${endpoint}`, {
+            ...options,
+            headers
+        });
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                doLogout();
+                throw new Error('Session expired');
+            }
+            const error = await response.json();
+            throw new Error(error.detail || `API error: ${response.status}`);
+        }
+
+        return await response.json();
+    } catch (e) {
+        console.error('API Error:', e);
+        if (endpoint !== '/auth/login') {
+            toast('API connection error - using local data');
+            useAPI = false;
+        }
+        throw e;
+    }
+}
+
+// WebSocket connection
+function connectWebSocket() {
+    if (!authToken) return;
+    if (ws) ws.close();
+
+    ws = new WebSocket(`ws://localhost:8000/ws/live?token=${authToken}`);
+
+    ws.onopen = () => {
+        console.log('🔌 WebSocket connected');
+        document.getElementById('live-label').textContent = 'LIVE';
+        document.getElementById('live-label').style.color = 'var(--green)';
+    };
+
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === 'new_attacks' && data.data) {
+            data.data.forEach(a => {
+                attackData.unshift({
+                    id: a.id || a.attack_id || Date.now(),
+                    timestamp: new Date(a.timestamp).getTime(),
+                    srcIP: a.source_ip || a.srcIP,
+                    dstIP: a.destination_ip || a.dstIP || '192.168.1.91',
+                    port: a.destination_port || a.port || 80,
+                    type: a.attack_type || a.type || 'Unknown',
+                    score: a.threat_score || a.score || -0.7,
+                    confidence: a.confidence || 0.7,
+                    country: a.country || 'Unknown',
+                    countryCode: a.country_code || a.countryCode || 'XX',
+                    lat: a.latitude || a.lat || 55.75 + (Math.random()-0.5)*10,
+                    lon: a.longitude || a.lon || 37.61 + (Math.random()-0.5)*10,
+                    severity: a.severity || 'medium',
+                    status: a.action_taken === 'blocked' ? 'blocked' :
+                           (a.action_taken === 'monitored' ? 'monitored' : 'allowed')
+                });
+            });
+
+            if (attackData.length > 300) attackData = attackData.slice(0, 300);
+
+            if (document.getElementById('page-dashboard').classList.contains('active')) {
+                renderLiveFeed();
+                updateMetricsDisplay();
+            }
+        } else if (data.type === 'stats') {
+            updateMetricsFromStats(data.data);
+        } else if (data.type === 'ping') {
+            ws.send(JSON.stringify({type: 'pong'}));
+        }
+    };
+
+    ws.onclose = () => {
+        console.log('🔌 WebSocket disconnected');
+        document.getElementById('live-label').textContent = 'OFFLINE';
+        document.getElementById('live-label').style.color = 'var(--red)';
+        setTimeout(connectWebSocket, 5000);
+    };
+
+    ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+    };
+}
+
+function updateMetricsFromStats(stats) {
+    if (stats.threat_score) {
+        const score = stats.threat_score.current_score || 0;
+        const level = stats.threat_score.level || 'LOW';
+        const scoreEl = document.getElementById('threat-score-val');
+        if (scoreEl) {
+            scoreEl.textContent = score;
+            scoreEl.style.color =
+                level === 'CRITICAL' ? 'var(--red)' :
+                level === 'HIGH' ? 'var(--orange)' :
+                level === 'MEDIUM' ? 'var(--yellow)' : 'var(--green)';
+        }
+        const labelEl = document.querySelector('.ring-label');
+        if (labelEl) labelEl.textContent = level;
+    }
+}
+
+function updateMetricsDisplay() {
+    const total = attackData.length;
+    const uniqueIPs = new Set(attackData.map(a=>a.srcIP)).size;
+    const critical = attackData.filter(a=>a.severity==='critical').length;
+    const blocked = attackData.filter(a=>a.status==='blocked').length;
+    const vals = document.querySelectorAll('.metric-value');
+    if (vals[0]) vals[0].textContent = total.toLocaleString();
+    if (vals[1]) vals[1].textContent = uniqueIPs.toLocaleString();
+    if (vals[2]) vals[2].textContent = critical.toLocaleString();
+    if (vals[3]) vals[3].textContent = blocked.toLocaleString();
+}
+
+async function loadAttacksFromAPI() {
+    if (!useAPI || !authToken) return;
+
+    try {
+        const feed = await apiCall('/threats/feed?limit=200');
+
+        attackData = feed.map(a => ({
+            id: a.id || Date.now() + Math.random(),
+            timestamp: new Date(a.timestamp).getTime(),
+            srcIP: a.srcIP,
+            dstIP: a.dstIP || '192.168.1.91',
+            port: a.port || 80,
+            type: a.type || 'Unknown',
+            score: a.score || -0.7,
+            confidence: a.confidence || 0.7,
+            country: a.country || 'Unknown',
+            countryCode: a.countryCode || 'XX',
+            lat: a.lat || 55.75 + (Math.random()-0.5)*10,
+            lon: a.lon || 37.61 + (Math.random()-0.5)*10,
+            severity: a.severity || 'low',
+            status: a.status || 'monitored'
+        }));
+
+        const stats = await apiCall('/threats/stats');
+        updateMetricsFromStats(stats);
+
+        console.log(`[API] Loaded ${attackData.length} attacks`);
+    } catch (e) {
+        console.error('Failed to load attacks from API:', e);
+        useAPI = false;
+        generateFakeAttackData();
+    }
+}
+
+// ═══════════════════════════════════════════════
+// DATA STORE (localStorage-backed)
+// ═══════════════════════════════════════════════
+const STORE_KEY = 'shard_users';
+const SESSION_KEY = 'shard_session';
+
+function loadUsers() {
+  const raw = localStorage.getItem(STORE_KEY);
+  if (raw) return JSON.parse(raw);
+  const defaults = [
+    { id: 1, fname:'Admin', lname:'User', email:'admin@shard.io', password:'admin123',
+      role:'admin', org:'SHARD Security', status:'active', lastLogin: new Date().toISOString() },
+    { id: 2, fname:'Sarah', lname:'Analyst', email:'analyst@shard.io', password:'test123',
+      role:'analyst', org:'SHARD Security', status:'active', lastLogin: new Date(Date.now()-3600000).toISOString() },
+    { id: 3, fname:'Tom', lname:'Viewer', email:'viewer@shard.io', password:'view123',
+      role:'viewer', org:'ACME Corp', status:'active', lastLogin: new Date(Date.now()-86400000).toISOString() },
+  ];
+  localStorage.setItem(STORE_KEY, JSON.stringify(defaults));
+  return defaults;
+}
+
+function saveUsers(users) { localStorage.setItem(STORE_KEY, JSON.stringify(users)); }
+function getSession() {
+  const s = sessionStorage.getItem(SESSION_KEY);
+  return s ? JSON.parse(s) : null;
+}
+function setSession(user) {
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+    id: user.id, fname: user.fname, lname: user.lname,
+    email: user.email, role: user.role, org: user.org
+  }));
+}
+function clearSession() { sessionStorage.removeItem(SESSION_KEY); }
+
+const AUDIT_KEY = 'shard_audit';
+function addAudit(action, detail) {
+  const sess = getSession();
+  const logs = JSON.parse(localStorage.getItem(AUDIT_KEY) || '[]');
+  logs.unshift({ time: new Date().toISOString(), user: sess ? sess.email : 'system', action, detail });
+  if (logs.length > 200) logs.pop();
+  localStorage.setItem(AUDIT_KEY, JSON.stringify(logs));
+}
+function getAuditLogs() { return JSON.parse(localStorage.getItem(AUDIT_KEY) || '[]'); }
+
+// ═══════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════
+function showError(id, msg) {
+  const el = document.getElementById(id); el.textContent = msg; el.style.display = 'block';
+}
+function hideMsg(id) { document.getElementById(id).style.display = 'none'; }
+function showSuccess(id, msg) {
+  const el = document.getElementById(id); el.textContent = msg; el.style.display = 'block';
+}
+
+function showRegister() {
+  document.getElementById('login-form').style.display = 'none';
+  document.getElementById('register-form').style.display = 'block';
+}
+function showLogin() {
+  document.getElementById('register-form').style.display = 'none';
+  document.getElementById('login-form').style.display = 'block';
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-password').value;
+  hideMsg('login-error'); hideMsg('login-success');
+
+  if (!email || !pass) return showError('login-error', 'Please fill in all fields.');
+
+  try {
+    const response = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email, password: pass})
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      authToken = data.access_token;
+      sessionStorage.setItem('shard_token', authToken);
+      sessionStorage.setItem('shard_user', JSON.stringify(data.user));
+
+      const user = {
+        id: data.user.id,
+        fname: data.user.first_name,
+        lname: data.user.last_name,
+        email: data.user.email,
+        role: data.user.role,
+        org: data.user.organization || ''
+      };
+
+      addAudit('LOGIN', `User ${email} signed in via API`);
+      bootApp(user);
+      connectWebSocket();
+      useAPI = true;
+      await loadAttacksFromAPI();
+      renderDashboard();
+      renderThreats();
+      renderAlerts();
+      return;
+    }
+  } catch (e) {
+    console.log('API login failed, using local auth:', e);
+  }
+
+  useAPI = false;
+  const users = loadUsers();
+  const user = users.find(u => u.email === email && u.password === pass);
+  if (!user) return showError('login-error', 'Invalid email or password.');
+  if (user.status === 'inactive') return showError('login-error', 'This account has been deactivated.');
+
+  user.lastLogin = new Date().toISOString();
+  saveUsers(users);
+  setSession(user);
+  addAudit('LOGIN', `User ${email} signed in (local)`);
+  bootApp(user);
+}
+
+async function doRegister() {
+  const fname = document.getElementById('reg-fname').value.trim();
+  const lname = document.getElementById('reg-lname').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const pass = document.getElementById('reg-password').value;
+  const org = document.getElementById('reg-org').value.trim();
+  hideMsg('reg-error'); hideMsg('reg-success');
+
+  if (!fname || !lname || !email || !pass || !org)
+    return showError('reg-error', 'Please fill in all fields.');
+  if (pass.length < 8)
+    return showError('reg-error', 'Password must be at least 8 characters.');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    return showError('reg-error', 'Enter a valid email address.');
+
+  try {
+    const response = await fetch(`${API_BASE}/auth/register`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        first_name: fname,
+        last_name: lname,
+        email,
+        password: pass,
+        organization: org
+      })
+    });
+
+    if (response.ok) {
+      showSuccess('reg-success', 'Account created! You can now sign in.');
+      setTimeout(showLogin, 1800);
+      return;
+    } else {
+      const error = await response.json();
+      showError('reg-error', error.detail || 'Registration failed');
+      return;
+    }
+  } catch (e) {
+    console.log('API register failed, using local:', e);
+  }
+
+  const users = loadUsers();
+  if (users.find(u => u.email === email))
+    return showError('reg-error', 'An account with this email already exists.');
+
+  const newUser = {
+    id: Date.now(), fname, lname, email, password: pass,
+    role: 'viewer', org, status: 'active', lastLogin: null
+  };
+  users.push(newUser);
+  saveUsers(users);
+  addAudit('REGISTER', `New account registered: ${email} (local)`);
+  showSuccess('reg-success', 'Account created! You can now sign in.');
+  setTimeout(showLogin, 1800);
+}
+
+async function doLogout() {
+  const sess = getSession();
+  if (sess) addAudit('LOGOUT', `User ${sess.email} signed out`);
+
+  if (authToken) {
+    try {
+      await apiCall('/auth/logout', {method: 'POST'});
+    } catch (e) {}
+  }
+
+  if (ws) {
+    ws.close();
+    ws = null;
+  }
+
+  authToken = null;
+  useAPI = true;
+  clearSession();
+  sessionStorage.removeItem('shard_token');
+  sessionStorage.removeItem('shard_user');
+
+  document.getElementById('app').classList.remove('visible');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-overlay').classList.remove('hidden');
+  document.getElementById('auth-overlay').style.display = 'flex';
+  stopDataRefresh();
+  showLogin();
+  toast('Signed out successfully');
+}
+
+// ═══════════════════════════════════════════════
+// APP BOOT
+// ═══════════════════════════════════════════════
+let currentUser = null;
+
+function bootApp(user) {
+  currentUser = user;
+  document.getElementById('auth-overlay').classList.add('hidden');
+  setTimeout(() => { document.getElementById('auth-overlay').style.display = 'none'; }, 500);
+  const app = document.getElementById('app');
+  app.style.display = 'flex'; app.classList.add('visible');
+
+  const initials = (user.fname[0] + user.lname[0]).toUpperCase();
+  document.getElementById('top-avatar').textContent = initials;
+  document.getElementById('top-username').textContent = user.fname;
+  document.getElementById('dd-name').textContent = `${user.fname} ${user.lname}`;
+  document.getElementById('dd-email').textContent = user.email;
+
+  const roleBadge = document.getElementById('dd-role-badge');
+  roleBadge.textContent = user.role.toUpperCase();
+  roleBadge.className = 'badge-role badge-' + user.role;
+
+  document.querySelectorAll('.admin-only').forEach(el => {
+    el.style.display = user.role === 'admin' ? 'inline-block' : 'none';
+  });
+
+  initProfilePage(user);
+
+  const savedToken = sessionStorage.getItem('shard_token');
+  if (savedToken) {
+    authToken = savedToken;
+    useAPI = true;
+    connectWebSocket();
+  }
+
+  generateAttackData();
+  renderDashboard();
+  renderThreats();
+  renderAlerts();
+  renderUsersTable();
+  renderAuditLogs();
+  startDataRefresh();
+}
+
+// ═══════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════
+function showPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  document.getElementById('main-scroll').scrollTop = 0;
+  if (name === 'admin') { renderUsersTable(); renderAuditLogs(); }
+  if (name === 'dashboard') { renderLiveFeed(); }
+  closeDropdown();
+}
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+function toggleDropdown() {
+  document.getElementById('user-dropdown').classList.toggle('open');
+}
+function closeDropdown() {
+  document.getElementById('user-dropdown').classList.remove('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.topbar-user') && !e.target.closest('.user-dropdown')) closeDropdown();
+});
+
+// ═══════════════════════════════════════════════
+// ATTACK DATA GENERATION
+// ═══════════════════════════════════════════════
+const ATTACK_TYPES = ['Brute Force', 'DDoS', 'Port Scan', 'Web Attack', 'Botnet', 'SQL Injection', 'Ransomware'];
+const COUNTRIES = [
+  { name:'Russia', code:'RU', lat:55.75, lon:37.61 },
+  { name:'China', code:'CN', lat:39.92, lon:116.38 },
+  { name:'USA', code:'US', lat:37.77, lon:-122.41 },
+  { name:'Netherlands', code:'NL', lat:52.37, lon:4.90 },
+  { name:'Germany', code:'DE', lat:52.52, lon:13.40 },
+  { name:'UK', code:'GB', lat:51.50, lon:-0.12 },
+  { name:'France', code:'FR', lat:48.85, lon:2.35 },
+  { name:'Brazil', code:'BR', lat:-23.55, lon:-46.63 },
+  { name:'India', code:'IN', lat:28.61, lon:77.20 },
+  { name:'Turkey', code:'TR', lat:41.00, lon:28.97 },
+  { name:'Ukraine', code:'UA', lat:50.45, lon:30.52 },
+  { name:'Romania', code:'RO', lat:44.43, lon:26.10 },
+];
+const COLORS_BY_TYPE = {
+  'Brute Force': '#f04f5a', 'DDoS': '#ff6b35', 'Port Scan': '#4f6ef7',
+  'Web Attack': '#a855f7', 'Botnet': '#f5c842', 'SQL Injection': '#e879f9',
+  'Ransomware': '#ef4444'
+};
+const PORTS = [22, 80, 443, 3389, 53, 445, 8080, 21, 23, 3306, 5432];
+
+let attackData = [];
+
+function randIP() {
+  return [Math.floor(Math.random()*220)+1, Math.floor(Math.random()*254)+1,
+          Math.floor(Math.random()*254)+1, Math.floor(Math.random()*254)+1].join('.');
+}
+
+function generateAttackData() {
+  if (useAPI && authToken) {
+    loadAttacksFromAPI().then(() => {
+      renderDashboard();
+      renderThreats();
+      renderAlerts();
+    });
+  } else {
+    generateFakeAttackData();
+  }
+}
+
+function generateFakeAttackData() {
+  const now = Date.now();
+  attackData = Array.from({length: 200}, (_, i) => {
+    const country = COUNTRIES[Math.floor(Math.random() * COUNTRIES.length)];
+    const type = ATTACK_TYPES[Math.floor(Math.random() * ATTACK_TYPES.length)];
+    const score = -(Math.random() * 0.35 + 0.6);
+    return {
+      id: i+1,
+      timestamp: now - Math.floor(Math.random() * 7200000),
+      srcIP: randIP(),
+      dstIP: '192.168.1.91',
+      port: PORTS[Math.floor(Math.random() * PORTS.length)],
+      type, score,
+      confidence: Math.random() * 0.3 + 0.7,
+      country: country.name,
+      countryCode: country.code,
+      lat: country.lat + (Math.random()-0.5)*2,
+      lon: country.lon + (Math.random()-0.5)*2,
+      severity: score < -0.88 ? 'critical' : score < -0.80 ? 'high' : score < -0.72 ? 'medium' : 'low',
+      status: Math.random() > 0.3 ? 'blocked' : Math.random() > 0.5 ? 'monitored' : 'allowed'
+    };
+  });
+  attackData.sort((a,b) => b.timestamp - a.timestamp);
+}
+
+async function addNewAttack() {
+  if (useAPI && authToken) {
+    await loadAttacksFromAPI();
+    const active = document.querySelector('.page.active')?.id;
+    if (active === 'page-dashboard') {
+      renderLiveFeed();
+      document.getElementById('dash-subtitle').textContent =
+        `Last updated ${new Date().toLocaleTimeString()} · ${attackData.length} events`;
+    }
+    return;
+  }
+
+  const country = COUNTRIES[Math.floor(Math.random() * COUNTRIES.length)];
+  const type = ATTACK_TYPES[Math.floor(Math.random() * ATTACK_TYPES.length)];
+  const score = -(Math.random() * 0.35 + 0.6);
+  attackData.unshift({
+    id: Date.now(),
+    timestamp: Date.now(),
+    srcIP: randIP(),
+    dstIP: '192.168.1.91',
+    port: PORTS[Math.floor(Math.random() * PORTS.length)],
+    type, score,
+    confidence: Math.random() * 0.3 + 0.7,
+    country: country.name,
+    countryCode: country.code,
+    lat: country.lat + (Math.random()-0.5)*2,
+    lon: country.lon + (Math.random()-0.5)*2,
+    severity: score < -0.88 ? 'critical' : score < -0.80 ? 'high' : score < -0.72 ? 'medium' : 'low',
+    status: 'blocked'
+  });
+  if (attackData.length > 300) attackData.pop();
+}
+
+// ═══════════════════════════════════════════════
+// DASHBOARD RENDER
+// ═══════════════════════════════════════════════
+let timelineChart = null, categoryChart = null, mapAnimFrame = null, mapDots = [];
+
+function renderDashboard() {
+  const total = attackData.length;
+  const uniqueIPs = new Set(attackData.map(a=>a.srcIP)).size;
+  const critical = attackData.filter(a=>a.severity==='critical').length;
+  const blocked = attackData.filter(a=>a.status==='blocked').length;
+
+  document.getElementById('metrics-grid').innerHTML = [
+    { icon:'🎯', label:'Total Attacks', value: total.toLocaleString(), delta:'+12%', up:true },
+    { icon:'🌍', label:'Unique Sources', value: uniqueIPs.toLocaleString(), delta:'+5', up:true },
+    { icon:'🔴', label:'Critical', value: critical.toLocaleString(), delta:'+3', up:true },
+    { icon:'🛡️', label:'Blocked', value: blocked.toLocaleString(), delta:'97%', up:false },
+  ].map(m => `
+    <div class="metric-card">
+      <div class="metric-top">
+        <span class="metric-icon">${m.icon}</span>
+        <span class="metric-delta ${m.up?'delta-up':'delta-down'}">${m.delta}</span>
+      </div>
+      <div class="metric-value">${m.value}</div>
+      <div class="metric-label">${m.label}</div>
+    </div>`).join('');
+
+  renderMap();
+  renderLiveFeed();
+  renderTimelineChart();
+  renderCategoryChart();
+}
+
+function renderLiveFeed() {
+  const feed = document.getElementById('live-feed');
+  const items = attackData.slice(0, 18);
+  feed.innerHTML = items.map(a => `
+    <div class="attack-item">
+      <div class="attack-severity sev-${a.severity}"></div>
+      <div class="attack-info">
+        <div class="attack-type">${a.type}</div>
+        <div class="attack-source">${a.srcIP} · ${a.country}</div>
+      </div>
+      <div class="attack-time">${timeAgo(a.timestamp)}</div>
+      <div class="attack-score" style="color:${a.severity==='critical'?'var(--red)':a.severity==='high'?'var(--orange)':'var(--yellow)'}">
+        ${a.score.toFixed(2)}
+      </div>
+    </div>`).join('');
+  document.getElementById('feed-badge').textContent = `${items.length} recent`;
+}
+
+function timeAgo(ts) {
+  const s = Math.floor((Date.now()-ts)/1000);
+  if (s<60) return `${s}s ago`;
+  if (s<3600) return `${Math.floor(s/60)}m ago`;
+  return `${Math.floor(s/3600)}h ago`;
+}
+
+function renderTimelineChart() {
+  const buckets = {};
+  attackData.forEach(a => {
+    const bucket = Math.floor(a.timestamp / 300000) * 300000;
+    buckets[bucket] = (buckets[bucket]||0) + 1;
+  });
+  const sorted = Object.keys(buckets).sort().slice(-24);
+  const labels = sorted.map(t => new Date(+t).toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit'}));
+  const values = sorted.map(t => buckets[t]);
+
+  if (timelineChart) timelineChart.destroy();
+  const ctx = document.getElementById('timelineChart').getContext('2d');
+  timelineChart = new Chart(ctx, {
+    type:'line',
+    data: { labels, datasets:[{ data:values, borderColor:'#4f6ef7', backgroundColor:'rgba(79,110,247,0.07)',
+      fill:true, tension:0.4, borderWidth:2, pointRadius:0, pointHoverRadius:4,
+      pointHoverBackgroundColor:'#4f6ef7' }]},
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{mode:'index',intersect:false,
+        callbacks:{label:c=>`${c.raw} attacks`}}},
+      scales:{ x:{grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#4a5278',font:{size:10},maxTicksLimit:8}},
+        y:{grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#4a5278',font:{size:10}}}}
+    }
+  });
+}
+
+function renderCategoryChart() {
+  const counts = {};
+  attackData.forEach(a => counts[a.type] = (counts[a.type]||0)+1);
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  const labels = sorted.map(e=>e[0]);
+  const values = sorted.map(e=>e[1]);
+  const colors = labels.map(l => COLORS_BY_TYPE[l]||'#4f6ef7');
+
+  if (categoryChart) categoryChart.destroy();
+  const ctx = document.getElementById('categoryChart').getContext('2d');
+  categoryChart = new Chart(ctx, {
+    type:'doughnut',
+    data: { labels, datasets:[{ data:values, backgroundColor: colors.map(c=>c+'cc'),
+      borderColor: colors, borderWidth:1, hoverOffset:4 }]},
+    options: { responsive:true, maintainAspectRatio:false, cutout:'68%',
+      plugins:{ legend:{ position:'right', labels:{color:'#8892b8',font:{size:11},
+        boxWidth:10,padding:8}}, tooltip:{callbacks:{label:c=>`${c.label}: ${c.raw}`}}}
+    }
+  });
+}
+
+// ─── GEO MAP ───
+function latLonToXY(lat, lon, w, h) {
+  const x = (lon + 180) / 360 * w;
+  const y = (90 - lat) / 180 * h;
+  return [x, y];
+}
+
+function renderMap() {
+  const canvas = document.getElementById('worldMap');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth || 600;
+  const H = canvas.offsetHeight || 320;
+  canvas.width = W; canvas.height = H;
+
+  const byCt = {};
+  attackData.forEach(a => {
+    byCt[a.countryCode] = byCt[a.countryCode] || { count:0, lat:a.lat, lon:a.lon, name:a.country, type:a.type };
+    byCt[a.countryCode].count++;
+  });
+
+  const targetLat = 55.76, targetLon = 37.62;
+  const [tx, ty] = latLonToXY(targetLat, targetLon, W, H);
+
+  mapDots = Object.entries(byCt).map(([code, data]) => {
+    const [sx, sy] = latLonToXY(data.lat, data.lon, W, H);
+    return { sx, sy, tx, ty, color: COLORS_BY_TYPE[data.type]||'#4f6ef7',
+      size: Math.min(10, 4 + data.count*0.04), label:data.name,
+      progress: Math.random(), speed: 0.003 + Math.random()*0.003 };
+  });
+
+  document.getElementById('map-count').textContent = `${Object.keys(byCt).length} sources`;
+
+  const legend = [...new Set(attackData.map(a=>a.type))].slice(0,5);
+  document.getElementById('map-legend').innerHTML = legend.map(t =>
+    `<div class="legend-item"><div class="legend-dot" style="background:${COLORS_BY_TYPE[t]||'#4f6ef7'}"></div>${t}</div>`
+  ).join('');
+
+  if (mapAnimFrame) cancelAnimationFrame(mapAnimFrame);
+
+  function draw() {
+    ctx.clearRect(0,0,W,H);
+    ctx.strokeStyle = 'rgba(99,120,255,0.04)';
+    ctx.lineWidth = 0.5;
+    for (let x=0;x<W;x+=W/12){ ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke(); }
+    for (let y=0;y<H;y+=H/6){ ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke(); }
+
+    mapDots.forEach(d => {
+      d.progress = (d.progress + d.speed) % 1;
+      const t = d.progress;
+      const cx = d.sx + (d.tx - d.sx)*t;
+      const cy = d.sy + (d.ty - d.sy)*t - Math.sin(Math.PI*t)*Math.min(H*0.3, 60);
+      const alpha = Math.sin(Math.PI*t)*0.7;
+
+      ctx.beginPath();
+      ctx.strokeStyle = d.color + '30';
+      ctx.lineWidth = 0.8;
+      const steps = 30;
+      for (let i=0;i<steps;i++){
+        const tt = Math.max(0, t - i*0.015);
+        const px = d.sx + (d.tx-d.sx)*tt;
+        const py = d.sy + (d.ty-d.sy)*tt - Math.sin(Math.PI*tt)*Math.min(H*0.3,60);
+        if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+      }
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, 2.5, 0, Math.PI*2);
+      ctx.fillStyle = d.color + Math.floor(alpha*255).toString(16).padStart(2,'0');
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(d.sx, d.sy, d.size, 0, Math.PI*2);
+      ctx.fillStyle = d.color + '60';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(d.sx, d.sy, d.size*0.5, 0, Math.PI*2);
+      ctx.fillStyle = d.color;
+      ctx.fill();
+    });
+
+    const pulse = (Date.now() % 2000) / 2000;
+    ctx.beginPath();
+    ctx.arc(tx, ty, 4 + pulse*12, 0, Math.PI*2);
+    ctx.strokeStyle = `rgba(46,221,143,${0.6*(1-pulse)})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(tx, ty, 5, 0, Math.PI*2);
+    ctx.fillStyle = '#2edd8f';
+    ctx.fill();
+
+    mapAnimFrame = requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+// ═══════════════════════════════════════════════
+// THREATS PAGE
+// ═══════════════════════════════════════════════
+let threatRingChart = null, sourceChart = null;
+
+function renderThreats() {
+  const criticalCount = attackData.filter(a=>a.severity==='critical').length;
+  const highCount = attackData.filter(a=>a.severity==='high').length;
+  const score = Math.min(100, Math.floor((criticalCount * 30 + highCount * 15 + attackData.length * 0.1)));
+
+  if (threatRingChart) threatRingChart.destroy();
+  const ctx = document.getElementById('threatRing');
+  if (!ctx) return;
+  threatRingChart = new Chart(ctx, {
+    type:'doughnut',
+    data:{ datasets:[{data:[score,100-score],
+      backgroundColor:[score>=80?'#f04f5a':score>=60?'#f5933a':'#2edd8f','rgba(255,255,255,0.06)'],
+      borderWidth:0,borderRadius:4}]},
+    options:{ cutout:'75%', responsive:true, maintainAspectRatio:true,
+      plugins:{legend:{display:false},tooltip:{enabled:false}}}
+  });
+
+  document.getElementById('threat-score-val').textContent = score;
+  document.querySelector('.ring-label').textContent = score>=80?'CRITICAL':score>=60?'HIGH':score>=30?'MEDIUM':'LOW';
+
+  const byCt = {};
+  attackData.forEach(a => byCt[a.country] = (byCt[a.country]||0)+1);
+  const top = Object.entries(byCt).sort((a,b)=>b[1]-a[1]).slice(0,8);
+
+  if (sourceChart) sourceChart.destroy();
+  const ctx2 = document.getElementById('sourceChart');
+  if (!ctx2) return;
+  sourceChart = new Chart(ctx2, {
+    type:'bar',
+    data:{ labels: top.map(e=>e[0]), datasets:[{
+      data: top.map(e=>e[1]),
+      backgroundColor: top.map((_,i)=>`hsl(${220+i*15},70%,${55+i*3}%)80`),
+      borderRadius:4, borderSkipped:false}]},
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#4a5278',font:{size:10}}},
+        y:{grid:{display:false},ticks:{color:'#8892b8',font:{size:11}}}}}
+  });
+
+  document.getElementById('ioc-count').textContent = `${attackData.slice(0,30).length} active`;
+  document.getElementById('ioc-table').innerHTML = attackData.slice(0,20).map(a => `
+    <tr>
+      <td><span class="ip-mono">${a.srcIP}</span></td>
+      <td style="color:var(--text2);font-size:12px">${a.type}</td>
+      <td><span class="status-chip ${a.severity==='critical'?'chip-blocked':a.severity==='high'?'chip-monitored':'chip-allowed'}">${a.severity}</span></td>
+      <td style="font-size:12px">${a.country}</td>
+      <td style="font-size:11px;font-family:var(--mono);color:var(--text3)">${new Date(a.timestamp).toLocaleString()}</td>
+      <td><span class="status-chip ${a.status==='blocked'?'chip-blocked':a.status==='monitored'?'chip-monitored':'chip-allowed'}">${a.status}</span></td>
+    </tr>`).join('');
+}
+
+// ═══════════════════════════════════════════════
+// ALERTS PAGE
+// ═══════════════════════════════════════════════
+function renderAlerts() {
+  document.getElementById('alert-count').textContent = `${attackData.length} alerts`;
+  document.getElementById('alerts-table-body').innerHTML = attackData.slice(0,50).map(a => `
+    <tr>
+      <td style="font-size:11px;font-family:var(--mono);color:var(--text3)">${new Date(a.timestamp).toLocaleTimeString()}</td>
+      <td><span class="ip-mono">${a.srcIP}</span></td>
+      <td style="font-size:12px">${a.country}</td>
+      <td style="font-size:12px;font-weight:500">${a.type}</td>
+      <td style="font-family:var(--mono);font-size:12px;color:var(--text2)">${a.port}</td>
+      <td style="font-family:var(--mono);font-size:12px;color:${a.score<-0.85?'var(--red)':'var(--orange)'};font-weight:600">${a.score.toFixed(2)}</td>
+      <td><span class="status-chip ${a.status==='blocked'?'chip-blocked':a.status==='monitored'?'chip-monitored':'chip-allowed'}">${a.status}</span></td>
+    </tr>`).join('');
+}
+
+// ═══════════════════════════════════════════════
+// ADMIN: USERS
+// ═══════════════════════════════════════════════
+function renderUsersTable() {
+  if (!currentUser || currentUser.role !== 'admin') return;
+  const users = loadUsers();
+  document.getElementById('users-table-body').innerHTML = users.map(u => `
+    <tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#a855f7);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${(u.fname[0]+u.lname[0]).toUpperCase()}</div>
+          <span style="font-size:13px;font-weight:500">${u.fname} ${u.lname}</span>
+        </div>
+      </td>
+      <td style="font-size:12px;font-family:var(--mono);color:var(--text2)">${u.email}</td>
+      <td><span class="badge-role badge-${u.role}">${u.role.toUpperCase()}</span></td>
+      <td><span class="status-chip ${u.status==='active'?'chip-allowed':'chip-blocked'}">${u.status}</span></td>
+      <td style="font-size:11px;color:var(--text3);font-family:var(--mono)">${u.lastLogin?new Date(u.lastLogin).toLocaleString():'Never'}</td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap">
+        ${u.id !== 1 ? `
+        <button class="btn-sm" onclick="changeRole(${u.id})">Role</button>
+        <button class="btn-sm" onclick="toggleUserStatus(${u.id})">${u.status==='active'?'Deactivate':'Activate'}</button>
+        <button class="btn-danger" onclick="deleteUser(${u.id})">Delete</button>` : `<span style="font-size:11px;color:var(--text3)">Protected</span>`}
+      </td>
+    </tr>`).join('');
+}
+
+function changeRole(id) {
+  const users = loadUsers();
+  const u = users.find(x=>x.id===id);
+  if (!u) return;
+  const roles = ['viewer','analyst','admin'];
+  const next = roles[(roles.indexOf(u.role)+1) % roles.length];
+  u.role = next;
+  saveUsers(users);
+  addAudit('ROLE_CHANGE', `${currentUser.email} changed ${u.email} role to ${next}`);
+  renderUsersTable();
+  toast(`Role updated to ${next}`);
+}
+
+function toggleUserStatus(id) {
+  const users = loadUsers();
+  const u = users.find(x=>x.id===id);
+  if (!u) return;
+  u.status = u.status==='active' ? 'inactive' : 'active';
+  saveUsers(users);
+  addAudit('STATUS_CHANGE', `${currentUser.email} ${u.status==='active'?'activated':'deactivated'} ${u.email}`);
+  renderUsersTable();
+  toast(`User ${u.status}`);
+}
+
+function deleteUser(id) {
+  if (!confirm('Delete this user? This cannot be undone.')) return;
+  let users = loadUsers();
+  const u = users.find(x=>x.id===id);
+  users = users.filter(x=>x.id!==id);
+  saveUsers(users);
+  addAudit('DELETE_USER', `${currentUser.email} deleted user ${u?.email}`);
+  renderUsersTable();
+  toast('User deleted');
+}
+
+function openAddUser() { document.getElementById('add-user-modal').classList.add('open'); }
+function closeAddUser() {
+  document.getElementById('add-user-modal').classList.remove('open');
+  document.getElementById('add-user-error').style.display = 'none';
+  ['nu-fname','nu-lname','nu-email','nu-password'].forEach(id => document.getElementById(id).value='');
+}
+
+function addUser() {
+  const fname = document.getElementById('nu-fname').value.trim();
+  const lname = document.getElementById('nu-lname').value.trim();
+  const email = document.getElementById('nu-email').value.trim();
+  const pass = document.getElementById('nu-password').value;
+  const role = document.getElementById('nu-role').value;
+  const errEl = document.getElementById('add-user-error');
+  errEl.style.display = 'none';
+  if (!fname||!lname||!email||!pass) { errEl.textContent='All fields required.';errEl.style.display='block';return; }
+  const users = loadUsers();
+  if (users.find(u=>u.email===email)) { errEl.textContent='Email already registered.';errEl.style.display='block';return; }
+  users.push({ id:Date.now(), fname, lname, email, password:pass, role, org:'', status:'active', lastLogin:null });
+  saveUsers(users);
+  addAudit('ADD_USER', `${currentUser.email} created account ${email} (${role})`);
+  closeAddUser();
+  renderUsersTable();
+  toast('User created');
+}
+
+// ═══════════════════════════════════════════════
+// ADMIN: SETTINGS
+// ═══════════════════════════════════════════════
+function toggleSetting(el) {
+  el.classList.toggle('on');
+  const name = el.closest('.setting-row').querySelector('.setting-name').textContent;
+  const state = el.classList.contains('on') ? 'enabled' : 'disabled';
+  addAudit('SETTING_CHANGE', `${currentUser.email} ${state} "${name}"`);
+  toast(`${name} ${state}`);
+}
+
+// ═══════════════════════════════════════════════
+// ADMIN: AUDIT LOGS
+// ═══════════════════════════════════════════════
+function renderAuditLogs() {
+  const logs = getAuditLogs();
+  const el = document.getElementById('audit-log-list');
+  if (!el) return;
+  if (!logs.length) { el.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No audit events yet</div></div>'; return; }
+  el.innerHTML = logs.map(l => `
+    <div class="log-entry">
+      <span class="log-time">${new Date(l.time).toLocaleTimeString()}</span>
+      <span class="log-level ${l.action.includes('DELETE')||l.action.includes('ERROR')?'lvl-error':l.action==='LOGIN'||l.action==='LOGOUT'?'lvl-info':'lvl-warn'}">${l.action}</span>
+      <span class="log-msg">${l.detail} <span style="color:var(--text3)">— ${l.user}</span></span>
+    </div>`).join('');
+}
+
+function exportLogs() {
+  const logs = getAuditLogs();
+  const csv = ['Time,User,Action,Detail', ...logs.map(l=>`"${l.time}","${l.user}","${l.action}","${l.detail}"`)].join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='shard_audit.csv'; a.click();
+  URL.revokeObjectURL(url);
+  toast('Audit log exported');
+}
+
+// ═══════════════════════════════════════════════
+// PROFILE
+// ═══════════════════════════════════════════════
+function initProfilePage(user) {
+  const initials = (user.fname[0]+user.lname[0]).toUpperCase();
+  document.getElementById('profile-avatar-big').textContent = initials;
+  document.getElementById('profile-name').textContent = `${user.fname} ${user.lname}`;
+  document.getElementById('profile-meta').textContent = `${user.email} · ${user.org || ''}`;
+  const rb = document.getElementById('profile-role-badge');
+  rb.textContent = user.role.toUpperCase(); rb.className='badge-role badge-'+user.role;
+  document.getElementById('profile-fname').value = user.fname || '';
+  document.getElementById('profile-lname').value = user.lname || '';
+  document.getElementById('profile-email').value = user.email || '';
+  document.getElementById('profile-org').value = user.org || '';
+}
+
+async function saveProfile() {
+  const fname = document.getElementById('profile-fname').value.trim();
+  const lname = document.getElementById('profile-lname').value.trim();
+  const email = document.getElementById('profile-email').value.trim();
+  const org = document.getElementById('profile-org').value.trim();
+  if (!fname||!lname||!email) return toast('Please fill in required fields');
+
+  if (useAPI && authToken) {
+    try {
+      await apiCall('/profile', {
+        method: 'PUT',
+        body: JSON.stringify({ first_name: fname, last_name: lname, organization: org })
+      });
+      toast('Profile saved via API');
+    } catch (e) {
+      toast('Failed to save via API, using local');
+    }
+  }
+
+  const users = loadUsers();
+  const u = users.find(x=>x.id===currentUser.id);
+  if (!u) return;
+  if (email !== u.email && users.find(x=>x.email===email)) return toast('Email already in use');
+  u.fname=fname; u.lname=lname; u.email=email; u.org=org;
+  saveUsers(users);
+  currentUser = {...currentUser, fname, lname, email, org};
+  setSession(currentUser);
+  addAudit('PROFILE_UPDATE', `User ${email} updated profile`);
+  initProfilePage(currentUser);
+  document.getElementById('top-username').textContent = fname;
+  document.getElementById('top-avatar').textContent = (fname[0]+lname[0]).toUpperCase();
+  toast('Profile saved');
+}
+
+function changePassword() {
+  const cur = document.getElementById('prof-cur-pass').value;
+  const newp = document.getElementById('prof-new-pass').value;
+  if (!cur||!newp) return toast('Please fill in both fields');
+  if (newp.length < 8) return toast('New password must be at least 8 characters');
+  const users = loadUsers();
+  const u = users.find(x=>x.id===currentUser.id);
+  if (!u) return;
+  if (u.password !== cur) return toast('Current password is incorrect');
+  u.password = newp;
+  saveUsers(users);
+  addAudit('PASSWORD_CHANGE', `User ${u.email} changed password`);
+  document.getElementById('prof-cur-pass').value='';
+  document.getElementById('prof-new-pass').value='';
+  toast('Password updated');
+}
+
+// ═══════════════════════════════════════════════
+// TOAST & REFRESH
+// ═══════════════════════════════════════════════
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+let refreshInterval = null;
+function startDataRefresh() {
+  if (refreshInterval) clearInterval(refreshInterval);
+  refreshInterval = setInterval(() => {
+    addNewAttack();
+    const active = document.querySelector('.page.active')?.id;
+    if (active === 'page-dashboard') {
+      renderLiveFeed();
+      document.getElementById('dash-subtitle').textContent =
+        `Last updated ${new Date().toLocaleTimeString()} · ${attackData.length} events`;
+      updateMetricsDisplay();
+    }
+  }, 4000);
+}
+
+function stopDataRefresh() {
+  if (refreshInterval) { clearInterval(refreshInterval); refreshInterval = null; }
+  if (mapAnimFrame) { cancelAnimationFrame(mapAnimFrame); mapAnimFrame = null; }
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+(function init() {
+  const sess = getSession();
+  const savedToken = sessionStorage.getItem('shard_token');
+  const savedUser = sessionStorage.getItem('shard_user');
+
+  if (savedToken && savedUser) {
+    authToken = savedToken;
+    useAPI = true;
+    const user = JSON.parse(savedUser);
+    bootApp({
+      id: user.id,
+      fname: user.first_name || user.fname,
+      lname: user.last_name || user.lname,
+      email: user.email,
+      role: user.role,
+      org: user.organization || user.org
+    });
+    connectWebSocket();
+  } else if (sess) {
+    useAPI = false;
+    bootApp(sess);
+  }
+
+  document.getElementById('login-password').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+  document.getElementById('login-email').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+})();
+</script>
+</body>
+</html>

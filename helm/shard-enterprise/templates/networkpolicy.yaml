@@ -1,0 +1,53 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "shard-enterprise.fullname" . }}
+  labels:
+    {{- include "shard-enterprise.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "shard-enterprise.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        {{- toYaml .Values.networkPolicy.ingressAllowFrom | nindent 8 }}
+      ports:
+        - port: {{ .Values.service.api.port }}
+          protocol: TCP
+        - port: {{ .Values.monitoring.prometheus.port }}
+          protocol: TCP
+        {{- if .Values.federated.enabled }}
+        - port: {{ .Values.service.federated.port }}
+          protocol: TCP
+        {{- end }}
+  egress:
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    {{- if .Values.redis.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redis
+      ports:
+        - port: 6379
+          protocol: TCP
+    {{- end }}
+    {{- if .Values.elasticsearch.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app: elasticsearch
+      ports:
+        - port: 9200
+          protocol: TCP
+    {{- end }}
+{{- end }}

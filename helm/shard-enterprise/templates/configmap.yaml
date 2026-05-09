@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "shard-enterprise.fullname" . }}-config
+  labels:
+    {{- include "shard-enterprise.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    network:
+      interface: {{ .Values.config.shard.network.interface | quote }}
+      capture_filter: {{ .Values.config.shard.network.capture_filter | quote }}
+      local_networks:
+        {{- toYaml .Values.config.shard.network.local_networks | nindent 8 }}
+
+    ml:
+      model_path: {{ .Values.config.shard.ml.model_path | quote }}
+      online_learning: {{ .Values.config.shard.ml.online_learning }}
+      ensemble:
+        {{- toYaml .Values.config.shard.ml.ensemble | nindent 8 }}
+      use_deep_learning: {{ .Values.config.shard.ml.use_deep_learning }}
+
+    protection:
+      auto_block: {{ .Values.config.shard.protection.auto_block }}
+      block_duration: {{ .Values.config.shard.protection.block_duration }}
+      rate_limit:
+        enabled: {{ .Values.config.shard.protection.rate_limit.enabled }}
+        threshold: {{ .Values.config.shard.protection.rate_limit.threshold }}
+        window: {{ .Values.config.shard.protection.rate_limit.window }}
+
+    logging:
+      level: {{ .Values.config.shard.logging.level | quote }}
+      file: {{ .Values.config.shard.logging.file | quote }}
+
+    storage:
+      sqlite:
+        path: {{ .Values.config.shard.storage.sqlite.path | quote }}
+      {{- if .Values.elasticsearch.enabled }}
+      elasticsearch:
+        enabled: true
+        url: "http://{{ .Release.Name }}-elasticsearch:9200"
+      {{- end }}
+      {{- if .Values.postgresql.enabled }}
+      timescaledb:
+        enabled: true
+        dsn: "postgresql://postgres:$(POSTGRES_PASSWORD)@{{ .Release.Name }}-postgresql:5432/shard"
+      {{- end }}
+
+    dashboard:
+      enabled: {{ .Values.config.shard.dashboard.enabled }}
+      port: {{ .Values.config.shard.dashboard.port }}
+      auth:
+        enabled: {{ .Values.config.shard.dashboard.auth.enabled }}
+
+    telemetry:
+      prometheus:
+        enabled: true
+        port: {{ .Values.monitoring.prometheus.port }}
+
+    federated:
+      mode: {{ .Values.federated.mode | quote }}
+      server_url: {{ .Values.federated.server.url | quote }}

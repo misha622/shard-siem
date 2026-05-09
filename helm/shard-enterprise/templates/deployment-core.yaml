@@ -1,0 +1,122 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "shard-enterprise.fullname" . }}-core
+  labels:
+    {{- include "shard-enterprise.labels" . | nindent 4 }}
+    app.kubernetes.io/component: core
+spec:
+  replicas: {{ .Values.replicaCount.core }}
+  selector:
+    matchLabels:
+      {{- include "shard-enterprise.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: core
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secrets: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .Values.monitoring.prometheus.port }}"
+        prometheus.io/path: "/metrics"
+      labels:
+        {{- include "shard-enterprise.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: core
+    spec:
+      {{- include "shard-enterprise.imagePullSecret" . | nindent 6 }}
+      serviceAccountName: {{ include "shard-enterprise.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.nodeSelector.core }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity.core }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: shard-core
+          image: "{{ .Values.global.imageRegistry }}/{{ .Values.image.core.repository }}:{{ .Values.image.core.tag }}"
+          imagePullPolicy: {{ .Values.image.core.pullPolicy }}
+          command:
+            - python3
+            - run_shard.py
+            - --config
+            - /etc/shard/config.yaml
+          ports:
+            - name: api
+              containerPort: {{ .Values.service.api.port }}
+              protocol: TCP
+            - name: metrics
+              containerPort: {{ .Values.monitoring.prometheus.port }}
+              protocol: TCP
+          env:
+            - name: SHARD_CONFIG_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "shard-enterprise.fullname" . }}-secrets
+                  key: shard-config-secret
+            - name: ABUSEIPDB_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "shard-enterprise.fullname" . }}-secrets
+                  key: abuseipdb-key
+            - name: VIRUSTOTAL_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "shard-enterprise.fullname" . }}-secrets
+                  key: virustotal-key
+            {{- if .Values.redis.enabled }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "shard-enterprise.fullname" . }}-secrets
+                  key: redis-password
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources.core | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/shard
+              readOnly: true
+            - name: data
+              mountPath: /data
+            - name: models
+              mountPath: /data/models
+            - name: logs
+              mountPath: /var/log/shard
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: api
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: api
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "shard-enterprise.fullname" . }}-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "shard-enterprise.fullname" . }}-data
+        - name: models
+          persistentVolumeClaim:
+            claimName: {{ include "shard-enterprise.fullname" . }}-models
+        - name: logs
+          persistentVolumeClaim:
+            claimName: {{ include "shard-enterprise.fullname" . }}-logs

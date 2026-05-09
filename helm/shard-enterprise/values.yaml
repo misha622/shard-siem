@@ -1,0 +1,293 @@
+# ============================================================
+# SHARD Enterprise - Default Values
+# ============================================================
+
+# Global settings
+global:
+  imageRegistry: "ghcr.io/shard-enterprise"
+  imagePullSecrets: []
+  storageClass: "standard"
+  environment: "production"
+
+# Replica counts
+replicaCount:
+  core: 3
+  ml: 2
+  modules: 2
+  api: 2
+
+# Image settings
+image:
+  core:
+    repository: shard-core
+    tag: "5.0.0"
+    pullPolicy: IfNotPresent
+  ml:
+    repository: shard-ml
+    tag: "5.0.0"
+    pullPolicy: IfNotPresent
+  modules:
+    repository: shard-modules
+    tag: "5.0.0"
+    pullPolicy: IfNotPresent
+
+# Resource limits
+resources:
+  core:
+    requests:
+      cpu: "2"
+      memory: "4Gi"
+    limits:
+      cpu: "4"
+      memory: "8Gi"
+  ml:
+    requests:
+      cpu: "4"
+      memory: "8Gi"
+    limits:
+      cpu: "8"
+      memory: "16Gi"
+    gpu:
+      enabled: true
+      count: 1
+      type: "nvidia.com/gpu"
+  modules:
+    requests:
+      cpu: "1"
+      memory: "2Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+
+# Persistence
+persistence:
+  enabled: true
+  size: 100Gi
+  models:
+    size: 50Gi
+  data:
+    size: 200Gi
+  logs:
+    size: 100Gi
+
+# Networking
+service:
+  type: ClusterIP
+  api:
+    port: 8080
+  metrics:
+    port: 9090
+  federated:
+    port: 8443
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: shard.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceName: shard-api
+          servicePort: 8080
+        - path: /metrics
+          pathType: Prefix
+          serviceName: shard-metrics
+          servicePort: 9090
+  tls:
+    - secretName: shard-tls
+      hosts:
+        - shard.example.com
+
+# Auto-scaling
+autoscaling:
+  enabled: true
+  core:
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  ml:
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+  modules:
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+
+# Pod Disruption Budget
+pdb:
+  enabled: true
+  core:
+    minAvailable: 1
+  ml:
+    minAvailable: 1
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+
+# Service Account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: "shard-enterprise"
+
+# RBAC
+rbac:
+  create: true
+
+# Network Policies
+networkPolicy:
+  enabled: true
+  ingressAllowFrom:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+
+# Prometheus integration
+prometheus:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    path: /metrics
+
+# Grafana integration
+grafana:
+  enabled: true
+  dashboard:
+    enabled: true
+    label: shard-enterprise
+
+# External dependencies
+elasticsearch:
+  enabled: false
+
+postgresql:
+  enabled: false
+
+redis:
+  enabled: true
+  architecture: replication
+  auth:
+    enabled: true
+  master:
+    persistence:
+      size: 10Gi
+
+# Application configuration
+config:
+  shard:
+    network:
+      interface: "eth0"
+      capture_filter: "ip"
+      local_networks:
+        - "10.0.0.0/8"
+        - "172.16.0.0/12"
+        - "192.168.0.0/16"
+
+    ml:
+      model_path: "/data/models"
+      online_learning: true
+      ensemble:
+        - "isolation_forest"
+        - "xgboost"
+      use_deep_learning: true
+
+    protection:
+      auto_block: true
+      block_duration: 3600
+      rate_limit:
+        enabled: true
+        threshold: 100
+        window: 60
+
+    logging:
+      level: "INFO"
+      file: "/var/log/shard/shard.log"
+
+    storage:
+      sqlite:
+        path: "/data/shard_siem.db"
+
+    dashboard:
+      enabled: true
+      port: 8080
+      auth:
+        enabled: true
+
+  # Secrets (use external secrets manager in production)
+  secrets:
+    abuseipdb_key: ""
+    virustotal_key: ""
+    ldap_bind_password: ""
+    grafana_api_key: ""
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  prometheus:
+    port: 9090
+  grafana:
+    dashboardUid: "shard-enterprise"
+    autoProvision: true
+
+# Federated Learning
+federated:
+  enabled: false
+  mode: "client"
+  server:
+    url: ""
+    authToken: ""
+  mtls:
+    enabled: true
+
+# Node selector
+nodeSelector:
+  ml:
+    gpu: "true"
+  core:
+    workload: "production"
+
+# Tolerations
+tolerations:
+  ml:
+    - key: "gpu"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+
+# Affinity
+affinity:
+  ml:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: "gpu"
+                operator: In
+                values:
+                  - "true"
+  core:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                    - shard-core
+            topologyKey: kubernetes.io/hostname

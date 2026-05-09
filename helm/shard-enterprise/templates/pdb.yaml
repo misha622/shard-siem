@@ -1,0 +1,27 @@
+{{- if .Values.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "shard-enterprise.fullname" . }}-core
+  labels:
+    {{- include "shard-enterprise.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.pdb.core.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "shard-enterprise.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: core
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "shard-enterprise.fullname" . }}-ml
+  labels:
+    {{- include "shard-enterprise.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.pdb.ml.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "shard-enterprise.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: ml
+{{- end }}
