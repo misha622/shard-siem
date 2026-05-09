@@ -102,7 +102,7 @@ class DeceptionConfig:
     canary_tokens: List[Dict] = field(default_factory=lambda: [
         {'type': 'aws_key', 'value': 'AKIAIOSFODNN7EXAMPLE'},
         {'type': 'slack_webhook',
-         'value': 'https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX'},
+         'value': 'https://hooks.slack.com/services/TEST/FAKE/EXAMPLE'},
         {'type': 'http_endpoint', 'value': '/api/internal/health'},
         {'type': 'dns_entry', 'value': 'db-backup.internal.company.com'},
     ])
