@@ -1,0 +1,23 @@
+name: SHARD Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install pytest numpy scikit-learn xgboost
+      - name: Run tests
+        run: |
+          python3 -m pytest test_shard_defense.py -v --tb=short
