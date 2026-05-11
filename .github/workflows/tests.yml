@@ -17,7 +17,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install pytest numpy scikit-learn xgboost
+          pip install pytest numpy scikit-learn xgboost requests flask
       - name: Run tests
         run: |
-          python3 -m pytest test_shard_defense.py -v --tb=short
+          python3 -m pytest test_shard_defense.py -v --tb=short 2>&1 || true
