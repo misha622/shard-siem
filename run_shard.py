@@ -112,6 +112,7 @@ try:
     from shard_anomaly_detector import ShardAnomalyDetector
     from shard_gnn_integration import ShardGNN
     from shard_fusion_integration import ShardFusion
+    from shard_temporal_integration import ShardTemporalGNN
     from shard_swagger_api import start_api_server
     AUTONOMOUS_AVAILABLE = True
 except ImportError:
@@ -235,6 +236,7 @@ class EnhancedShardEnterprise:
         self.anomaly_detector = None  # VAE Anomaly Detector
         self.gnn_analyzer = None  # GNN Threat Graph
         self.fusion = None  # Multi-Modal Fusion
+        self.temporal_gnn = None  # Temporal GNN Predictor
         self.cloud_security = None
         self.adaptive_engine = None
         self.autonomous = None
@@ -344,6 +346,14 @@ class EnhancedShardEnterprise:
             self.fusion = ShardFusion()
             if self.fusion.loaded:
                 print("🌐 Multi-Modal Fusion загружен!")
+
+        except Exception as e:
+            print(f"⚠️ Fusion: {e}")
+
+        try:
+            self.temporal_gnn = ShardTemporalGNN()
+            if self.temporal_gnn.loaded:
+                print("🔮 Temporal GNN Predictor загружен!")
         except Exception as e:
             print(f"⚠️ Fusion: {e}")
 

@@ -283,7 +283,7 @@ class DefenseModelLoader:
                 src = self.src_tokenizer.encode(prompt).unsqueeze(0)
                 
                 # Генерация
-                code = self.seq2seq_model.generate(src, self.tgt_tokenizer, temperature=0.5)
+                code = self.seq2seq_model.generate(src, self.tgt_tokenizer, temperature=0.5)  # FIXED: use tgt_tokenizer  # FIXED: use tgt_tokenizer
                 
                 # Постобработка: заменяем <NL> на переносы строк
                 code = code.replace(' <NL> ', '\n').replace('<NL>', '\n')
@@ -399,10 +399,34 @@ class DefensePipeline:
             
             logger.warning(f"🛡️ DEFENSE: {atype} ({conf:.0%}) → {src_ip}")
             
+            # АВТО-ПРИМЕНЕНИЕ СГЕНЕРИРОВАННОГО КОДА
+            if code and 'iptables' in code.lower():
+                import subprocess, re
+                lines = code.replace('<NL>', '\n').split('\n')
+                applied = 0
+                for line in lines:
+                    line = line.strip()
+                    if line.startswith('iptables') and '-j' in line:
+                        # Заменяем -A на -C для проверки, потом на -A для применения
+                        try:
+                            # Проверяем не существует ли уже правило
+                            check = line.replace(' -A ', ' -C ')
+                            r = subprocess.run(check.split(), capture_output=True, timeout=2)
+                            if r.returncode != 0:
+                                # Применяем правило
+                                r = subprocess.run(line.split(), capture_output=True, timeout=2)
+                                if r.returncode == 0:
+                                    applied += 1
+                        except Exception:
+                            pass
+                if applied > 0:
+                    logger.warning(f"🔧 ПРИМЕНЕНО правил iptables: {applied}")
+            
             # Отправляем в Telegram/Slack/Discord
             if _notifier and _notifier.enabled:
                 try:
                     _notifier.send_alert({
+                        'applied_rules': applied if 'applied' in dir() else 0,
                         'attack_type': atype,
                         'severity': 'CRITICAL' if conf > 0.8 else 'HIGH' if conf > 0.6 else 'MEDIUM',
                         'src_ip': src_ip,
@@ -419,6 +443,7 @@ class DefensePipeline:
             if _notifier and _notifier.enabled:
                 try:
                     _notifier.send_alert({
+                        'applied_rules': applied if 'applied' in dir() else 0,
                         'attack_type': atype,
                         'severity': 'CRITICAL' if conf > 0.8 else 'HIGH' if conf > 0.6 else 'MEDIUM',
                         'src_ip': src_ip,
