@@ -38,6 +38,7 @@ class ZeroDaySeverity(Enum):
 
 @dataclass
 class ZeroDaySignature:
+    """Сигнатура новой атаки"""
     id: str
     name: str
     description: str
@@ -55,6 +56,7 @@ class ZeroDaySignature:
 
 
 class AnomalyCluster:
+    """Кластер аномалий — потенциальная zero-day атака"""
 
     def __init__(self, cluster_id: int):
         self.id = cluster_id
@@ -83,6 +85,12 @@ class AnomalyCluster:
 
 
 class ZeroDayDetector:
+    """
+    Обнаружение zero-day атак через:
+    1. Кластеризацию аномалий (DBSCAN)
+    2. Поиск неизвестных паттернов
+    3. Оценку новизны и опасности
+    """
 
     def __init__(self):
         self.clusters: Dict[int, AnomalyCluster] = {}
@@ -111,6 +119,7 @@ class ZeroDayDetector:
         }
 
     def extract_features(self, alert: Dict) -> np.ndarray:
+        """Извлечение признаков для кластеризации"""
         features = []
 
         features.extend([
@@ -148,6 +157,9 @@ class ZeroDayDetector:
         return np.array(features, dtype=np.float32)
 
     def add_alert(self, alert: Dict) -> Optional[Dict]:
+        """
+        Обработка алерта — поиск zero-day паттернов.
+        """
         with self._lock:
             self.stats['total_anomalies'] += 1
 
@@ -171,6 +183,7 @@ class ZeroDayDetector:
             return None
 
     def _cluster_anomalies(self, new_features: np.ndarray, alert: Dict) -> Optional[Dict]:
+        """Кластеризация аномалий для поиска новых паттернов"""
         if not SKLEARN_AVAILABLE:
             return None
 
@@ -218,6 +231,7 @@ class ZeroDayDetector:
         return None
 
     def _is_potential_new_cluster(self, features: np.ndarray) -> bool:
+        """Проверка на потенциально новый кластер"""
         if len(self.anomaly_buffer) < 20:
             return False
 
@@ -232,6 +246,7 @@ class ZeroDayDetector:
     def _create_zero_day_signature(
         self, cluster: AnomalyCluster, alert: Dict
     ) -> Dict:
+        """Создание сигнатуры zero-day атаки"""
         self.stats['zero_days_found'] += 1
 
         attack_name = f"Unknown_Attack_{int(time.time()) % 100000:05d}"
@@ -290,6 +305,7 @@ class ZeroDayDetector:
     def _assess_severity(
         self, cluster: AnomalyCluster, alert: Dict
     ) -> ZeroDaySeverity:
+        """Оценка серьёзности zero-day"""
         score = 0
 
         if cluster.count > 50:
@@ -316,6 +332,7 @@ class ZeroDayDetector:
         return ZeroDaySeverity.LOW
 
     def _calculate_confidence(self, cluster: AnomalyCluster) -> float:
+        """Расчёт уверенности в zero-day"""
         confidence = 0.5
 
         confidence += min(0.3, cluster.count / 100)
@@ -326,6 +343,7 @@ class ZeroDayDetector:
         return min(0.99, confidence)
 
     def _extract_affected_systems(self, cluster: AnomalyCluster) -> List[str]:
+        """Извлечение затронутых систем"""
         systems = set()
         for sample in cluster.samples[-20:]:
             if 'dst_ip' in sample:
@@ -335,6 +353,7 @@ class ZeroDayDetector:
         return list(systems)[:10]
 
     def _map_to_mitre(self, alert: Dict) -> List[str]:
+        """Маппинг на MITRE ATT&CK"""
         return [
             'TA0043 - Reconnaissance',
             'TA0001 - Initial Access',
@@ -342,6 +361,7 @@ class ZeroDayDetector:
         ]
 
     def _extract_iocs(self, cluster: AnomalyCluster, alert: Dict) -> List[Dict]:
+        """Извлечение IOCs"""
         iocs = []
 
         ips = set()
@@ -368,6 +388,7 @@ class ZeroDayDetector:
     def _generate_defense_recommendation(
         self, cluster: AnomalyCluster, alert: Dict
     ) -> str:
+        """Генерация рекомендаций по защите от zero-day"""
         ports = set()
         ips = set()
 
@@ -408,6 +429,7 @@ class ZeroDayDetector:
             }
 
     def export_signatures(self) -> List[Dict]:
+        """Экспорт сигнатур для обмена"""
         return [
             {
                 'id': sig.id,

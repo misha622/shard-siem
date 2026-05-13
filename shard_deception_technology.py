@@ -32,7 +32,9 @@ import requests
 import yaml
 
 
+
 class DeceptionType(Enum):
+    """Типы ловушек"""
     HONEYPOT = "honeypot"
     HONEYTOKEN = "honeytoken"
     HONEYNET = "honeynet"
@@ -41,6 +43,7 @@ class DeceptionType(Enum):
 
 
 class DeceptionSeverity(Enum):
+    """Серьёзность срабатывания"""
     CRITICAL = "CRITICAL"
     HIGH = "HIGH"
     MEDIUM = "MEDIUM"
@@ -50,6 +53,7 @@ class DeceptionSeverity(Enum):
 
 @dataclass
 class DeceptionConfig:
+    """Конфигурация Deception Technology"""
 
     enabled: bool = True
     mode: str = "realistic"
@@ -109,7 +113,9 @@ class DeceptionConfig:
     max_session_size_mb: int = 10
 
 
+
 class BaseHoneypot:
+    """Базовый класс для всех ловушек"""
 
     def __init__(self, name: str, config: Dict, logger=None):
         self.name = name
@@ -140,7 +146,9 @@ class BaseHoneypot:
             }
 
 
+
 class NetworkHoneypot(BaseHoneypot):
+    """Сетевой honeypot с реалистичной эмуляцией сервиса"""
 
     def __init__(self, name: str, port: int, protocol: str, banner: str,
                  config: Dict, logger=None, callback=None):
@@ -342,7 +350,9 @@ class NetworkHoneypot(BaseHoneypot):
                 self.logger.warning(f"🚨 [{self.name}] Attack detected from {src_ip}: {', '.join(detected)}")
 
 
+
 class HoneyToken(BaseHoneypot):
+    """Файл-приманка с отслеживанием доступа"""
 
     def __init__(self, name: str, path: str, content: str, config: Dict, logger=None, callback=None):
         super().__init__(name, config, logger)
@@ -403,7 +413,9 @@ class HoneyToken(BaseHoneypot):
                 self.last_modified = current_mtime
 
 
+
 class CanaryToken(BaseHoneypot):
+    """Canary token - веб-триггер при обращении"""
 
     def __init__(self, token_type: str, value: str, config: Dict, logger=None, callback=None):
         super().__init__(f"Canary-{token_type}", config, logger)
@@ -434,7 +446,9 @@ class CanaryToken(BaseHoneypot):
         return False
 
 
+
 class DeceptionEngine:
+    """Основной движок Deception Technology"""
 
     def __init__(self, config: DeceptionConfig = None, logger=None, event_bus=None):
         self.config = config or DeceptionConfig()
@@ -633,7 +647,9 @@ class DeceptionEngine:
         return deployed
 
 
+
 class ShardDeceptionIntegration:
+    """Интеграция Deception Technology в SHARD"""
 
     def __init__(self, config: Dict = None):
         self.config = DeceptionConfig()
@@ -667,7 +683,9 @@ class ShardDeceptionIntegration:
         return False
 
 
+
 def test_deception():
+    """Тестирование Deception Technology"""
     print("=" * 60)
     print("🧪 ТЕСТИРОВАНИЕ DECEPTION TECHNOLOGY")
     print("=" * 60)

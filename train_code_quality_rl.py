@@ -33,12 +33,17 @@ CONFIG = {
 
 
 class CompilerFeedback:
+    """Проверка iptables правил через реальные системные вызовы"""
     
     def __init__(self):
         self.cache = {}
         self.stats = {'checks': 0, 'passed': 0, 'failed': 0}
     
     def validate_rule(self, rule: str) -> Tuple[bool, str, float]:
+        """
+        Проверяет правило iptables/WAF на корректность
+        Returns: (valid, error_msg, reward)
+        """
         self.stats['checks'] += 1
         
         rule = rule.strip().replace('<NL>', '\n').replace(' <NL> ', '\n').replace('  ', ' ')
@@ -75,6 +80,7 @@ class CompilerFeedback:
         return reward
     
     def _check_iptables(self, rule: str) -> Tuple[bool, str, float]:
+        """Проверка iptables правила"""
         lines = [l.strip() for l in rule.split('\n') if 'iptables' in l]
         
         total_reward = 0.0
@@ -134,17 +140,21 @@ class CompilerFeedback:
             return (False, '; '.join(errors[:3]), max(-1.0, total_reward))
     
     def _check_waf(self, rule: str) -> Tuple[bool, str, float]:
+        """Проверка WAF правила"""
         if 'SecRule' in rule and '"id:' in rule and 'phase:' in rule:
             return (True, "waf_valid", 0.5)
         return (False, "waf_incomplete", -0.2)
     
     def _check_sysctl(self, rule: str) -> Tuple[bool, str, float]:
+        """Проверка sysctl команды"""
         if 'sysctl' in rule and '=' in rule:
             return (True, "sysctl_valid", 0.3)
         return (False, "sysctl_invalid", -0.2)
 
 
+
 class SelfPlay:
+    """SHARD атакует сам себя для обучения"""
     
     def __init__(self):
         self.attack_templates = [
@@ -156,6 +166,7 @@ class SelfPlay:
         self.results = {'attacks': 0, 'defenses': 0, 'successful_defenses': 0}
     
     def run_cycle(self, seq2seq_model, tokenizer) -> Dict:
+        """Один цикл self-play: атака → защита → оценка"""
         attack_type, attack_payload = random.choice(self.attack_templates)
         
         attack_desc = f"{attack_type} from 10.0.0.{random.randint(1,255)} on port {random.choice([80,443,3306,22])}"
@@ -183,9 +194,14 @@ class SelfPlay:
             return {'attack': attack_desc, 'defense': 'ERROR', 'valid': False, 'reward': -1.0, 'msg': str(e)[:50]}
 
 
+
 class ASTValidator:
+    """Проверка структуры сгенерированного кода"""
     
     def validate(self, code: str) -> Tuple[bool, float]:
+        """
+        Проверяет код на структурную корректность
+        """
         score = 0.0
         issues = []
         
@@ -211,7 +227,9 @@ class ASTValidator:
         return valid, min(1.0, score)
 
 
+
 class LLMTeacher:
+    """Использует примеры правильного кода как few-shot учителя"""
     
     def __init__(self):
         self.examples = [
@@ -236,6 +254,7 @@ class LLMTeacher:
         ]
     
     def get_few_shot_prompt(self, attack_desc: str) -> str:
+        """Создаёт few-shot примеры для обучения"""
         prompt_parts = []
         for ex in self.examples:
             prompt_parts.append(f"Attack: {ex['attack']}\nDefense:\n{ex['code']}\n")
@@ -244,6 +263,7 @@ class LLMTeacher:
         return '\n'.join(prompt_parts)
     
     def evaluate_similarity(self, generated: str, reference: str) -> float:
+        """Оценивает похожесть сгенерированного кода на эталонный"""
         gen_words = set(generated.lower().split())
         ref_words = set(reference.lower().split())
         
@@ -254,7 +274,9 @@ class LLMTeacher:
         return min(1.0, overlap)
 
 
+
 class CodeQualityRLTrainer:
+    """Объединяет все 4 метода для улучшения генерации кода"""
     
     def __init__(self):
         self.compiler = CompilerFeedback()
@@ -273,6 +295,7 @@ class CodeQualityRLTrainer:
         }
     
     def train_episode(self, model, tokenizer) -> Dict:
+        """Один эпизод обучения со всеми 4 методами"""
         results = {}
         
         attack_desc = f"SQL Injection from 10.0.0.{random.randint(1,255)} on port 3306"
@@ -326,6 +349,7 @@ class CodeQualityRLTrainer:
         return results
     
     def get_avg_rewards(self) -> Dict:
+        """Средние награды по методам"""
         avgs = {}
         for method, data in self.stats.items():
             if data['rewards']:
@@ -336,6 +360,7 @@ class CodeQualityRLTrainer:
         return avgs
     
     def print_report(self):
+        """Отчёт о тренировке"""
         print("\n" + "="*60)
         print("📊 ОТЧЁТ CODE QUALITY RL")
         print("="*60)

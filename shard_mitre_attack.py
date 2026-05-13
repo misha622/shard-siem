@@ -26,8 +26,10 @@ import requests
 import yaml
 
 
+
 @dataclass
 class MITREConfig:
+    """Конфигурация MITRE ATT&CK"""
 
     enterprise_attack_url: str = "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json"
     mobile_attack_url: str = "https://raw.githubusercontent.com/mitre/cti/master/mobile-attack/mobile-attack.json"
@@ -46,6 +48,7 @@ class MITREConfig:
 
 @dataclass
 class MITRETactic:
+    """Тактика MITRE ATT&CK"""
     id: str
     name: str
     description: str
@@ -56,6 +59,7 @@ class MITRETactic:
 
 @dataclass
 class MITRETechnique:
+    """Техника MITRE ATT&CK"""
     id: str
     name: str
     description: str
@@ -72,6 +76,7 @@ class MITRETechnique:
 
 @dataclass
 class MITREGroup:
+    """Группировка MITRE ATT&CK"""
     id: str
     name: str
     description: str
@@ -82,6 +87,7 @@ class MITREGroup:
 
 @dataclass
 class MITRESoftware:
+    """ПО MITRE ATT&CK"""
     id: str
     name: str
     description: str
@@ -93,13 +99,16 @@ class MITRESoftware:
 
 @dataclass
 class MITREMitigation:
+    """Меры защиты MITRE ATT&CK"""
     id: str
     name: str
     description: str
     techniques: List[str] = field(default_factory=list)
 
 
+
 class MITRELoader:
+    """Загрузчик данных MITRE ATT&CK"""
 
     def __init__(self, config: MITREConfig, logger=None):
         self.config = config
@@ -122,6 +131,7 @@ class MITRELoader:
         self._loaded = False
 
     def load(self, force_reload: bool = False) -> bool:
+        """Загрузка данных MITRE ATT&CK"""
         if self._loaded and not force_reload:
             return True
 
@@ -156,6 +166,7 @@ class MITRELoader:
             return False
 
     def _download_attack_data(self):
+        """Скачивание данных MITRE ATT&CK"""
         data_dir = Path(self.config.data_dir)
         data_dir.mkdir(parents=True, exist_ok=True)
 
@@ -174,6 +185,7 @@ class MITRELoader:
             raise
 
     def _parse_attack_data(self, data: Dict):
+        """Парсинг данных MITRE ATT&CK"""
         with self._lock:
             objects = data.get('objects', [])
 
@@ -287,6 +299,7 @@ class MITRELoader:
                                         )
 
     def _load_embedded_data(self):
+        """Загрузка встроенного подмножества MITRE ATT&CK"""
         with self._lock:
             tactics_data = [
                 ('TA0043', 'Reconnaissance', 'reconnaissance'),
@@ -350,7 +363,9 @@ class MITRELoader:
                     self.techniques_by_tactic[t].append(tid)
 
 
+
 class MITREMapper:
+    """Маппер алертов на MITRE ATT&CK"""
 
     def __init__(self, loader: MITRELoader, config: MITREConfig, logger=None):
         self.loader = loader
@@ -360,6 +375,7 @@ class MITREMapper:
         self._load_custom_mappings()
 
     def _load_custom_mappings(self):
+        """Загрузка кастомных маппингов"""
         mapping_path = Path(self.config.custom_mappings_path)
         if mapping_path.exists():
             try:
@@ -369,6 +385,7 @@ class MITREMapper:
                 pass
 
     def map_alert(self, alert: Dict) -> Dict[str, Any]:
+        """Маппинг алерта на MITRE ATT&CK"""
         attack_type = alert.get('attack_type', '')
         alert_data = alert.get('details', {})
         description = alert.get('explanation', '')
@@ -403,6 +420,7 @@ class MITREMapper:
         }
 
     def _find_techniques(self, attack_type: str, alert_data: Dict, description: str) -> Set[str]:
+        """Поиск подходящих техник"""
         techniques = set()
 
         attack_mapping = {
@@ -477,6 +495,7 @@ class MITREMapper:
         return techniques
 
     def _calculate_confidence(self, techniques: Set[str]) -> float:
+        """Расчёт уверенности маппинга"""
         if not techniques:
             return 0.0
         if len(techniques) >= 3:
@@ -487,7 +506,9 @@ class MITREMapper:
             return 0.5
 
 
+
 class MITRECoverageAnalyzer:
+    """Анализатор покрытия MITRE ATT&CK"""
 
     def __init__(self, loader: MITRELoader, logger=None):
         self.loader = loader
@@ -500,6 +521,7 @@ class MITRECoverageAnalyzer:
         self._lock = threading.RLock()
 
     def record_detection(self, techniques: List[str], tactics: List[str]):
+        """Запись обнаружения техник"""
         with self._lock:
             for tech in techniques:
                 self.detected_techniques[tech] += 1
@@ -513,6 +535,7 @@ class MITRECoverageAnalyzer:
             })
 
     def get_coverage_report(self) -> Dict:
+        """Получить отчёт о покрытии"""
         with self._lock:
             total_techniques = len(self.loader.techniques)
             total_sub_techniques = len(self.loader.sub_techniques)
@@ -568,10 +591,12 @@ class MITRECoverageAnalyzer:
             }
 
     def _get_technique_name(self, tech_id: str) -> str:
+        """Получить название техники"""
         tech = self.loader.techniques.get(tech_id) or self.loader.sub_techniques.get(tech_id)
         return tech.name if tech else tech_id
 
     def _generate_recommendations(self, coverage: Dict, missed_critical: List[str]) -> List[str]:
+        """Генерация рекомендаций по улучшению покрытия"""
         recommendations = []
 
         for tactic, stats in coverage.items():
@@ -587,6 +612,7 @@ class MITRECoverageAnalyzer:
         return recommendations
 
     def get_stats(self) -> Dict:
+        """Получить статистику"""
         with self._lock:
             return {
                 'total_detections': len(self.detection_history),
@@ -595,7 +621,9 @@ class MITRECoverageAnalyzer:
             }
 
 
+
 class MITRENavigatorGenerator:
+    """Генератор MITRE ATT&CK Navigator слоёв"""
 
     def __init__(self, loader: MITRELoader, coverage_analyzer: MITRECoverageAnalyzer, logger=None):
         self.loader = loader
@@ -603,6 +631,7 @@ class MITRENavigatorGenerator:
         self.logger = logger
 
     def generate_navigator_layer(self, name: str = "SHARD Coverage") -> Dict:
+        """Генерация слоя для MITRE ATT&CK Navigator"""
         techniques = []
 
         for tech_id, count in self.coverage_analyzer.detected_techniques.items():
@@ -671,6 +700,7 @@ class MITRENavigatorGenerator:
         }
 
     def generate_heatmap_layer(self, name: str = "SHARD Heatmap") -> Dict:
+        """Генерация тепловой карты"""
         layer = self.generate_navigator_layer(name)
 
         scores = []
@@ -693,7 +723,12 @@ class MITRENavigatorGenerator:
         return layer
 
 
+
 class MITREEngine:
+    """
+    Основной движок MITRE ATT&CK
+    Объединяет загрузку, маппинг, анализ покрытия и навигатор
+    """
 
     def __init__(self, config: MITREConfig = None, logger=None):
         self.config = config or MITREConfig()
@@ -713,6 +748,7 @@ class MITREEngine:
         self._running = False
 
     def start(self):
+        """Запуск движка"""
         self._running = True
         self.loader.load()
 
@@ -720,11 +756,13 @@ class MITREEngine:
             self.logger.info("🚀 MITRE ATT&CK Engine started")
 
     def stop(self):
+        """Остановка движка"""
         self._running = False
         if self.logger:
             self.logger.info("🛑 MITRE ATT&CK Engine stopped")
 
     def map_alert(self, alert: Dict) -> Dict:
+        """Маппинг алерта на MITRE ATT&CK"""
         mapping = self.mapper.map_alert(alert)
 
         if mapping['techniques']:
@@ -740,14 +778,17 @@ class MITREEngine:
         return mapping
 
     def get_coverage_report(self) -> Dict:
+        """Получить отчёт о покрытии"""
         return self.coverage_analyzer.get_coverage_report()
 
     def generate_navigator_layer(self, name: str = None) -> Dict:
+        """Генерация слоя для навигатора"""
         return self.navigator_generator.generate_navigator_layer(
             name or f"SHARD Coverage {datetime.now().strftime('%Y-%m-%d')}"
         )
 
     def save_navigator_layer(self, filepath: str = None) -> str:
+        """Сохранение слоя навигатора"""
         layer = self.generate_navigator_layer()
 
         if not filepath:
@@ -763,6 +804,7 @@ class MITREEngine:
         return str(filepath)
 
     def get_technique_details(self, technique_id: str) -> Optional[Dict]:
+        """Получить детали техники"""
         tech = self.loader.techniques.get(technique_id) or self.loader.sub_techniques.get(technique_id)
         if not tech:
             return None
@@ -785,6 +827,7 @@ class MITREEngine:
         }
 
     def get_tactic_details(self, tactic_name: str) -> Optional[Dict]:
+        """Получить детали тактики"""
         for tactic in self.loader.tactics.values():
             if tactic.name == tactic_name or tactic.short_name == tactic_name:
                 techniques = self.loader.techniques_by_tactic.get(tactic.name, [])
@@ -800,6 +843,7 @@ class MITREEngine:
         return None
 
     def search(self, query: str) -> List[Dict]:
+        """Поиск по техникам, тактикам, группам"""
         results = []
         query_lower = query.lower()
 
@@ -833,6 +877,7 @@ class MITREEngine:
         return results[:50]
 
     def get_stats(self) -> Dict:
+        """Получить статистику"""
         with self._lock:
             return {
                 **self.stats,
@@ -843,7 +888,9 @@ class MITREEngine:
             }
 
 
+
 class ShardMITREIntegration:
+    """Интеграция MITRE ATT&CK в SHARD"""
 
     def __init__(self, config: Dict = None):
         self.config = MITREConfig()
@@ -852,6 +899,7 @@ class ShardMITREIntegration:
         self.logger = None
 
     def setup(self, event_bus, logger):
+        """Настройка интеграции"""
         self.event_bus = event_bus
         self.logger = logger
         self.engine = MITREEngine(self.config, logger)
@@ -862,6 +910,7 @@ class ShardMITREIntegration:
             event_bus.subscribe('mitre.coverage', self.on_coverage_request)
 
     def start(self):
+        """Запуск интеграции"""
         if self.engine:
             self.engine.start()
 
@@ -869,10 +918,12 @@ class ShardMITREIntegration:
             self.logger.info("🚀 MITRE ATT&CK Integration запущена")
 
     def stop(self):
+        """Остановка интеграции"""
         if self.engine:
             self.engine.stop()
 
     def on_alert(self, alert: Dict):
+        """Обогащение алерта MITRE данными"""
         if self.engine:
             mapping = self.engine.map_alert(alert)
             alert['mitre_mapping'] = mapping
@@ -881,6 +932,7 @@ class ShardMITREIntegration:
                 self.event_bus.publish('alert.enriched', alert)
 
     def on_search_request(self, data: Dict):
+        """Обработка поискового запроса"""
         query = data.get('query', '')
 
         if query and self.engine:
@@ -894,6 +946,7 @@ class ShardMITREIntegration:
                 })
 
     def on_coverage_request(self, data: Dict):
+        """Обработка запроса покрытия"""
         if self.engine:
             report = self.engine.get_coverage_report()
 
@@ -904,32 +957,39 @@ class ShardMITREIntegration:
                 })
 
     def get_coverage_report(self) -> Dict:
+        """Получить отчёт о покрытии"""
         if self.engine:
             return self.engine.get_coverage_report()
         return {}
 
     def generate_navigator_layer(self) -> str:
+        """Генерация слоя для навигатора"""
         if self.engine:
             return self.engine.save_navigator_layer()
         return ""
 
     def get_technique(self, technique_id: str) -> Optional[Dict]:
+        """Получить информацию о технике"""
         if self.engine:
             return self.engine.get_technique_details(technique_id)
         return None
 
     def search(self, query: str) -> List[Dict]:
+        """Поиск по MITRE"""
         if self.engine:
             return self.engine.search(query)
         return []
 
     def get_stats(self) -> Dict:
+        """Получить статистику"""
         if self.engine:
             return self.engine.get_stats()
         return {}
 
 
+
 def test_mitre():
+    """Тестирование MITRE ATT&CK"""
     print("=" * 60)
     print("🧪 ТЕСТИРОВАНИЕ MITRE ATT&CK FULL COVERAGE")
     print("=" * 60)

@@ -54,8 +54,10 @@ except ImportError:
         def get_logger(self, name: str = None): ...
 
 
+
 @dataclass
 class CloudSecurityConfig:
+    """Configuration for Cloud Security module"""
 
     aws_enabled: bool = False
     aws_access_key: str = ""
@@ -81,7 +83,12 @@ class CloudSecurityConfig:
     findings_dir: str = "./data/cloud_findings/"
 
 
+
 class AWSSecurityScanner:
+    """
+    Full AWS security scanner using boto3.
+    Checks: S3, IAM, Security Groups, CloudTrail, Encryption, MFA.
+    """
 
     def __init__(self, config: CloudSecurityConfig, logger):
         self.config = config
@@ -91,6 +98,7 @@ class AWSSecurityScanner:
         self.findings: List[Dict] = []
 
     def _init_boto3(self):
+        """Initialize boto3 client"""
         try:
             import boto3
             from botocore.exceptions import ClientError, NoCredentialsError
@@ -103,6 +111,7 @@ class AWSSecurityScanner:
             self.boto3 = None
 
     def _get_client(self, service: str):
+        """Get AWS client for service"""
         if not self.boto3:
             return None
 
@@ -123,6 +132,7 @@ class AWSSecurityScanner:
             return None
 
     def scan_s3_buckets(self) -> List[Dict]:
+        """Scan S3 buckets for public access and encryption"""
         findings = []
         s3 = self._get_client('s3')
         if not s3:
@@ -177,6 +187,7 @@ class AWSSecurityScanner:
         return findings
 
     def scan_iam_users(self) -> List[Dict]:
+        """Scan IAM for unused keys, old keys, and missing MFA"""
         findings = []
         iam = self._get_client('iam')
         if not iam:
@@ -235,6 +246,7 @@ class AWSSecurityScanner:
         return findings
 
     def scan_security_groups(self) -> List[Dict]:
+        """Scan security groups for overly permissive rules"""
         findings = []
         ec2 = self._get_client('ec2')
         if not ec2:
@@ -273,6 +285,7 @@ class AWSSecurityScanner:
         return findings
 
     def scan_cloudtrail(self) -> List[Dict]:
+        """Scan CloudTrail for proper configuration"""
         findings = []
         cloudtrail = self._get_client('cloudtrail')
         if not cloudtrail:
@@ -316,6 +329,7 @@ class AWSSecurityScanner:
         return findings
 
     def scan_rds_encryption(self) -> List[Dict]:
+        """Scan RDS instances for encryption at rest"""
         findings = []
         rds = self._get_client('rds')
         if not rds:
@@ -349,6 +363,7 @@ class AWSSecurityScanner:
         }
 
     def scan_all(self) -> List[Dict]:
+        """Run all AWS scans"""
         if not self.boto3:
             return []
 
@@ -367,7 +382,12 @@ class AWSSecurityScanner:
         return all_findings
 
 
+
 class AzureSecurityScanner:
+    """
+    Full Azure security scanner using Azure SDK.
+    Checks: Storage, NSG, IAM, MFA, Encryption, Activity Log.
+    """
 
     def __init__(self, config: CloudSecurityConfig, logger):
         self.config = config
@@ -377,6 +397,7 @@ class AzureSecurityScanner:
         self.findings: List[Dict] = []
 
     def _init_azure(self):
+        """Initialize Azure SDK"""
         try:
             from azure.identity import ClientSecretCredential
             from azure.mgmt.resource import ResourceManagementClient
@@ -404,6 +425,7 @@ class AzureSecurityScanner:
             self.credentials = None
 
     def scan_storage_accounts(self) -> List[Dict]:
+        """Scan Azure storage accounts for public access and encryption"""
         findings = []
         if not self.credentials:
             return findings
@@ -440,6 +462,7 @@ class AzureSecurityScanner:
         return findings
 
     def scan_network_security_groups(self) -> List[Dict]:
+        """Scan NSGs for permissive rules"""
         findings = []
         if not self.credentials:
             return findings
@@ -465,6 +488,7 @@ class AzureSecurityScanner:
         return findings
 
     def scan_iam_users(self) -> List[Dict]:
+        """Scan Azure AD for users without MFA"""
         findings = []
         if not self.credentials:
             return findings
@@ -499,6 +523,7 @@ class AzureSecurityScanner:
         return findings
 
     def scan_activity_log(self) -> List[Dict]:
+        """Scan Activity Log for suspicious operations"""
         findings = []
         if not self.credentials:
             return findings
@@ -538,6 +563,7 @@ class AzureSecurityScanner:
         }
 
     def scan_all(self) -> List[Dict]:
+        """Run all Azure scans"""
         if not self.credentials:
             return []
 
@@ -555,7 +581,12 @@ class AzureSecurityScanner:
         return all_findings
 
 
+
 class GCPSecurityScanner:
+    """
+    Full GCP security scanner using Google Cloud SDK.
+    Checks: Storage, Firewall, IAM, MFA, Audit Logs, Encryption.
+    """
 
     def __init__(self, config: CloudSecurityConfig, logger):
         self.config = config
@@ -566,6 +597,7 @@ class GCPSecurityScanner:
         self.findings: List[Dict] = []
 
     def _init_gcp(self):
+        """Initialize GCP SDK"""
         try:
             from google.cloud import storage
             from google.cloud import compute_v1
@@ -588,6 +620,7 @@ class GCPSecurityScanner:
             self.credentials = None
 
     def scan_storage_buckets(self) -> List[Dict]:
+        """Scan GCS buckets for public access and encryption"""
         findings = []
         if not self.credentials:
             return findings
@@ -627,6 +660,7 @@ class GCPSecurityScanner:
         return findings
 
     def scan_firewall_rules(self) -> List[Dict]:
+        """Scan VPC firewall rules"""
         findings = []
         if not self.credentials:
             return findings
@@ -653,6 +687,7 @@ class GCPSecurityScanner:
         return findings
 
     def scan_iam_users(self) -> List[Dict]:
+        """Scan IAM for service accounts with excessive permissions and missing MFA"""
         findings = []
         if not self.credentials:
             return findings
@@ -703,6 +738,7 @@ class GCPSecurityScanner:
         return findings
 
     def scan_audit_logs(self) -> List[Dict]:
+        """Scan Cloud Audit Logs for suspicious activity"""
         findings = []
         if not self.credentials:
             return findings
@@ -740,6 +776,7 @@ class GCPSecurityScanner:
         }
 
     def scan_all(self) -> List[Dict]:
+        """Run all GCP scans"""
         self.logger.info("🔍 Scanning GCP security...")
 
         all_findings = []
@@ -754,7 +791,9 @@ class GCPSecurityScanner:
         return all_findings
 
 
+
 class CloudSecurityEngine:
+    """Main Cloud Security Engine coordinating all cloud providers."""
 
     def __init__(self, config: CloudSecurityConfig, event_bus, logger):
         self.config = config
@@ -773,6 +812,7 @@ class CloudSecurityEngine:
         Path(self.config.findings_dir).mkdir(parents=True, exist_ok=True)
 
     def start(self):
+        """Start cloud security scanning"""
         self._running = True
         self._scan_thread = threading.Thread(target=self._scan_loop, daemon=True, name="CloudSecurity")
         self._scan_thread.start()
@@ -784,6 +824,7 @@ class CloudSecurityEngine:
             print("🚀 Cloud Security Engine started")
 
     def stop(self):
+        """Stop scanning"""
         self._running = False
         if self._scan_thread:
             self._scan_thread.join(timeout=5)
@@ -791,11 +832,13 @@ class CloudSecurityEngine:
         self.logger.info("🛑 Cloud Security Engine stopped")
 
     def _scan_loop(self):
+        """Background scanning loop"""
         while self._running:
             self.scan_all()
             time.sleep(self.config.scan_interval)
 
     def scan_all(self) -> List[Dict]:
+        """Run all cloud security scans"""
         all_findings = []
 
         if self.aws_scanner:
@@ -814,6 +857,7 @@ class CloudSecurityEngine:
         return all_findings
 
     def _publish_finding_alert(self, finding: Dict):
+        """Publish cloud finding as SIEM alert"""
         severity_order = {'CRITICAL': 4, 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1}
         threshold = severity_order.get(self.config.finding_severity_threshold, 2)
 
@@ -832,6 +876,7 @@ class CloudSecurityEngine:
             self.logger.warning(f"☁️ Cloud finding: {finding['cloud']} - {finding['finding']}")
 
     def _save_findings(self):
+        """Save findings to file"""
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         filepath = Path(self.config.findings_dir) / f"findings_{timestamp}.json"
 
@@ -844,6 +889,7 @@ class CloudSecurityEngine:
         self.logger.info(f"💾 Saved {len(findings_list)} findings to {filepath}")
 
     def get_stats(self) -> Dict:
+        """Get cloud security statistics"""
         with self._lock:
             findings_by_severity = defaultdict(int)
             findings_by_cloud = defaultdict(int)
@@ -862,7 +908,9 @@ class CloudSecurityEngine:
             }
 
 
+
 class ShardCloudSecurityIntegration(BaseModule):
+    """Integration layer for SHARD Enterprise"""
 
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("CloudSecurity", config, event_bus, logger)

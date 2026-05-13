@@ -28,6 +28,7 @@ import numpy as np
 logger = logging.getLogger("SHARD-CodeGen")
 
 
+
 class CodeLanguage(Enum):
     BASH = "bash"
     PYTHON = "python"
@@ -46,6 +47,7 @@ class CodeSeverity(Enum):
 
 @dataclass
 class GeneratedCode:
+    """Сгенерированный защитный код"""
     id: str
     language: CodeLanguage
     code: str
@@ -57,6 +59,7 @@ class GeneratedCode:
     sandbox_result: Optional[Dict] = None
     applied: bool = False
     reverted: bool = False
+
 
 
 CODE_TEMPLATES = {
@@ -80,6 +83,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("SHARD-Defense")
 
 def block_ip(ip: str, port: int = None, duration: int = 3600):
+    """Блокировка IP адреса"""
     logger.warning(f"🚫 Блокировка IP: {{ip}} на {{duration}}с")
 
     rules = [
@@ -102,6 +106,7 @@ def block_ip(ip: str, port: int = None, duration: int = 3600):
             pass
 
 def rate_limit(port: int, max_conn: int = 10, window: int = 60):
+    """Rate limiting для порта"""
     logger.info(f"🐢 Rate limit: порт {{port}}, {{max_conn}}/{{window}}с")
 
     subprocess.run([
@@ -116,6 +121,7 @@ def rate_limit(port: int, max_conn: int = 10, window: int = 60):
     ], capture_output=True)
 
 def redirect_to_honeypot(src_ip: str, dst_port: int, honeypot_port: int = 8888):
+    """Перенаправление атакующего на honeypot"""
     logger.info(f"🍯 Редирект {{src_ip}}:{{dst_port}} → honeypot:{{honeypot_port}}")
 
     subprocess.run([
@@ -125,6 +131,7 @@ def redirect_to_honeypot(src_ip: str, dst_port: int, honeypot_port: int = 8888):
     ], capture_output=True)
 
 def monitor_attack(ip: str, log_file: str = "/var/log/shard/defense.log"):
+    """Мониторинг атакующего"""
     logger.info(f"📊 Мониторинг активности {{ip}}")
 
     try:
@@ -145,6 +152,7 @@ def monitor_attack(ip: str, log_file: str = "/var/log/shard/defense.log"):
         logger.info("Мониторинг остановлен")
 
 def generate_report(attack_info: dict) -> str:
+    """Генерация отчёта о защите"""
     report = f\"\"\"
 ╔══════════════════════════════════════════════════════╗
 ║ SHARD AI DEFENDER - ОТЧЁТ О ЗАЩИТЕ                  ║
@@ -159,6 +167,7 @@ def generate_report(attack_info: dict) -> str:
     return report
 
 def main():
+    """Главная функция защиты"""
     logger.info("🛡️ SHARD AI Defender v2.0 активирован")
     logger.info("=" * 50)
 
@@ -364,7 +373,11 @@ iptables -L INPUT -n -v | grep {src_ip}
 }
 
 
+
 class CodeSandbox:
+    """
+    Песочница для безопасного тестирования сгенерированного кода.
+    """
 
     DANGEROUS_PATTERNS = [
         r'rm\s+-rf\s+/',
@@ -387,6 +400,10 @@ class CodeSandbox:
         self._lock = threading.RLock()
 
     def validate_code(self, code: str, language: CodeLanguage) -> Dict:
+        """
+        Проверка кода в песочнице.
+        Возвращает результат валидации.
+        """
         with self._lock:
             result = {
                 'valid': False,
@@ -425,6 +442,7 @@ class CodeSandbox:
             return result
 
     def _check_syntax(self, code: str, language: CodeLanguage) -> bool:
+        """Проверка синтаксиса"""
         try:
             if language == CodeLanguage.PYTHON:
                 compile(code, '<sandbox>', 'exec')
@@ -453,6 +471,7 @@ class CodeSandbox:
             return True
 
     def _check_python_ast(self, code: str) -> bool:
+        """AST анализ Python кода на опасные вызовы"""
         try:
             tree = ast.parse(code)
 
@@ -479,6 +498,7 @@ class CodeSandbox:
             return False
 
     def _run_sandbox(self, code: str, language: CodeLanguage) -> bool:
+        """Запуск кода в песочнице"""
         try:
             sandbox_file = self.sandbox_dir / f'test_code.{language.value}'
 
@@ -507,13 +527,19 @@ class CodeSandbox:
             return False
 
     def cleanup(self):
+        """Очистка песочницы"""
         try:
             shutil.rmtree(self.sandbox_dir)
         except:
             pass
 
 
+
 class DefenseCodeGenerator:
+    """
+    AI генератор защитного кода.
+    Создаёт реальный код на 5 языках для блокировки атак.
+    """
 
     def __init__(self):
         self.sandbox = CodeSandbox()
@@ -535,6 +561,16 @@ class DefenseCodeGenerator:
             attack_info: Dict,
             languages: List[CodeLanguage] = None
     ) -> List[GeneratedCode]:
+        """
+        Генерация защитного кода для атаки.
+
+        Args:
+            attack_info: Информация об атаке
+            languages: Языки для генерации (по умолчанию все)
+
+        Returns:
+            Список сгенерированных кодов
+        """
         if languages is None:
             languages = list(CodeLanguage)
 
@@ -573,6 +609,7 @@ class DefenseCodeGenerator:
     def _generate_code(
             self, attack_info: Dict, language: CodeLanguage
     ) -> str:
+        """Генерация кода на конкретном языке"""
 
         params = {
             'attack_type': attack_info.get('attack_type', 'Unknown Attack'),
@@ -605,6 +642,7 @@ class DefenseCodeGenerator:
         return code
 
     def _build_defense_actions(self, attack_info: Dict) -> Dict[str, str]:
+        """Построение защитных действий"""
         src_ip = attack_info.get('src_ip', '0.0.0.0')
         dst_port = attack_info.get('dst_port', 0)
         attack_type = attack_info.get('attack_type', '')
@@ -650,12 +688,14 @@ class DefenseCodeGenerator:
         }
 
     def _get_ip_range(self, ip: str) -> str:
+        """Получение /24 подсети для IP"""
         parts = ip.split('.')
         if len(parts) == 4:
             return f"{parts[0]}.{parts[1]}.{parts[2]}.0/24"
         return ip
 
     def save_code(self, gen_code: GeneratedCode, output_dir: str = './defense_scripts/') -> Path:
+        """Сохранение сгенерированного кода в файл"""
         output_path = Path(output_dir)
         output_path.mkdir(exist_ok=True)
 
@@ -686,6 +726,16 @@ class DefenseCodeGenerator:
         return filepath
 
     def apply_defense(self, gen_code: GeneratedCode, dry_run: bool = True) -> Dict:
+        """
+        Применение защиты.
+
+        Args:
+            gen_code: Сгенерированный код
+            dry_run: Если True — только симуляция
+
+        Returns:
+            Результат применения
+        """
         if gen_code.severity == CodeSeverity.BLOCKED:
             return {
                 'success': False,
@@ -753,7 +803,9 @@ class DefenseCodeGenerator:
             }
 
 
+
 def test_code_generator():
+    """Тестирование генератора кода"""
     print("=" * 60)
     print("🧪 ТЕСТ AI DEFENSE CODE GENERATOR")
     print("=" * 60)
