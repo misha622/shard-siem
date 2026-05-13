@@ -1,6 +1,6 @@
 # 🛡️ SHARD Enterprise SIEM
 
-> Самая мощная нейросеть кибербезопасности с открытым исходным кодом
+> Autonomous AI-driven SIEM — 10 neural networks for real-time cyber defense
 
 ![Version](https://img.shields.io/badge/version-5.0.0-blue)
 ![Python](https://img.shields.io/badge/python-3.11-green)
