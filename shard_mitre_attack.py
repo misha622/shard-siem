@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 SHARD MITRE ATT&CK Full Coverage Module
@@ -27,31 +26,23 @@ import requests
 import yaml
 
 
-# ============================================================
-# КОНФИГУРАЦИЯ
-# ============================================================
 
 @dataclass
 class MITREConfig:
     """Конфигурация MITRE ATT&CK"""
 
-    # Источники данных
     enterprise_attack_url: str = "https://raw.githubusercontent.com/mitre/cti/master/enterprise-attack/enterprise-attack.json"
     mobile_attack_url: str = "https://raw.githubusercontent.com/mitre/cti/master/mobile-attack/mobile-attack.json"
     ics_attack_url: str = "https://raw.githubusercontent.com/mitre/cti/master/ics-attack/ics-attack.json"
 
-    # Локальное хранилище
     data_dir: str = "./data/mitre/"
     db_path: str = "./data/mitre/mitre.db"
 
-    # Обновление
     auto_update: bool = True
     update_interval_days: int = 7
 
-    # Маппинг
     custom_mappings_path: str = "./data/mitre/custom_mappings.yaml"
 
-    # Отчёты
     reports_dir: str = "./data/mitre/reports/"
 
 
@@ -100,7 +91,7 @@ class MITRESoftware:
     id: str
     name: str
     description: str
-    type: str  # malware, tool, utility
+    type: str
     platforms: List[str] = field(default_factory=list)
     techniques: List[str] = field(default_factory=list)
     aliases: List[str] = field(default_factory=list)
@@ -115,9 +106,6 @@ class MITREMitigation:
     techniques: List[str] = field(default_factory=list)
 
 
-# ============================================================
-# MITRE ATT&CK LOADER
-# ============================================================
 
 class MITRELoader:
     """Загрузчик данных MITRE ATT&CK"""
@@ -126,7 +114,6 @@ class MITRELoader:
         self.config = config
         self.logger = logger
 
-        # Данные
         self.tactics: Dict[str, MITRETactic] = {}
         self.techniques: Dict[str, MITRETechnique] = {}
         self.sub_techniques: Dict[str, MITRETechnique] = {}
@@ -134,7 +121,6 @@ class MITRELoader:
         self.software: Dict[str, MITRESoftware] = {}
         self.mitigations: Dict[str, MITREMitigation] = {}
 
-        # Индексы для быстрого поиска
         self.techniques_by_tactic: Dict[str, List[str]] = defaultdict(list)
         self.techniques_by_platform: Dict[str, List[str]] = defaultdict(list)
         self.groups_by_technique: Dict[str, List[str]] = defaultdict(list)
@@ -152,7 +138,6 @@ class MITRELoader:
         try:
             data_path = Path(self.config.data_dir) / "enterprise-attack.json"
 
-            # Загрузка из локального файла или скачивание
             if not data_path.exists():
                 self._download_attack_data()
 
@@ -169,7 +154,6 @@ class MITRELoader:
 
                 return True
             else:
-                # Загрузка встроенного подмножества
                 self._load_embedded_data()
                 self._loaded = True
                 return True
@@ -205,7 +189,6 @@ class MITRELoader:
         with self._lock:
             objects = data.get('objects', [])
 
-            # Первый проход - базовые объекты
             for obj in objects:
                 obj_type = obj.get('type')
                 obj_id = obj.get('id')
@@ -223,7 +206,6 @@ class MITRELoader:
                 elif obj_type == 'attack-pattern':
                     is_sub = obj.get('x_mitre_is_subtechnique', False)
 
-                    # Извлечение техник из external_references
                     external_id = None
                     for ref in obj.get('external_references', []):
                         if ref.get('source_name') == 'mitre-attack':
@@ -242,7 +224,6 @@ class MITRELoader:
                             is_sub_technique=is_sub
                         )
 
-                        # Тактики из kill_chain_phases
                         for phase in obj.get('kill_chain_phases', []):
                             if phase.get('kill_chain_name') == 'mitre-attack':
                                 tactic_name = phase.get('phase_name', '')
@@ -282,35 +263,30 @@ class MITRELoader:
                     )
                     self.mitigations[obj_id] = mitigation
 
-            # Второй проход - связи
             for obj in objects:
                 if obj.get('type') == 'relationship':
                     source_ref = obj.get('source_ref')
                     target_ref = obj.get('target_ref')
                     rel_type = obj.get('relationship_type')
 
-                    # Техники в группах
                     if source_ref in self.groups and target_ref in self.techniques:
                         tech_id = self.techniques[target_ref].id
                         if tech_id:
                             self.groups[source_ref].techniques.append(tech_id)
                             self.groups_by_technique[tech_id].append(source_ref)
 
-                    # Техники в ПО
                     elif source_ref in self.software and target_ref in self.techniques:
                         tech_id = self.techniques[target_ref].id
                         if tech_id:
                             self.software[source_ref].techniques.append(tech_id)
                             self.software_by_technique[tech_id].append(source_ref)
 
-                    # Меры защиты для техник
                     elif source_ref in self.mitigations and target_ref in self.techniques:
                         tech_id = self.techniques[target_ref].id
                         if tech_id:
                             self.mitigations[source_ref].techniques.append(tech_id)
                             self.mitigations_by_technique[tech_id].append(source_ref)
 
-                    # Sub-techniques
                     elif rel_type == 'subtechnique-of':
                         if source_ref in self.sub_techniques:
                             for tech in self.techniques.values():
@@ -325,7 +301,6 @@ class MITRELoader:
     def _load_embedded_data(self):
         """Загрузка встроенного подмножества MITRE ATT&CK"""
         with self._lock:
-            # Тактики
             tactics_data = [
                 ('TA0043', 'Reconnaissance', 'reconnaissance'),
                 ('TA0042', 'Resource Development', 'resource-development'),
@@ -348,7 +323,6 @@ class MITRELoader:
                     id=tid, name=name, description='', short_name=short
                 )
 
-            # Техники (ключевые)
             techniques_data = [
                 ('T1059', 'Command and Scripting Interpreter', ['Execution']),
                 ('T1059.001', 'PowerShell', ['Execution']),
@@ -389,9 +363,6 @@ class MITRELoader:
                     self.techniques_by_tactic[t].append(tid)
 
 
-# ============================================================
-# MITRE MAPPER
-# ============================================================
 
 class MITREMapper:
     """Маппер алертов на MITRE ATT&CK"""
@@ -419,27 +390,22 @@ class MITREMapper:
         alert_data = alert.get('details', {})
         description = alert.get('explanation', '')
 
-        # Поиск техник
         techniques = self._find_techniques(attack_type, alert_data, description)
 
-        # Определение тактик
         tactics = set()
         for tech_id in techniques:
             tech = self.loader.techniques.get(tech_id) or self.loader.sub_techniques.get(tech_id)
             if tech:
                 tactics.update(tech.tactics)
 
-        # Поиск связанных групп
         groups = set()
         for tech_id in techniques:
             groups.update(self.loader.groups_by_technique.get(tech_id, []))
 
-        # Поиск связанного ПО
         software = set()
         for tech_id in techniques:
             software.update(self.loader.software_by_technique.get(tech_id, []))
 
-        # Меры защиты
         mitigations = set()
         for tech_id in techniques:
             mitigations.update(self.loader.mitigations_by_technique.get(tech_id, []))
@@ -457,7 +423,6 @@ class MITREMapper:
         """Поиск подходящих техник"""
         techniques = set()
 
-        # 1. Точное совпадение по типу атаки
         attack_mapping = {
             'Brute Force': ['T1110'],
             'Port Scan': ['T1046'],
@@ -481,7 +446,6 @@ class MITREMapper:
         if attack_type in attack_mapping:
             techniques.update(attack_mapping[attack_type])
 
-        # 2. Поиск по ключевым словам в описании
         keyword_mapping = {
             'powershell': ['T1059.001'],
             'cmd.exe': ['T1059.003'],
@@ -514,12 +478,10 @@ class MITREMapper:
             if keyword in desc_lower:
                 techniques.update(techs)
 
-        # 3. Кастомные маппинги
         for pattern, techs in self.custom_mappings.items():
             if re.search(pattern, description, re.IGNORECASE):
                 techniques.update(techs)
 
-        # 4. Анализ данных алерта
         if alert_data:
             if alert_data.get('port') in [445, 139]:
                 techniques.add('T1021.002')
@@ -544,9 +506,6 @@ class MITREMapper:
             return 0.5
 
 
-# ============================================================
-# MITRE COVERAGE ANALYZER
-# ============================================================
 
 class MITRECoverageAnalyzer:
     """Анализатор покрытия MITRE ATT&CK"""
@@ -555,7 +514,6 @@ class MITRECoverageAnalyzer:
         self.loader = loader
         self.logger = logger
 
-        # Статистика обнаружений
         self.detected_techniques: Dict[str, int] = defaultdict(int)
         self.detected_tactics: Dict[str, int] = defaultdict(int)
         self.detection_history: deque = deque(maxlen=10000)
@@ -586,7 +544,6 @@ class MITRECoverageAnalyzer:
             detected_techs = len(self.detected_techniques)
             detected_tactics = len(self.detected_tactics)
 
-            # Покрытие по тактикам
             coverage_by_tactic = {}
             for tactic_id, tactic in self.loader.tactics.items():
                 techs_in_tactic = self.loader.techniques_by_tactic.get(tactic.name, [])
@@ -597,13 +554,11 @@ class MITRECoverageAnalyzer:
                     'percentage': round(detected_in_tactic / max(1, len(techs_in_tactic)) * 100, 1)
                 }
 
-            # Топ обнаруженных техник
             top_techniques = sorted(
                 self.detected_techniques.items(),
                 key=lambda x: x[1], reverse=True
             )[:10]
 
-            # Пропущенные критические техники
             critical_techniques = ['T1003', 'T1059', 'T1021', 'T1071', 'T1048', 'T1486']
             missed_critical = [t for t in critical_techniques if t not in self.detected_techniques]
 
@@ -644,12 +599,10 @@ class MITRECoverageAnalyzer:
         """Генерация рекомендаций по улучшению покрытия"""
         recommendations = []
 
-        # Тактики с низким покрытием
         for tactic, stats in coverage.items():
             if stats['percentage'] < 30:
                 recommendations.append(f"Improve detection coverage for {tactic} (currently {stats['percentage']}%)")
 
-        # Критические пропущенные техники
         if missed_critical:
             recommendations.append(f"Implement detection for critical techniques: {', '.join(missed_critical)}")
 
@@ -668,9 +621,6 @@ class MITRECoverageAnalyzer:
             }
 
 
-# ============================================================
-# MITRE NAVIGATOR GENERATOR
-# ============================================================
 
 class MITRENavigatorGenerator:
     """Генератор MITRE ATT&CK Navigator слоёв"""
@@ -687,15 +637,14 @@ class MITRENavigatorGenerator:
         for tech_id, count in self.coverage_analyzer.detected_techniques.items():
             tech = self.loader.techniques.get(tech_id) or self.loader.sub_techniques.get(tech_id)
             if tech:
-                # Цвет в зависимости от частоты обнаружения
                 if count >= 100:
-                    color = "#dc3545"  # Красный - очень часто
+                    color = "
                 elif count >= 50:
-                    color = "#fd7e14"  # Оранжевый - часто
+                    color = "
                 elif count >= 10:
-                    color = "#ffc107"  # Жёлтый - средне
+                    color = "
                 else:
-                    color = "#28a745"  # Зелёный - редко
+                    color = "
 
                 techniques.append({
                     "techniqueID": tech_id,
@@ -731,20 +680,20 @@ class MITRENavigatorGenerator:
             "hideDisabled": False,
             "techniques": techniques,
             "gradient": {
-                "colors": ["#28a745", "#ffc107", "#fd7e14", "#dc3545"],
+                "colors": ["
                 "minValue": 0,
                 "maxValue": 100
             },
             "legendItems": [
-                {"label": ">100 detections", "color": "#dc3545"},
-                {"label": "50-100 detections", "color": "#fd7e14"},
-                {"label": "10-49 detections", "color": "#ffc107"},
-                {"label": "1-9 detections", "color": "#28a745"},
+                {"label": ">100 detections", "color": "
+                {"label": "50-100 detections", "color": "
+                {"label": "10-49 detections", "color": "
+                {"label": "1-9 detections", "color": "
             ],
             "metadata": [],
             "links": [],
             "showTacticRowBackground": True,
-            "tacticRowBackground": "#dddddd",
+            "tacticRowBackground": "
             "selectTechniquesAcrossTactics": True,
             "selectSubtechniquesWithParent": False,
             "selectVisibleTechniques": False
@@ -754,7 +703,6 @@ class MITRENavigatorGenerator:
         """Генерация тепловой карты"""
         layer = self.generate_navigator_layer(name)
 
-        # Настройка для тепловой карты
         scores = []
         for tech_id, count in self.coverage_analyzer.detected_techniques.items():
             score = min(100, int(count / 2))
@@ -767,7 +715,7 @@ class MITRENavigatorGenerator:
 
         if scores:
             layer['gradient'] = {
-                "colors": ["#ffffff", "#ffebcc", "#ffd699", "#ffc266", "#ffad33", "#ff9900"],
+                "colors": ["
                 "minValue": 0,
                 "maxValue": 100
             }
@@ -775,9 +723,6 @@ class MITRENavigatorGenerator:
         return layer
 
 
-# ============================================================
-# MITRE ENGINE
-# ============================================================
 
 class MITREEngine:
     """
@@ -820,7 +765,6 @@ class MITREEngine:
         """Маппинг алерта на MITRE ATT&CK"""
         mapping = self.mapper.map_alert(alert)
 
-        # Запись в статистику
         if mapping['techniques']:
             self.coverage_analyzer.record_detection(
                 mapping['techniques'],
@@ -903,7 +847,6 @@ class MITREEngine:
         results = []
         query_lower = query.lower()
 
-        # Поиск по техникам
         for tech_id, tech in self.loader.techniques.items():
             if query_lower in tech.name.lower() or query_lower in tech_id.lower():
                 results.append({
@@ -913,7 +856,6 @@ class MITREEngine:
                     'description': tech.description[:200]
                 })
 
-        # Поиск по тактикам
         for tactic in self.loader.tactics.values():
             if query_lower in tactic.name.lower() or query_lower in tactic.short_name.lower():
                 results.append({
@@ -923,7 +865,6 @@ class MITREEngine:
                     'short_name': tactic.short_name
                 })
 
-        # Поиск по группам
         for group in self.loader.groups.values():
             if query_lower in group.name.lower() or any(query_lower in a.lower() for a in group.aliases):
                 results.append({
@@ -947,9 +888,6 @@ class MITREEngine:
             }
 
 
-# ============================================================
-# ИНТЕГРАЦИЯ С SHARD
-# ============================================================
 
 class ShardMITREIntegration:
     """Интеграция MITRE ATT&CK в SHARD"""
@@ -990,7 +928,6 @@ class ShardMITREIntegration:
             mapping = self.engine.map_alert(alert)
             alert['mitre_mapping'] = mapping
 
-            # Публикация обогащённого алерта
             if self.event_bus:
                 self.event_bus.publish('alert.enriched', alert)
 
@@ -1050,9 +987,6 @@ class ShardMITREIntegration:
         return {}
 
 
-# ============================================================
-# ТЕСТИРОВАНИЕ
-# ============================================================
 
 def test_mitre():
     """Тестирование MITRE ATT&CK"""
@@ -1064,7 +998,6 @@ def test_mitre():
     engine = MITREEngine(config)
     engine.start()
 
-    # Тест 1: Маппинг алерта
     print("\n📝 Тест 1: Маппинг алерта")
     test_alert = {
         'attack_type': 'Brute Force',
@@ -1079,27 +1012,23 @@ def test_mitre():
     print(f"   Techniques: {mapping['techniques']}")
     print(f"   Confidence: {mapping['confidence']}")
 
-    # Тест 2: Покрытие
     print("\n📝 Тест 2: Отчёт о покрытии")
     coverage = engine.get_coverage_report()
     summary = coverage['summary']
     print(f"   Coverage: {summary['coverage_percentage']}%")
     print(f"   Detected techniques: {summary['detected_techniques']}/{summary['total_techniques']}")
 
-    # Тест 3: Детали техники
     print("\n📝 Тест 3: Детали техники T1110")
     details = engine.get_technique_details('T1110')
     if details:
         print(f"   Name: {details['name']}")
         print(f"   Detection count: {details['detection_count']}")
 
-    # Тест 4: Поиск
     print("\n📝 Тест 4: Поиск 'PowerShell'")
     results = engine.search('PowerShell')
     for r in results[:3]:
         print(f"   - [{r['type']}] {r['id']}: {r['name']}")
 
-    # Тест 5: Генерация слоя
     print("\n📝 Тест 5: Генерация слоя навигатора")
     layer_path = engine.save_navigator_layer()
     print(f"   Saved to: {layer_path}")

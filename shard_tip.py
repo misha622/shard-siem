@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 SHARD Threat Intelligence Platform (TIP)
@@ -31,9 +30,6 @@ import requests
 import yaml
 
 
-# ============================================================
-# КОНФИГУРАЦИЯ
-# ============================================================
 
 class IOCType(Enum):
     """Типы индикаторов компрометации"""
@@ -84,11 +80,11 @@ class IOCStatus(Enum):
 
 class TLPMarking(Enum):
     """Traffic Light Protocol маркировка"""
-    RED = "RED"  # Только для указанных получателей
-    AMBER = "AMBER"  # Ограниченное распространение
-    GREEN = "GREEN"  # Распространение в сообществе
-    WHITE = "WHITE"  # Без ограничений
-    CLEAR = "CLEAR"  # Публичная информация
+    RED = "RED"
+    AMBER = "AMBER"
+    GREEN = "GREEN"
+    WHITE = "WHITE"
+    CLEAR = "CLEAR"
 
 
 class ConfidenceLevel(Enum):
@@ -104,10 +100,8 @@ class ConfidenceLevel(Enum):
 class TIPConfig:
     """Конфигурация Threat Intelligence Platform"""
 
-    # База данных
     db_path: str = "./data/tip/iocs.db"
 
-    # Внешние фиды
     feeds: List[Dict] = field(default_factory=lambda: [
         {'name': 'AlienVault OTX', 'url': 'https://otx.alienvault.com/api/v1/pulses/subscribed', 'type': 'otx',
          'enabled': True},
@@ -124,32 +118,26 @@ class TIPConfig:
         {'name': 'Spamhaus EDROP', 'url': 'https://www.spamhaus.org/drop/edrop.txt', 'type': 'list', 'enabled': True},
     ])
 
-    # TAXII серверы
     taxii_servers: List[Dict] = field(default_factory=lambda: [
         {'name': 'MITRE ATT&CK TAXII', 'url': 'https://cti-taxii.mitre.org/taxii/',
          'collections': ['95ecc380-afe9-11e4-9b6c-751b66dd541e'], 'enabled': True},
     ])
 
-    # MISP интеграция
     misp_enabled: bool = False
     misp_url: str = ""
     misp_api_key: str = ""
     misp_verify_ssl: bool = False
 
-    # STIX/TAXII
     stix_export_enabled: bool = True
     taxii_server_enabled: bool = False
     taxii_server_port: int = 8443
 
-    # Обновление
     update_interval_hours: int = 6
     max_iocs_per_feed: int = 10000
 
-    # Кэширование
     cache_ttl: int = 3600
     max_cache_size: int = 100000
 
-    # Автоматизация
     auto_enrich: bool = True
     auto_share: bool = False
     confidence_threshold: int = 50
@@ -203,9 +191,6 @@ class ThreatReport:
     raw_stix: Optional[Dict] = None
 
 
-# ============================================================
-# БАЗА ДАННЫХ IOC
-# ============================================================
 
 class IOCDatabase:
     """База данных индикаторов компрометации"""
@@ -224,7 +209,6 @@ class IOCDatabase:
             conn.execute('PRAGMA journal_mode=WAL')
             conn.execute('PRAGMA synchronous=NORMAL')
 
-            # Таблица IOC
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS iocs (
                     id TEXT PRIMARY KEY,
@@ -254,7 +238,6 @@ class IOCDatabase:
                 )
             ''')
 
-            # Таблица Threat Reports
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS threat_reports (
                     id TEXT PRIMARY KEY,
@@ -276,7 +259,6 @@ class IOCDatabase:
                 )
             ''')
 
-            # Таблица Sightings (наблюдения)
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS sightings (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -288,7 +270,6 @@ class IOCDatabase:
                 )
             ''')
 
-            # Таблица Feed Status
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS feed_status (
                     feed_name TEXT PRIMARY KEY,
@@ -299,7 +280,6 @@ class IOCDatabase:
                 )
             ''')
 
-            # Индексы
             conn.execute('CREATE INDEX IF NOT EXISTS idx_iocs_type ON iocs(type)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_iocs_value ON iocs(value)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_iocs_status ON iocs(status)')
@@ -523,9 +503,6 @@ class IOCDatabase:
                 conn.close()
 
 
-# ============================================================
-# IOC ENRICHER
-# ============================================================
 
 class IOCEnricher:
     """Обогащение индикаторов данными из внешних источников"""
@@ -563,7 +540,6 @@ class IOCEnricher:
         with self._lock:
             self.cache[cache_key] = (time.time(), enrichment)
             if len(self.cache) > self.config.max_cache_size:
-                # Удаление старых записей
                 items = sorted(self.cache.items(), key=lambda x: x[1][0])
                 for k, _ in items[:1000]:
                     del self.cache[k]
@@ -574,7 +550,6 @@ class IOCEnricher:
         """Обогащение IP адреса"""
         enrichment = {}
 
-        # Проверка приватных IP
         try:
             ip_obj = ipaddress.ip_address(ip)
             enrichment['is_private'] = ip_obj.is_private
@@ -582,7 +557,6 @@ class IOCEnricher:
         except:
             pass
 
-        # GeoIP (ip-api.com)
         try:
             response = requests.get(f'http://ip-api.com/json/{ip}', timeout=5)
             if response.status_code == 200:
@@ -602,7 +576,6 @@ class IOCEnricher:
         except:
             pass
 
-        # AbuseIPDB
         abuse_key = os.environ.get('ABUSEIPDB_KEY', '')
         if abuse_key:
             try:
@@ -630,7 +603,6 @@ class IOCEnricher:
         """Обогащение домена"""
         enrichment = {}
 
-        # WHOIS (упрощённо через API)
         try:
             response = requests.get(f'https://api.domainsdb.info/v1/domains/search?domain={domain}', timeout=5)
             if response.status_code == 200:
@@ -640,7 +612,6 @@ class IOCEnricher:
         except:
             pass
 
-        # Разрешение DNS
         try:
             import socket
             ips = []
@@ -650,7 +621,6 @@ class IOCEnricher:
         except:
             pass
 
-        # SSL сертификат
         try:
             import ssl
             import socket
@@ -675,7 +645,6 @@ class IOCEnricher:
         """Обогащение хеша файла"""
         enrichment = {}
 
-        # VirusTotal
         vt_key = os.environ.get('VIRUSTOTAL_KEY', '')
         if vt_key:
             try:
@@ -703,7 +672,6 @@ class IOCEnricher:
         """Обогащение URL"""
         enrichment = {}
 
-        # Парсинг URL
         try:
             parsed = urlparse(url)
             enrichment['parsed'] = {
@@ -719,7 +687,6 @@ class IOCEnricher:
         except:
             pass
 
-        # URLhaus
         try:
             response = requests.post('https://urlhaus-api.abuse.ch/v1/url/',
                                      data={'url': url}, timeout=5)
@@ -737,9 +704,6 @@ class IOCEnricher:
         return enrichment
 
 
-# ============================================================
-# FEED PARSER
-# ============================================================
 
 class FeedParser:
     """Парсер внешних фидов threat intelligence"""
@@ -783,7 +747,7 @@ class FeedParser:
 
         for line in data.split('\n'):
             line = line.strip()
-            if not line or line.startswith('#'):
+            if not line or line.startswith('
                 continue
 
             parts = line.split(',')
@@ -810,7 +774,7 @@ class FeedParser:
 
         for line in data.split('\n'):
             line = line.strip()
-            if line and not line.startswith('#'):
+            if line and not line.startswith('
                 try:
                     ipaddress.ip_address(line)
                     ioc = Indicator(
@@ -848,47 +812,36 @@ class FeedParser:
 
     def _detect_type(self, value: str) -> Optional[IOCType]:
         """Определение типа IOC по значению"""
-        # IP
         try:
             ipaddress.ip_address(value)
             return IOCType.IP
         except:
             pass
 
-        # Domain
         if re.match(r'^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z]{2,})+$', value):
             return IOCType.DOMAIN
 
-        # URL
         if value.startswith(('http://', 'https://', 'ftp://')):
             return IOCType.URL
 
-        # Email
         if re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', value):
             return IOCType.EMAIL
 
-        # MD5
         if re.match(r'^[a-fA-F0-9]{32}$', value):
             return IOCType.HASH_MD5
 
-        # SHA1
         if re.match(r'^[a-fA-F0-9]{40}$', value):
             return IOCType.HASH_SHA1
 
-        # SHA256
         if re.match(r'^[a-fA-F0-9]{64}$', value):
             return IOCType.HASH_SHA256
 
-        # CVE
         if re.match(r'^CVE-\d{4}-\d{4,}$', value, re.IGNORECASE):
             return IOCType.CVE
 
         return None
 
 
-# ============================================================
-# STIX CONVERTER
-# ============================================================
 
 class STIXConverter:
     """Конвертация между STIX 2.1 и внутренним форматом"""
@@ -902,7 +855,6 @@ class STIXConverter:
             "objects": []
         }
 
-        # Добавление Identity (SHARD)
         bundle["objects"].append({
             "type": "identity",
             "id": "identity--shard-enterprise",
@@ -1012,7 +964,6 @@ class STIXConverter:
         try:
             pattern = obj.get('pattern', '')
 
-            # Извлечение типа и значения из pattern
             ioc_type = None
             value = None
 
@@ -1034,7 +985,6 @@ class STIXConverter:
             if ioc_type is None:
                 return None
 
-            # Извлечение значения
             match = re.search(r"=\s*'([^']+)'", pattern)
             if match:
                 value = match.group(1)
@@ -1056,9 +1006,6 @@ class STIXConverter:
             return None
 
 
-# ============================================================
-# THREAT INTELLIGENCE PLATFORM ENGINE
-# ============================================================
 
 class TIPEngine:
     """
@@ -1153,10 +1100,8 @@ class TIPEngine:
             else:
                 iocs = self.feed_parser.parse_csv_list(response.text, feed['name'])
 
-        # Ограничение количества
         iocs = iocs[:self.config.max_iocs_per_feed]
 
-        # Сохранение в БД
         saved = 0
         for ioc in iocs:
             if self.add_ioc(ioc):
@@ -1168,19 +1113,15 @@ class TIPEngine:
 
     def add_ioc(self, ioc: Indicator, auto_enrich: bool = True) -> bool:
         """Добавление индикатора"""
-        # Генерация ID если не задан
         if not ioc.id:
             ioc.id = f"IOC-{ioc.type.value}-{hash(ioc.value) % 1000000:06d}"
 
-        # Проверка существующего
         existing = self.database.get_ioc(ioc_type=ioc.type, value=ioc.value)
         if existing:
-            # Обновление sightings
             existing.sightings += 1
             existing.last_seen = time.time()
             return self.database.upsert_ioc(existing)
 
-        # Обогащение
         if auto_enrich and self.config.auto_enrich:
             ioc = self.enricher.enrich(ioc)
             with self._lock:
@@ -1193,7 +1134,6 @@ class TIPEngine:
         if ioc_type:
             return self.database.get_ioc(ioc_type=ioc_type, value=value)
 
-        # Автоопределение типа
         detected_type = self.feed_parser._detect_type(value)
         if detected_type:
             return self.database.get_ioc(ioc_type=detected_type, value=value)
@@ -1208,7 +1148,6 @@ class TIPEngine:
         """Проверка алерта на наличие IOC"""
         matched_iocs = []
 
-        # Проверка IP
         src_ip = alert.get('src_ip')
         if src_ip:
             ioc = self.lookup(src_ip, IOCType.IP)
@@ -1223,7 +1162,6 @@ class TIPEngine:
                 matched_iocs.append(ioc)
                 self.database.add_sighting(ioc.id, "alert", alert)
 
-        # Проверка доменов в alert
         explanation = alert.get('explanation', '')
         domain_pattern = r'[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z]{2,})+'
         for domain in re.findall(domain_pattern, explanation):
@@ -1296,9 +1234,6 @@ class TIPEngine:
         ]
 
 
-# ============================================================
-# ИНТЕГРАЦИЯ С SHARD
-# ============================================================
 
 class ShardTIPIntegration:
     """Интеграция Threat Intelligence Platform в SHARD"""
@@ -1341,7 +1276,6 @@ class ShardTIPIntegration:
         matched_iocs = self.engine.check_alert(alert)
 
         if matched_iocs:
-            # Обогащение алерта
             alert['threat_intel'] = {
                 'iocs': [
                     {
@@ -1359,7 +1293,6 @@ class ShardTIPIntegration:
                 ]
             }
 
-            # Повышение score алерта
             max_severity = max(ioc.severity for ioc in matched_iocs)
             if max_severity == IOCSeverity.CRITICAL:
                 alert['score'] = min(1.0, alert.get('score', 0) + 0.3)
@@ -1468,9 +1401,6 @@ class ShardTIPIntegration:
         return 0
 
 
-# ============================================================
-# ТЕСТИРОВАНИЕ
-# ============================================================
 
 def test_tip():
     """Тестирование Threat Intelligence Platform"""
@@ -1479,13 +1409,11 @@ def test_tip():
     print("=" * 60)
 
     config = TIPConfig()
-    # Отключаем фиды для теста
     config.feeds = []
     config.update_interval_hours = 0
 
     engine = TIPEngine(config)
 
-    # Тест 1: Добавление IOC
     print("\n📝 Тест 1: Добавление IOC")
     ioc1 = Indicator(
         type=IOCType.IP,
@@ -1507,7 +1435,6 @@ def test_tip():
     )
     engine.add_ioc(ioc2)
 
-    # Тест 2: Lookup
     print("\n📝 Тест 2: Lookup")
     found = engine.lookup("185.142.53.101")
     if found:
@@ -1516,14 +1443,12 @@ def test_tip():
         if found.enrichment:
             print(f"   Enriched: {list(found.enrichment.keys())}")
 
-    # Тест 3: Поиск
     print("\n📝 Тест 3: Поиск")
     results = engine.search("malicious", limit=10)
     print(f"   Found {len(results)} results")
     for r in results:
         print(f"      - {r.type.value}:{r.value} ({r.severity.value})")
 
-    # Тест 4: Проверка алерта
     print("\n📝 Тест 4: Проверка алерта")
     alert = {
         'src_ip': '185.142.53.101',
@@ -1534,12 +1459,10 @@ def test_tip():
     matched = engine.check_alert(alert)
     print(f"   Matched {len(matched)} IOCs")
 
-    # Тест 5: Экспорт STIX
     print("\n📝 Тест 5: Экспорт STIX")
     stix = engine.export_stix(query="malicious", limit=2)
     print(f"   STIX bundle size: {len(stix)} bytes")
 
-    # Тест 6: Статистика
     print("\n📝 Тест 6: Статистика")
     stats = engine.get_stats()
     for key, value in stats.items():

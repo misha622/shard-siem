@@ -55,12 +55,10 @@ class ShardNotifier:
         msg += f"🎯 Confidence: {confidence:.0%}\n"
         msg += f"🕐 {time_str}"
         
-        # Добавляем RL решение если есть
         rl = alert.get('rl_action')
         if rl:
             msg += f"\n🤖 RL: *{rl.get('action_name', '?')}*"
         
-        # Добавляем код защиты (кратко)
         code = alert.get('code', '')
         if code:
             first_line = code.split('\n')[0] if '\n' in code else code[:80]
@@ -130,7 +128,7 @@ class ShardNotifier:
         """Отправка в Slack"""
         try:
             requests.post(self.slack_webhook, json={
-                'text': message.replace('*', '*'),  # Slack uses * for bold too
+                'text': message.replace('*', '*'),
             }, timeout=5)
         except Exception as e:
             logger.debug(f"Slack send error: {e}")
@@ -139,12 +137,11 @@ class ShardNotifier:
         """Отправка в Discord"""
         try:
             requests.post(self.discord_webhook, json={
-                'content': message.replace('*', '**'),  # Discord uses ** for bold
+                'content': message.replace('*', '**'),
             }, timeout=5)
         except Exception as e:
             logger.debug(f"Discord send error: {e}")
 
-# Singleton
 _notifier_instance = None
 
 def get_notifier(config: Dict = None) -> ShardNotifier:

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 SHARD Cloud Security Module
@@ -22,8 +21,6 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
-# ========== ДОБАВИТЬ ИМПОРТЫ БАЗОВЫХ КЛАССОВ SHARD ==========
-# Пытаемся импортировать из основного файла
 try:
     from shard_enterprise_complete import (
         BaseModule,
@@ -32,7 +29,6 @@ try:
         LoggingService
     )
 except ImportError:
-    # Если не в том же файле, создаём заглушки для типов
     from typing import Protocol
 
 
@@ -58,46 +54,35 @@ except ImportError:
         def get_logger(self, name: str = None): ...
 
 
-# ============================================================
-# CONFIGURATION
-# ============================================================
 
 @dataclass
 class CloudSecurityConfig:
     """Configuration for Cloud Security module"""
 
-    # AWS
     aws_enabled: bool = False
     aws_access_key: str = ""
     aws_secret_key: str = ""
     aws_session_token: str = ""
     aws_region: str = "us-east-1"
 
-    # Azure
     azure_enabled: bool = False
     azure_tenant_id: str = ""
     azure_client_id: str = ""
     azure_client_secret: str = ""
     azure_subscription_id: str = ""
 
-    # GCP
     gcp_enabled: bool = False
     gcp_project_id: str = ""
     gcp_credentials_file: str = ""
 
-    # General
     scan_interval: int = 300
     alert_on_finding: bool = True
     auto_remediate: bool = False
     finding_severity_threshold: str = "MEDIUM"
 
-    # Storage
     findings_dir: str = "./data/cloud_findings/"
 
 
-# ============================================================
-# AWS SECURITY SCANNER (FULL)
-# ============================================================
 
 class AWSSecurityScanner:
     """
@@ -158,7 +143,6 @@ class AWSSecurityScanner:
             for bucket in response.get('Buckets', []):
                 bucket_name = bucket['Name']
 
-                # Check public access block
                 try:
                     public_access = s3.get_public_access_block(Bucket=bucket_name)
                     block_config = public_access.get('PublicAccessBlockConfiguration', {})
@@ -176,7 +160,6 @@ class AWSSecurityScanner:
                             'Configure PublicAccessBlockConfiguration'
                         ))
 
-                # Check encryption
                 try:
                     s3.get_bucket_encryption(Bucket=bucket_name)
                 except self.ClientError as e:
@@ -187,7 +170,6 @@ class AWSSecurityScanner:
                             'Enable default encryption'
                         ))
 
-                # Check versioning
                 try:
                     versioning = s3.get_bucket_versioning(Bucket=bucket_name)
                     if versioning.get('Status') != 'Enabled':
@@ -216,7 +198,6 @@ class AWSSecurityScanner:
             for user in response.get('Users', []):
                 username = user['UserName']
 
-                # Check access keys age
                 keys = iam.list_access_keys(UserName=username)
                 for key in keys.get('AccessKeyMetadata', []):
                     create_date = key['CreateDate']
@@ -229,7 +210,6 @@ class AWSSecurityScanner:
                             'Rotate access keys'
                         ))
 
-                    # Check if key is active but never used
                     last_used = iam.get_access_key_last_used(AccessKeyId=key['AccessKeyId'])
                     last_used_date = last_used.get('AccessKeyLastUsed', {}).get('LastUsedDate')
                     if last_used_date is None and key['Status'] == 'Active':
@@ -239,7 +219,6 @@ class AWSSecurityScanner:
                             'Deactivate or delete unused key'
                         ))
 
-                # Check MFA
                 mfa_devices = iam.list_mfa_devices(UserName=username)
                 if not mfa_devices.get('MFADevices'):
                     try:
@@ -252,7 +231,6 @@ class AWSSecurityScanner:
                     except:
                         pass
 
-                # Check attached policies for admin privileges
                 policies = iam.list_attached_user_policies(UserName=username)
                 for policy in policies.get('AttachedPolicies', []):
                     if policy['PolicyName'] == 'AdministratorAccess':
@@ -338,7 +316,6 @@ class AWSSecurityScanner:
                         'Enable log file validation'
                     ))
 
-                # Check if CloudWatch Logs integration
                 if not trail.get('CloudWatchLogsLogGroupArn'):
                     findings.append(self._create_finding(
                         'AWS', 'CloudTrail', trail['Name'],
@@ -405,9 +382,6 @@ class AWSSecurityScanner:
         return all_findings
 
 
-# ============================================================
-# AZURE SECURITY SCANNER (FULL)
-# ============================================================
 
 class AzureSecurityScanner:
     """
@@ -523,21 +497,19 @@ class AzureSecurityScanner:
             token = self.credentials.get_token("https://graph.microsoft.com/.default")
             headers = {'Authorization': f'Bearer {token.token}'}
 
-            # Get users
             response = self.requests.get('https://graph.microsoft.com/v1.0/users?$select=id,displayName,userPrincipalName', headers=headers)
             if response.status_code != 200:
                 return findings
 
             users = response.json().get('value', [])
             for user in users:
-                # Check MFA status via authentication methods
                 mfa_response = self.requests.get(
                     f"https://graph.microsoft.com/v1.0/users/{user['id']}/authentication/methods",
                     headers=headers
                 )
                 if mfa_response.status_code == 200:
                     methods = mfa_response.json().get('value', [])
-                    has_mfa = any(m.get('@odata.type') == '#microsoft.graph.microsoftAuthenticatorAuthenticationMethod' for m in methods)
+                    has_mfa = any(m.get('@odata.type') == '
                     if not has_mfa:
                         findings.append(self._create_finding(
                             'Azure', 'IAM', user['userPrincipalName'],
@@ -609,9 +581,6 @@ class AzureSecurityScanner:
         return all_findings
 
 
-# ============================================================
-# GCP SECURITY SCANNER (FULL)
-# ============================================================
 
 class GCPSecurityScanner:
     """
@@ -661,7 +630,6 @@ class GCPSecurityScanner:
             buckets = client.list_buckets()
 
             for bucket in buckets:
-                # Check public access
                 policy = bucket.get_iam_policy()
                 for binding in policy.bindings:
                     if binding['role'] == 'roles/storage.objectViewer':
@@ -672,7 +640,6 @@ class GCPSecurityScanner:
                                 'Remove public IAM binding'
                             ))
 
-                # Check uniform bucket-level access
                 if not bucket.iam_configuration.uniform_bucket_level_access_enabled:
                     findings.append(self._create_finding(
                         'GCP', 'Storage', bucket.name,
@@ -680,7 +647,6 @@ class GCPSecurityScanner:
                         'Enable uniform bucket-level access'
                     ))
 
-                # Check encryption
                 if bucket.encryption and bucket.encryption.default_kms_key_name is None:
                     findings.append(self._create_finding(
                         'GCP', 'Storage', bucket.name,
@@ -735,7 +701,6 @@ class GCPSecurityScanner:
 
             headers = {'Authorization': f'Bearer {token}'}
 
-            # List service accounts
             response = requests.get(
                 f'https://iam.googleapis.com/v1/projects/{self.project_id}/serviceAccounts',
                 headers=headers
@@ -744,7 +709,6 @@ class GCPSecurityScanner:
             if response.status_code == 200:
                 accounts = response.json().get('accounts', [])
                 for account in accounts:
-                    # Check for owner role
                     if 'roles/owner' in account.get('description', '').lower():
                         findings.append(self._create_finding(
                             'GCP', 'IAM', account['email'],
@@ -752,7 +716,6 @@ class GCPSecurityScanner:
                             'Review and restrict permissions'
                         ))
 
-                    # Check key age
                     keys_response = requests.get(
                         f'https://iam.googleapis.com/v1/projects/{self.project_id}/serviceAccounts/{account["email"]}/keys',
                         headers=headers
@@ -828,9 +791,6 @@ class GCPSecurityScanner:
         return all_findings
 
 
-# ============================================================
-# CLOUD SECURITY ENGINE
-# ============================================================
 
 class CloudSecurityEngine:
     """Main Cloud Security Engine coordinating all cloud providers."""
@@ -948,9 +908,6 @@ class CloudSecurityEngine:
             }
 
 
-# ============================================================
-# SHARD INTEGRATION
-# ============================================================
 
 class ShardCloudSecurityIntegration(BaseModule):
     """Integration layer for SHARD Enterprise"""
@@ -960,21 +917,18 @@ class ShardCloudSecurityIntegration(BaseModule):
 
         cloud_config = CloudSecurityConfig()
 
-        # AWS
         cloud_config.aws_enabled = config.get('cloud.aws.enabled', False)
         cloud_config.aws_access_key = config.get('cloud.aws.access_key', '')
         cloud_config.aws_secret_key = config.get('cloud.aws.secret_key', '')
         cloud_config.aws_session_token = config.get('cloud.aws.session_token', '')
         cloud_config.aws_region = config.get('cloud.aws.region', 'us-east-1')
 
-        # Azure
         cloud_config.azure_enabled = config.get('cloud.azure.enabled', False)
         cloud_config.azure_tenant_id = config.get('cloud.azure.tenant_id', '')
         cloud_config.azure_client_id = config.get('cloud.azure.client_id', '')
         cloud_config.azure_client_secret = config.get('cloud.azure.client_secret', '')
         cloud_config.azure_subscription_id = config.get('cloud.azure.subscription_id', '')
 
-        # GCP
         cloud_config.gcp_enabled = config.get('cloud.gcp.enabled', False)
         cloud_config.gcp_project_id = config.get('cloud.gcp.project_id', '')
         cloud_config.gcp_credentials_file = config.get('cloud.gcp.credentials_file', '')

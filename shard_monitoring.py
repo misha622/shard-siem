@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 SHARD Unified Monitoring Module - Production-Ready
@@ -43,31 +42,24 @@ except ImportError:
     logger.warning("⚠️ prometheus_client не установлен. pip install prometheus-client")
 
 
-# ============================================================
-# КОНФИГУРАЦИЯ
-# ============================================================
 
 @dataclass
 class MonitoringConfig:
     """Конфигурация мониторинга"""
 
-    # Prometheus
     prometheus_enabled: bool = True
     prometheus_port: int = 9090
     prometheus_path: str = '/metrics'
 
-    # Сбор метрик
-    collection_interval: int = 15  # секунд
+    collection_interval: int = 15
     retention_hours: int = 24
     max_metrics_history: int = 100000
 
-    # Grafana
     grafana_url: str = 'http://localhost:3000'
     grafana_api_key: str = ''
     dashboard_uid: str = 'shard-enterprise'
     auto_provision_dashboard: bool = True
 
-    # Алерты
     enable_metric_alerts: bool = True
     alert_on_module_down: bool = True
     alert_on_high_latency: bool = True
@@ -75,14 +67,10 @@ class MonitoringConfig:
     latency_threshold_ms: float = 1000.0
     disk_space_threshold_gb: float = 5.0
 
-    # Хранилище
     metrics_dir: str = '/var/lib/shard/metrics/'
     dashboard_dir: str = '/etc/shard/grafana/dashboards/'
 
 
-# ============================================================
-# METRICS COLLECTOR (ИСПРАВЛЕННЫЙ)
-# ============================================================
 
 class MetricsCollector:
     """
@@ -100,24 +88,19 @@ class MetricsCollector:
         self.config = config
         self.event_bus = None
 
-        # Хранилище метрик
         self.metrics_history: Dict[str, deque] = defaultdict(lambda: deque(maxlen=10000))
         self.module_stats: Dict[str, Dict] = {}
         self.system_stats: Dict[str, Any] = {}
 
-        # Счётчики
         self.counters: Dict[str, int] = defaultdict(int)
         self.gauges: Dict[str, float] = defaultdict(float)
 
-        # Prometheus метрики
         self.prometheus_metrics: Dict[str, Any] = {}
 
-        # Блокировки
         self._lock = threading.RLock()
         self._running = False
         self._collector_thread = None
 
-        # Инициализация Prometheus
         if PROMETHEUS_AVAILABLE:
             self._init_prometheus_metrics()
             self._start_prometheus_server()
@@ -127,7 +110,6 @@ class MetricsCollector:
         if not PROMETHEUS_AVAILABLE:
             return
 
-        # Общие метрики
         self.prometheus_metrics['alerts_total'] = Counter(
             'shard_alerts_total',
             'Total number of alerts',
@@ -155,7 +137,6 @@ class MetricsCollector:
             ['module', 'error_type']
         )
 
-        # Специфичные метрики для модулей
         self.prometheus_metrics['model_predictions_total'] = Counter(
             'shard_model_predictions_total',
             'Total model predictions',
@@ -183,7 +164,6 @@ class MetricsCollector:
             ['endpoint', 'status_code']
         )
 
-        # Бизнес-метрики
         self.prometheus_metrics['threats_blocked_total'] = Counter(
             'shard_threats_blocked_total',
             'Total blocked threats',
@@ -199,7 +179,6 @@ class MetricsCollector:
             'Total false positive alerts'
         )
 
-        # Системные метрики
         self.prometheus_metrics['system_cpu_percent'] = Gauge(
             'shard_system_cpu_percent',
             'System CPU usage percent'
@@ -242,7 +221,6 @@ class MetricsCollector:
             global logger
             logger = logger_instance
 
-        # Подписка на события
         if event_bus:
             event_bus.subscribe('alert.detected', self._on_alert)
             event_bus.subscribe('packet.processed', self._on_packet)
@@ -282,14 +260,12 @@ class MetricsCollector:
     def _collect_system_metrics(self):
         """Сбор системных метрик"""
         try:
-            # CPU
             cpu_percent = psutil.cpu_percent(interval=1)
             self.system_stats['cpu_percent'] = cpu_percent
             self.gauges['system_cpu_percent'] = cpu_percent
             if PROMETHEUS_AVAILABLE and 'system_cpu_percent' in self.prometheus_metrics:
                 self.prometheus_metrics['system_cpu_percent'].set(cpu_percent)
 
-            # Память
             memory = psutil.virtual_memory()
             self.system_stats['memory_used_gb'] = memory.used / (1024**3)
             self.system_stats['memory_total_gb'] = memory.total / (1024**3)
@@ -298,7 +274,6 @@ class MetricsCollector:
             if PROMETHEUS_AVAILABLE and 'system_memory_percent' in self.prometheus_metrics:
                 self.prometheus_metrics['system_memory_percent'].set(memory.percent)
 
-            # Диск
             disk = psutil.disk_usage('/')
             free_gb = disk.free / (1024**3)
             self.system_stats['disk_free_gb'] = free_gb
@@ -307,12 +282,10 @@ class MetricsCollector:
             if PROMETHEUS_AVAILABLE and 'system_disk_free_gb' in self.prometheus_metrics:
                 self.prometheus_metrics['system_disk_free_gb'].set(free_gb)
 
-            # Сеть
             net_io = psutil.net_io_counters()
             self.system_stats['net_bytes_sent'] = net_io.bytes_sent
             self.system_stats['net_bytes_recv'] = net_io.bytes_recv
 
-            # Алерт на диск
             if self.config.alert_on_disk_space and free_gb < self.config.disk_space_threshold_gb:
                 logger.warning(f"⚠️ Low disk space: {free_gb:.1f} GB free")
                 if self.event_bus:
@@ -335,7 +308,6 @@ class MetricsCollector:
             self.counters[f'alerts:{module}:{severity}'] += 1
             self.counters['alerts_total'] += 1
 
-        # Prometheus
         if PROMETHEUS_AVAILABLE and 'alerts_total' in self.prometheus_metrics:
             self.prometheus_metrics['alerts_total'].labels(
                 module=module, severity=severity
@@ -396,13 +368,11 @@ class MetricsCollector:
 
             self.module_stats[module_name].update(update_data)
 
-        # Prometheus
         if PROMETHEUS_AVAILABLE and 'modules_up' in self.prometheus_metrics:
             self.prometheus_metrics['modules_up'].labels(
                 module=module_name
             ).set(1 if is_up else 0)
 
-        # Алерт если модуль упал
         if not is_up and self.config.alert_on_module_down:
             logger.error(f"🚨 Module DOWN: {module_name}")
             if self.event_bus:
@@ -429,13 +399,11 @@ class MetricsCollector:
                 module=module_name, operation=operation
             ).observe(latency_ms)
 
-        # Алерт на высокую задержку
         if latency_ms > self.config.latency_threshold_ms and self.config.alert_on_high_latency:
             logger.warning(f"⚠️ High latency: {module_name}/{operation} = {latency_ms:.0f}ms")
 
     def _update_gauges(self):
         """Обновление gauge метрик"""
-        # Обновление IOCs если TIP доступен
         if PROMETHEUS_AVAILABLE and 'iocs_total' in self.prometheus_metrics:
             for key, value in self.gauges.items():
                 if key.startswith('ioc:'):
@@ -463,7 +431,6 @@ class MetricsCollector:
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
-        # Очистка старых файлов
         cutoff = time.time() - (self.config.retention_hours * 3600)
         for old_file in metrics_path.glob('metrics_*.json'):
             if old_file.stat().st_mtime < cutoff:
@@ -490,9 +457,6 @@ class MetricsCollector:
         }
 
 
-# ============================================================
-# GRAFANA DASHBOARD GENERATOR (ИСПРАВЛЕННЫЙ)
-# ============================================================
 
 class GrafanaDashboardGenerator:
     """
@@ -560,7 +524,6 @@ class GrafanaDashboardGenerator:
             "weekStart": "monday"
         }
 
-        # Сборка панелей
         panels = []
         panels.extend(self._generate_overview_row(0))
         panels.extend(self._generate_alerts_row(8))
@@ -569,7 +532,6 @@ class GrafanaDashboardGenerator:
         panels.extend(self._generate_ml_row(44))
         panels.extend(self._generate_threat_intel_row(52))
 
-        # Назначение ID панелям
         for idx, panel in enumerate(panels):
             if 'id' not in panel:
                 panel['id'] = idx + 1
@@ -916,9 +878,6 @@ class GrafanaDashboardGenerator:
             return False
 
 
-# ============================================================
-# SHARD INTEGRATION
-# ============================================================
 
 class ShardMonitoringIntegration:
     """Интеграция мониторинга в SHARD Enterprise"""
@@ -949,12 +908,10 @@ class ShardMonitoringIntegration:
         """Запуск мониторинга"""
         self.collector.start()
 
-        # Генерация и сохранение дашборда
         try:
             dashboard_path = self.dashboard_generator.save_dashboard()
             self.logger.info(f"📊 Dashboard saved to: {dashboard_path}")
 
-            # Автоматическая загрузка в Grafana
             self.dashboard_generator.provision_to_grafana()
         except Exception as e:
             self.logger.error(f"Dashboard generation error: {e}")
@@ -997,9 +954,6 @@ class ShardMonitoringIntegration:
         return self.dashboard_generator.save_dashboard(filepath)
 
 
-# ============================================================
-# ТЕСТИРОВАНИЕ
-# ============================================================
 
 def test_monitoring():
     """Тестирование мониторинга"""
@@ -1008,55 +962,46 @@ def test_monitoring():
     print("=" * 60)
 
     config = MonitoringConfig()
-    config.prometheus_port = 9091  # Изменяем порт чтобы избежать конфликтов
+    config.prometheus_port = 9091
     integration = ShardMonitoringIntegration()
 
-    # Не запускаем Prometheus сервер для теста
     integration.config.prometheus_enabled = False
 
     integration.start()
 
-    # Тест 1: Обновление здоровья модулей
     print("\n📝 Тест 1: Обновление здоровья модулей")
     test_modules = ['super_ai', 'temporal_gnn', 'dl_models', 'firewall', 'waf']
     for mod in test_modules:
         integration.update_module_health(mod, True, {'version': '5.0.0'})
     print(f"   Updated {len(test_modules)} modules")
 
-    # Проверка здоровья
     health = integration.get_module_health()
     up_count = sum(1 for v in health.values() if v)
     print(f"   Modules up: {up_count}/{len(health)}")
 
-    # Тест 2: Запись алертов
     print("\n📝 Тест 2: Запись алертов")
     for i in range(10):
         integration.record_alert('super_ai', 'HIGH')
     print(f"   Recorded 10 alerts")
 
-    # Тест 3: Запись ошибок
     print("\n📝 Тест 3: Запись ошибок")
     integration.record_error('temporal_gnn', 'connection_timeout')
     integration.record_error('dl_models', 'out_of_memory')
     print(f"   Recorded 2 errors")
 
-    # Тест 4: Запись задержек
     print("\n📝 Тест 4: Запись задержек")
     integration.record_latency('super_ai', 'inference', 150.5)
     integration.record_latency('dl_models', 'training', 2500.0)
     print(f"   Recorded 2 latency measurements")
 
-    # Тест 5: Генерация дашборда
     print("\n📝 Тест 5: Генерация Grafana дашборда")
     try:
         dashboard_path = integration.export_dashboard("./test_dashboard.json")
         print(f"   Dashboard saved to: {dashboard_path}")
 
-        # Проверка размера файла
         file_size = os.path.getsize(dashboard_path)
         print(f"   Dashboard file size: {file_size:,} bytes")
 
-        # Проверка валидности JSON
         with open(dashboard_path, 'r', encoding='utf-8') as f:
             dashboard_data = json.load(f)
         panel_count = len(dashboard_data.get('panels', []))
@@ -1065,7 +1010,6 @@ def test_monitoring():
     except Exception as e:
         print(f"   ❌ Dashboard error: {e}")
 
-    # Тест 6: Получение метрик
     print("\n📝 Тест 6: Текущие метрики")
     metrics = integration.get_current_metrics()
     print(f"   Total alerts: {sum(v for k, v in metrics.get('counters', {}).items() if 'alerts' in k)}")
@@ -1074,7 +1018,6 @@ def test_monitoring():
 
     integration.stop()
 
-    # Очистка тестового файла
     if os.path.exists("./test_dashboard.json"):
         os.unlink("./test_dashboard.json")
 

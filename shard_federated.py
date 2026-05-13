@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 SHARD Federated Learning v2.0 - Production-Ready
@@ -20,7 +19,7 @@ Author: SHARD Enterprise
 Version: 2.0.0 Production
 """
 
-from __future__ import annotations  # Safe for Docker without TF
+from __future__ import annotations
 import os
 import json
 import time
@@ -65,68 +64,54 @@ except ImportError:
     REQUESTS_AVAILABLE = False
 
 
-# ============================================================
-# КОНФИГУРАЦИЯ
-# ============================================================
 
 @dataclass
 class SecureFederatedConfig:
     """Production конфигурация Federated Learning"""
 
-    # Server
     server_url: str = 'https://federated.shard.siem:8443'
     server_auth_token: str = ''
     mTLS_enabled: bool = True
     mTLS_cert_path: str = '/etc/shard/certs/client.crt'
     mTLS_key_path: str = '/etc/shard/certs/client.key'
 
-    # Client
     client_id: str = field(default_factory=lambda: secrets.token_hex(16))
     client_name: str = 'SHARD-Production-Node'
     min_local_samples: int = 100
     local_epochs: int = 5
     batch_size: int = 32
 
-    # Secure Aggregation
     use_secure_aggregation: bool = True
-    secagg_threshold: int = 3  # Минимум клиентов для раунда
-    secagg_timeout: int = 300  # Таймаут ожидания клиентов
+    secagg_threshold: int = 3
+    secagg_timeout: int = 300
     secret_sharing_threshold: int = 3
 
-    # Differential Privacy
     differential_privacy: bool = True
-    dp_epsilon: float = 8.0  # Privacy budget
-    dp_delta: float = 1e-5  # Failure probability
+    dp_epsilon: float = 8.0
+    dp_delta: float = 1e-5
     dp_noise_multiplier: float = 0.01
     dp_l2_norm_clip: float = 1.0
 
-    # Byzantine Resilience
     byzantine_resilience: bool = True
-    byzantine_method: str = 'multi_krum'  # 'median', 'multi_krum', 'trimmed_mean'
-    byzantine_threshold: int = 2  # Максимум вредоносных клиентов
-    byzantine_m: int = 3  # Параметр для Multi-Krum
+    byzantine_method: str = 'multi_krum'
+    byzantine_threshold: int = 2
+    byzantine_m: int = 3
 
-    # Client Reputation
     use_reputation: bool = True
     reputation_decay: float = 0.95
     reputation_threshold: float = 0.3
     min_reputation_for_selection: float = 0.4
 
-    # Performance
     max_concurrent_clients: int = 100
     aggregation_interval: int = 300
     heartbeat_interval: int = 30
     model_checkpoint_interval: int = 10
 
-    # Storage
     model_dir: str = '/var/lib/shard/federated/'
     checkpoint_dir: str = '/var/lib/shard/federated/checkpoints/'
     metrics_dir: str = '/var/lib/shard/federated/metrics/'
 
 
-# ============================================================
-# SECURE AGGREGATION PROTOCOL
-# ============================================================
 
 class SecureAggregationProtocol:
     """
@@ -144,20 +129,16 @@ class SecureAggregationProtocol:
     def __init__(self, config: SecureFederatedConfig):
         self.config = config
 
-        # Ключи клиента
         self.private_key = None
         self.public_key = None
         self.signing_key = None
         self.verify_key = None
 
-        # Ключи других клиентов (по кругу)
         self.peer_public_keys: Dict[str, bytes] = {}
 
-        # Секреты для маскирования
         self.shared_secrets: Dict[str, bytes] = {}
         self.masks: Dict[str, np.ndarray] = {}
 
-        # Состояние раунда
         self.current_round: int = 0
         self.round_state: str = 'idle'
 
@@ -166,11 +147,9 @@ class SecureAggregationProtocol:
 
     def _generate_keys(self):
         """Генерация ключей для Secure Aggregation"""
-        # Diffie-Hellman для обмена секретами
         self.private_key = x25519.X25519PrivateKey.generate()
         self.public_key = self.private_key.public_key()
 
-        # Ed25519 для подписи
         self.signing_key = ed25519.Ed25519PrivateKey.generate()
         self.verify_key = self.signing_key.public_key()
 
@@ -198,7 +177,6 @@ class SecureAggregationProtocol:
         peer_key = x25519.X25519PublicKey.from_public_bytes(peer_public_key_bytes)
         shared = self.private_key.exchange(peer_key)
 
-        # HKDF для получения ключа
         hkdf = HKDF(
             algorithm=hashes.SHA256(),
             length=32,
@@ -213,14 +191,12 @@ class SecureAggregationProtocol:
 
         Используется PRNG для генерации маски того же размера что и модель.
         """
-        # Используем SHAKE256 как PRNG
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.kdf.concatkdf import ConcatKDFHash
 
-        total_size = int(np.prod(model_shape) * 4)  # float32
+        total_size = int(np.prod(model_shape) * 4)
         mask_bytes = b''
 
-        # Генерация через HKDF с разными контекстами
         counter = 0
         while len(mask_bytes) < total_size:
             h = hashlib.sha256(shared_secret + counter.to_bytes(4, 'big')).digest()
@@ -230,7 +206,6 @@ class SecureAggregationProtocol:
         mask_bytes = mask_bytes[:total_size]
         mask = np.frombuffer(mask_bytes, dtype=np.float32).reshape(model_shape)
 
-        # Нормализуем в [-1, 1]
         mask = np.tanh(mask)
         return mask
 
@@ -252,9 +227,6 @@ class SecureAggregationProtocol:
             return False
 
 
-# ============================================================
-# DIFFERENTIAL PRIVACY ENGINE
-# ============================================================
 
 class DifferentialPrivacyEngine:
     """
@@ -273,7 +245,6 @@ class DifferentialPrivacyEngine:
         self.noise_scale = config.dp_noise_multiplier
         self.l2_norm_clip = config.dp_l2_norm_clip
 
-        # Moments Accountant
         self.moments_accountant = {
             'epsilon': 0.0,
             'delta': config.dp_delta,
@@ -288,11 +259,9 @@ class DifferentialPrivacyEngine:
 
         Использует адаптивный порог на основе медианы норм градиентов.
         """
-        # Вычисление норм
         norms = [np.linalg.norm(g) for g in gradients]
         median_norm = np.median(norms) if norms else 1.0
 
-        # Адаптивный clipping threshold
         clip_threshold = self.l2_norm_clip * median_norm
 
         clipped = []
@@ -317,7 +286,6 @@ class DifferentialPrivacyEngine:
             noise = np.random.normal(0, noise_stddev, grad.shape).astype(np.float32)
             noisy.append(grad + noise)
 
-        # Обновление accountants
         self._update_privacy_accountant(len(gradients))
 
         return noisy
@@ -326,12 +294,10 @@ class DifferentialPrivacyEngine:
         """Обновление Moments Accountant"""
         self.moments_accountant['steps'] += 1
 
-        # Вычисление RDP для каждого порядка
         for i, alpha in enumerate(self.moments_accountant['orders']):
             rdp = alpha / (2 * self.noise_scale ** 2)
             self.moments_accountant['rdp_values'][i] += rdp
 
-        # Конвертация RDP → (ε, δ)-DP
         eps_values = []
         for i, alpha in enumerate(self.moments_accountant['orders']):
             eps = self.moments_accountant['rdp_values'][i] - \
@@ -358,9 +324,6 @@ class DifferentialPrivacyEngine:
         return self.privacy_spent < self.config.dp_epsilon
 
 
-# ============================================================
-# BYZANTINE RESILIENCE
-# ============================================================
 
 class ByzantineResilience:
     """
@@ -405,10 +368,8 @@ class ByzantineResilience:
 
         num_clients = len(client_updates)
         if num_clients <= 2 * f + m:
-            # Недостаточно клиентов для Multi-Krum
             return self.aggregate_median(client_updates)
 
-        # Вычисление pairwise расстояний
         distances = np.zeros((num_clients, num_clients))
         for i in range(num_clients):
             for j in range(i + 1, num_clients):
@@ -416,16 +377,13 @@ class ByzantineResilience:
                 distances[i, j] = dist
                 distances[j, i] = dist
 
-        # Для каждого клиента: сумма расстояний до n-f-2 ближайших
         scores = np.zeros(num_clients)
         for i in range(num_clients):
             sorted_dists = np.sort(distances[i])
-            scores[i] = np.sum(sorted_dists[1:num_clients - f])  # Исключая self
+            scores[i] = np.sum(sorted_dists[1:num_clients - f])
 
-        # Выбор m клиентов с наименьшими scores
         best_clients = np.argsort(scores)[:m]
 
-        # FedAvg для выбранных
         selected_updates = [client_updates[i] for i in best_clients]
         selected_sizes = [1] * m
 
@@ -444,7 +402,6 @@ class ByzantineResilience:
             layer_updates = np.stack([c[layer_idx] for c in client_updates])
             sorted_updates = np.sort(layer_updates, axis=0)
 
-            # Отбрасываем trim_count с каждой стороны
             trimmed = sorted_updates[trim_count:num_clients - trim_count]
             mean_update = np.mean(trimmed, axis=0)
             aggregated.append(mean_update)
@@ -472,9 +429,6 @@ class ByzantineResilience:
         return aggregated
 
 
-# ============================================================
-# CLIENT REPUTATION SYSTEM
-# ============================================================
 
 class ClientReputation:
     """
@@ -508,15 +462,12 @@ class ClientReputation:
         current = self.reputations[client_id]
 
         if is_byzantine:
-            # Резкое падение репутации
             self.strikes[client_id] += 1
             penalty = 0.5 ** self.strikes[client_id]
             new_reputation = current * penalty
         else:
-            # Плавное обновление
             quality_score = 0.6 * contribution_score + 0.4 * update_quality
 
-            # Exponential moving average
             new_reputation = (
                     self.config.reputation_decay * current +
                     (1 - self.config.reputation_decay) * quality_score
@@ -537,7 +488,6 @@ class ClientReputation:
         Клиенты с репутацией ниже порога исключаются.
         Остальные выбираются с вероятностью пропорциональной репутации.
         """
-        # Фильтрация
         eligible = [
             c for c in available_clients
             if self.reputations[c] >= self.config.min_reputation_for_selection
@@ -546,7 +496,6 @@ class ClientReputation:
         if len(eligible) <= num_to_select:
             return eligible
 
-        # Взвешенная случайная выборка
         weights = [self.reputations[c] for c in eligible]
         total_weight = sum(weights)
         probs = [w / total_weight for w in weights] if total_weight > 0 else None
@@ -581,9 +530,6 @@ class ClientReputation:
         }
 
 
-# ============================================================
-# PRODUCTION FEDERATED CLIENT
-# ============================================================
 
 class SecureFederatedClient:
     """
@@ -602,17 +548,13 @@ class SecureFederatedClient:
         self.model: Optional[tf.keras.Model] = None
         self.global_weights: Optional[List[np.ndarray]] = None
 
-        # Secure Aggregation
         self.secagg = SecureAggregationProtocol(config) if config.use_secure_aggregation else None
 
-        # Differential Privacy
         self.dp_engine = DifferentialPrivacyEngine(config) if config.differential_privacy else None
 
-        # Локальные данные
         self.local_data: deque = deque(maxlen=50000)
         self.local_labels: deque = deque(maxlen=50000)
 
-        # Статистика
         self.stats = {
             'rounds_participated': 0,
             'total_samples_trained': 0,
@@ -620,16 +562,13 @@ class SecureFederatedClient:
             'last_sync': 0.0
         }
 
-        # Состояние
         self._running = False
         self._sync_thread: Optional[threading.Thread] = None
         self._health_thread: Optional[threading.Thread] = None
         self._circuit_breaker = CircuitBreaker()
 
-        # HTTP сессия с mTLS
         self.session = self._create_session() if REQUESTS_AVAILABLE else None
 
-        # Инициализация модели
         self._init_model()
 
     def _create_session(self) -> 'requests.Session':
@@ -759,7 +698,6 @@ class SecureFederatedClient:
         if self.dp_engine and not self.dp_engine.can_continue_training():
             return
 
-        # 1. Получение глобальной модели
         response = self.session.get(
             f'{self.config.server_url}/api/v2/federated/model',
             timeout=30
@@ -772,22 +710,18 @@ class SecureFederatedClient:
             self.global_weights = self._deserialize_weights(global_data['weights'])
             self.model.set_weights(self.global_weights)
 
-        # 2. Локальное обучение
         updates = self._local_training()
 
         if updates is None:
             return
 
-        # 3. Применение Differential Privacy
         if self.dp_engine:
             updates = self.dp_engine.clip_gradients(updates)
             updates = self.dp_engine.add_noise(updates)
 
-        # 4. Secure Aggregation (если включено)
         if self.secagg and self.config.use_secure_aggregation:
             updates = self._apply_secure_aggregation(updates, global_data)
 
-        # 5. Отправка обновлений
         payload = {
             'client_id': self.config.client_id,
             'weights': self._serialize_weights(updates),
@@ -820,7 +754,6 @@ class SecureFederatedClient:
         X = np.array(list(self.local_data))
         y = np.array(list(self.local_labels)) if self.local_labels else None
 
-        # Очистка использованных данных
         self.local_data.clear()
         self.local_labels.clear()
 
@@ -846,7 +779,6 @@ class SecureFederatedClient:
 
                 grads = tape.gradient(loss, self.model.trainable_variables)
 
-                # Clipping градиентов
                 grads, _ = tf.clip_by_global_norm(grads, self.config.dp_l2_norm_clip)
 
                 self.model.optimizer.apply_gradients(
@@ -855,7 +787,6 @@ class SecureFederatedClient:
 
         self.stats['total_samples_trained'] += len(X)
 
-        # Возвращаем разницу весов (дельту)
         if self.global_weights:
             new_weights = self.model.get_weights()
             deltas = [nw - gw for nw, gw in zip(new_weights, self.global_weights)]
@@ -866,7 +797,6 @@ class SecureFederatedClient:
     def _apply_secure_aggregation(self, updates: List[np.ndarray],
                                   global_data: Dict) -> List[np.ndarray]:
         """Применение масок Secure Aggregation"""
-        # Генерация масок на основе общего секрета с сервером
         if 'server_public_key' in global_data:
             shared_secret = self.secagg.compute_shared_secret(
                 base64.b64decode(global_data['server_public_key']),
@@ -875,7 +805,6 @@ class SecureFederatedClient:
             model_shape = tuple(w.shape for w in updates)
             mask = self.secagg.generate_mask(shared_secret, model_shape)
 
-            # Применяем маску
             masked_updates = []
             for u, m in zip(updates, mask if isinstance(mask, list) else [mask]):
                 if u.shape == m.shape:
@@ -911,9 +840,6 @@ class SecureFederatedClient:
         return [np.array(w) for w in pickle.loads(base64.b64decode(data))]
 
 
-# ============================================================
-# CIRCUIT BREAKER
-# ============================================================
 
 class CircuitBreaker:
     """
@@ -980,9 +906,6 @@ class CircuitBreaker:
             }
 
 
-# ============================================================
-# PRODUCTION FEDERATED SERVER
-# ============================================================
 
 class SecureFederatedServer:
     """
@@ -1003,23 +926,19 @@ class SecureFederatedServer:
         self.global_model: Optional[tf.keras.Model] = None
         self.global_weights: Optional[List[np.ndarray]] = None
 
-        # Клиенты
         self.clients: Dict[str, Dict] = {}
         self.client_updates: Dict[str, Dict] = {}
         self.round_participants: Set[str] = set()
 
-        # Компоненты
         self.byzantine = ByzantineResilience(config)
         self.reputation = ClientReputation(config)
 
-        # Состояние
         self.current_round = 0
         self.round_history: deque = deque(maxlen=1000)
         self._running = False
         self._aggregation_thread: Optional[threading.Thread] = None
         self._lock = threading.RLock()
 
-        # Метрики Prometheus
         self.metrics = FederatedMetrics()
 
         self._init_model()
@@ -1058,7 +977,6 @@ class SecureFederatedServer:
             self.client_updates.clear()
             self.round_participants.clear()
 
-        # Извлечение обновлений
         client_ids = []
         all_updates = []
         sample_sizes = []
@@ -1068,9 +986,7 @@ class SecureFederatedServer:
                 weights = pickle.loads(base64.b64decode(data['weights']))
                 weights = [np.array(w) for w in weights]
 
-                # Верификация подписи (если есть)
                 if 'signature' in data and data['signature']:
-                    # signature verification
                     pass
 
                 all_updates.append(weights)
@@ -1083,7 +999,6 @@ class SecureFederatedServer:
         if not all_updates:
             return
 
-        # Byzantine Resilient Aggregation
         try:
             if self.config.byzantine_resilience:
                 if self.config.byzantine_method == 'median':
@@ -1093,9 +1008,8 @@ class SecureFederatedServer:
                 elif self.config.byzantine_method == 'trimmed_mean':
                     aggregated = self.byzantine.aggregate_trimmed_mean(all_updates)
                 else:
-                    aggregated = all_updates[0]  # fallback
+                    aggregated = all_updates[0]
             else:
-                # Стандартный FedAvg
                 total = sum(sample_sizes)
                 aggregated = []
                 for layer_weights in zip(*all_updates):
@@ -1106,17 +1020,13 @@ class SecureFederatedServer:
         except Exception as e:
             return
 
-        # Обновление глобальной модели
         self.global_weights = aggregated
         self.current_round += 1
 
-        # Обновление репутации клиентов
         for client_id in client_ids:
-            # contribution_score на основе того насколько обновление близко к агрегированному
-            contribution_score = np.random.random() * 0.5 + 0.5  # В реальности вычисляется
+            contribution_score = np.random.random() * 0.5 + 0.5
             self.reputation.update_reputation(client_id, contribution_score, 0.8)
 
-        # Запись в историю
         self.round_history.append({
             'round': self.current_round,
             'num_clients': len(client_ids),
@@ -1125,13 +1035,11 @@ class SecureFederatedServer:
             'aggregation_method': self.config.byzantine_method
         })
 
-        # Обновление метрик
         self.metrics.record_round(
             num_clients=len(client_ids),
             total_samples=sum(sample_sizes)
         )
 
-        # Чекпоинт
         if self.current_round % self.config.model_checkpoint_interval == 0:
             self._save_checkpoint()
 
@@ -1175,9 +1083,6 @@ class SecureFederatedServer:
         }
 
 
-# ============================================================
-# PROMETHEUS METRICS
-# ============================================================
 
 class FederatedMetrics:
     """Метрики для Prometheus"""
@@ -1220,9 +1125,6 @@ class FederatedMetrics:
         return '\n'.join(lines) + '\n'
 
 
-# ============================================================
-# SHARD INTEGRATION
-# ============================================================
 
 class ShardFederatedV2Integration:
     """Production интеграция Federated Learning v2 в SHARD"""

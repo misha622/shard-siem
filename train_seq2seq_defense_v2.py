@@ -21,9 +21,6 @@ import hashlib
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("SHARD-Seq2Seq-v2")
 
-# ============================================================
-# КОНФИГУРАЦИЯ (увеличенная модель)
-# ============================================================
 
 CONFIG = {
     'vocab_size': 800,
@@ -39,9 +36,6 @@ CONFIG = {
     'warmup_steps': 1000,
 }
 
-# ============================================================
-# ТОКЕНИЗАТОР (улучшенный — сохраняет IP, порты, флаги)
-# ============================================================
 
 class SimpleTokenizer:
     def __init__(self, max_vocab=800):
@@ -95,14 +89,10 @@ class SimpleTokenizer:
         return ' '.join(words)
 
 
-# ============================================================
-# ГЕНЕРАТОР 10K+ УНИКАЛЬНЫХ СЭМПЛОВ
-# ============================================================
 
 def create_dataset() -> list:
     """10 000+ уникальных сэмплов атака→защита"""
     
-    # База IP адресов (разные подсети)
     internal_ips = [f'192.168.{i}.{j}' for i in range(0, 4) for j in range(1, 50)]
     dmz_ips = [f'10.0.{i}.{j}' for i in range(0, 4) for j in range(1, 50)]
     external_ips = [
@@ -113,7 +103,6 @@ def create_dataset() -> list:
         '185.165.29.82', '89.248.165.134', '45.33.32.156', '104.244.74.23',
     ]
     
-    # Все порты
     web_ports = [80, 443, 8080, 8443, 8000, 8888, 9090]
     db_ports = [3306, 5432, 1433, 1521, 6379, 27017, 9200]
     admin_ports = [22, 21, 23, 3389, 5900]
@@ -130,7 +119,6 @@ def create_dataset() -> list:
             seen_hashes.add(h)
             samples.append({'attack': attack_text, 'defense': defense_text})
     
-    # ========== SQL INJECTION (1500+ вариаций) ==========
     sqli_attacks = [
         "SQL injection from {ip} on port {port}",
         "SQLi attack detected from {ip} targeting port {port}",
@@ -167,7 +155,6 @@ def create_dataset() -> list:
         defense = random.choice(sqli_defenses).format(ip=ip, port=port)
         add_sample(attack, defense)
     
-    # ========== BRUTE FORCE (1500+ вариаций) ==========
     brute_attacks = [
         "SSH brute force from {ip}:{port}",
         "FTP brute force attack from {ip} on port {port}",
@@ -203,7 +190,6 @@ def create_dataset() -> list:
         defense = random.choice(brute_defenses).format(ip=ip, port=port)
         add_sample(attack, defense)
     
-    # ========== DDoS (1500+ вариаций) ==========
     ddos_attacks = [
         "SYN flood DDoS from {ip} on port {port}",
         "UDP flood from {ip} port {port}",
@@ -241,7 +227,6 @@ def create_dataset() -> list:
         defense = random.choice(ddos_defenses).format(ip=ip, port=port)
         add_sample(attack, defense)
     
-    # ========== C2 BEACON (1000+ вариаций) ==========
     c2_attacks = [
         "C2 beacon from {ip} on port {port}",
         "Command and control communication from {ip}",
@@ -272,7 +257,6 @@ def create_dataset() -> list:
         defense = random.choice(c2_defenses).format(ip=ip, port=port)
         add_sample(attack, defense)
     
-    # ========== DNS TUNNEL (1000+ вариаций) ==========
     dns_attacks = [
         "DNS tunnel from {ip}",
         "DNS exfiltration detected from {ip}",
@@ -298,7 +282,6 @@ def create_dataset() -> list:
         defense = random.choice(dns_defenses).format(ip=ip)
         add_sample(attack, defense)
     
-    # ========== ДРУГИЕ АТАКИ (3500+ вариаций) ==========
     other_attacks = {
         'Port Scan': [
             ("Port scan from {ip} on port {port}",
@@ -356,7 +339,6 @@ def create_dataset() -> list:
                 defense = defense_template.format(ip=ip, port=port)
                 add_sample(attack, defense)
     
-    # Перемешиваем
     random.shuffle(samples)
     
     logger.info(f"Dataset: {len(samples)} unique samples")
@@ -365,9 +347,6 @@ def create_dataset() -> list:
     return samples
 
 
-# ============================================================
-# TRANSFORMER МОДЕЛЬ (увеличенная)
-# ============================================================
 
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, max_len=200):
@@ -439,7 +418,6 @@ class Seq2SeqTransformer(nn.Module):
                 
                 probs = torch.softmax(logits, dim=-1)
                 
-                # Top-k sampling
                 top_k = 10
                 top_probs, top_indices = torch.topk(probs, top_k)
                 next_token = top_indices[torch.multinomial(top_probs, 1)].item()
@@ -452,9 +430,6 @@ class Seq2SeqTransformer(nn.Module):
             return tokenizer.decode(tgt_indices)
 
 
-# ============================================================
-# DATASET И ОБУЧЕНИЕ
-# ============================================================
 
 class DefenseDataset(Dataset):
     def __init__(self, samples, src_tokenizer, tgt_tokenizer, max_len=120):
@@ -478,11 +453,9 @@ def train():
     logger.info("🧠 SHARD Seq2Seq Defense v2 (10K samples, 256-dim, 4 layers)")
     logger.info("=" * 60)
     
-    # Датасет
     logger.info("\n📊 Creating 10K+ dataset...")
     samples = create_dataset()
     
-    # Токенизаторы
     logger.info("🔤 Building tokenizers...")
     src_tokenizer = SimpleTokenizer(max_vocab=CONFIG['vocab_size'])
     tgt_tokenizer = SimpleTokenizer(max_vocab=CONFIG['vocab_size'])
@@ -492,7 +465,6 @@ def train():
     dataset = DefenseDataset(samples, src_tokenizer, tgt_tokenizer, CONFIG['max_seq_len'])
     dataloader = DataLoader(dataset, batch_size=CONFIG['batch_size'], shuffle=True, num_workers=0)
     
-    # Модель
     vocab_size = max(len(src_tokenizer.word2idx), len(tgt_tokenizer.word2idx)) + 1
     model = Seq2SeqTransformer(
         vocab_size=vocab_size,
@@ -513,7 +485,6 @@ def train():
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=CONFIG['epochs'])
     criterion = nn.CrossEntropyLoss(ignore_index=0)
     
-    # Обучение
     logger.info(f"\n🔄 Training {CONFIG['epochs']} epochs...")
     best_loss = float('inf')
     
@@ -543,7 +514,6 @@ def train():
         
         logger.info(f"✅ Epoch {epoch+1}/{CONFIG['epochs']}: avg_loss={avg_loss:.6f}, lr={scheduler.get_last_lr()[0]:.6f}")
         
-        # Сохраняем лучшую модель
         if avg_loss < best_loss:
             best_loss = avg_loss
             Path('./models/seq2seq').mkdir(parents=True, exist_ok=True)
@@ -556,7 +526,6 @@ def train():
             }, './models/seq2seq/defense_transformer_v2.pt')
             logger.info(f"   💾 Best model saved (loss={best_loss:.6f})")
     
-    # Тест
     logger.info(f"\n🧪 Testing generation...")
     model.eval()
     

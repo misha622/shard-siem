@@ -28,9 +28,6 @@ import numpy as np
 logger = logging.getLogger("SHARD-CodeGen")
 
 
-# ============================================================
-# КОНФИГУРАЦИЯ
-# ============================================================
 
 class CodeLanguage(Enum):
     BASH = "bash"
@@ -42,10 +39,10 @@ class CodeLanguage(Enum):
 
 
 class CodeSeverity(Enum):
-    SAFE = 0  # Безопасно, можно применять
-    WARNING = 1  # Требует проверки
-    DANGEROUS = 2  # Требует подтверждения
-    BLOCKED = 3  # Запрещено
+    SAFE = 0
+    WARNING = 1
+    DANGEROUS = 2
+    BLOCKED = 3
 
 
 @dataclass
@@ -64,9 +61,6 @@ class GeneratedCode:
     reverted: bool = False
 
 
-# ============================================================
-# ШАБЛОНЫ КОДА
-# ============================================================
 
 CODE_TEMPLATES = {
     CodeLanguage.PYTHON: '''
@@ -142,11 +136,10 @@ def monitor_attack(ip: str, log_file: str = "/var/log/shard/defense.log"):
 
     try:
         count = 0
-        while count < 3600:  # Мониторим 1 час
+        while count < 3600:
             time.sleep(10)
             count += 10
 
-            # Проверка активных соединений
             result = subprocess.run(
                 ["ss", "-tnp", "state", "established", f"( src {{ip}} or dst {{ip}} )"],
                 capture_output=True, text=True, timeout=5
@@ -190,13 +183,7 @@ if __name__ == "__main__":
     main()
 ''',
 
-    CodeLanguage.BASH: '''#!/bin/bash
-# ============================================================
-# SHARD AI Defender - Auto-generated Bash Defense Script
-# Attack: {attack_type}
-# Source: {src_ip}:{src_port}
-# Generated: {timestamp}
-# ============================================================
+    CodeLanguage.BASH: '''
 
 set -e
 
@@ -206,7 +193,6 @@ log() {{
 
 log "🛡️ SHARD AI Defender активирован"
 
-# Блокировка IP
 BLOCK_IP="{src_ip}"
 log "🚫 Блокировка IP: $BLOCK_IP"
 
@@ -214,13 +200,11 @@ iptables -A INPUT -s $BLOCK_IP -j DROP
 iptables -A FORWARD -s $BLOCK_IP -j DROP
 iptables -A OUTPUT -d $BLOCK_IP -j DROP
 
-# Блокировка порта
 BLOCK_PORT="{dst_port}"
 log "🔒 Блокировка порта: $BLOCK_PORT"
 
 {port_rules}
 
-# Rate limiting
 log "🐢 Rate limiting: порт $BLOCK_PORT, 5 соединений/мин"
 iptables -A INPUT -p tcp --dport $BLOCK_PORT \\
     -m state --state NEW -m recent --set
@@ -228,7 +212,6 @@ iptables -A INPUT -p tcp --dport $BLOCK_PORT \\
     -m state --state NEW -m recent --update \\
     --seconds 60 --hitcount 5 -j DROP
 
-# Сохранение правил
 iptables-save > /etc/iptables/shard_defense.rules 2>/dev/null || \\
     iptables-save > /tmp/shard_defense_$(date +%s).rules
 
@@ -311,103 +294,75 @@ func rateLimit(port string, maxConn, window int) {{
 }}
 ''',
 
-    CodeLanguage.NGINX: '''# SHARD AI Defender - Auto-generated Nginx WAF Configuration
-# Attack: {attack_type}
-# Generated: {timestamp}
+    CodeLanguage.NGINX: '''
 
-# Rate limiting zone
 limit_req_zone $binary_remote_addr zone=shard_defense:10m rate=5r/s;
 
 server {{
     listen 80;
     listen 443 ssl;
 
-    # ============================================================
-    # SHARD AI Defense Rules
-    # ============================================================
 
-    # Block suspicious User-Agents
     if ($http_user_agent ~* "{bad_user_agents}") {{
         return 403;
     }}
 
-    # Block SQL Injection patterns
     if ($query_string ~* "{sql_patterns}") {{
         return 403;
     }}
 
-    # Block Path Traversal
     if ($uri ~* "{path_patterns}") {{
         return 403;
     }}
 
-    # Block Command Injection
     if ($args ~* "{cmd_patterns}") {{
         return 403;
     }}
 
-    # Rate limiting for attack source
     location / {{
         limit_req zone=shard_defense burst=10 nodelay;
 
-        # Deny specific IP
         deny {src_ip};
 
-        # Deny IP range
         deny {ip_range};
 
         proxy_pass http://backend;
     }}
 
-    # Honeypot redirect for known attackers
     location /admin {{
         return 302 http://{honeypot_ip}:{honeypot_port}$request_uri;
     }}
 }}
 ''',
 
-    CodeLanguage.IPTABLES: '''#!/bin/bash
-# ============================================================
-# SHARD AI Defender - iptables Defense Rules
-# Attack: {attack_type}
-# Source: {src_ip}
-# Generated: {timestamp}
-# ============================================================
+    CodeLanguage.IPTABLES: '''
 
-# Очистка старых правил для этого IP (на случай обновления)
 iptables -D INPUT -s {src_ip} -j DROP 2>/dev/null
 iptables -D FORWARD -s {src_ip} -j DROP 2>/dev/null
 iptables -D OUTPUT -d {src_ip} -j DROP 2>/dev/null
 
-# Блокировка источника
 iptables -A INPUT -s {src_ip} -j DROP
 iptables -A FORWARD -s {src_ip} -j DROP
 iptables -A OUTPUT -d {src_ip} -j DROP
 
-# Блокировка конкретного порта
 iptables -A INPUT -s {src_ip} -p tcp --dport {dst_port} -j DROP
 iptables -A INPUT -s {src_ip} -p udp --dport {dst_port} -j DROP
 
-# Блокировка целого диапазона
 iptables -A INPUT -s {ip_range} -j DROP
 
-# Rate limiting
 iptables -A INPUT -p tcp --dport {dst_port} \\
     -m state --state NEW -m recent --set
 iptables -A INPUT -p tcp --dport {dst_port} \\
     -m state --state NEW -m recent --update \\
     --seconds 60 --hitcount 5 -j DROP
 
-# Защита от SYN flood
 iptables -A INPUT -p tcp --syn -m limit --limit 10/s --limit-burst 20 -j ACCEPT
 iptables -A INPUT -p tcp --syn -j DROP
 
-# Защита от ICMP flood
 iptables -A INPUT -p icmp --icmp-type echo-request \\
     -m limit --limit 1/s -j ACCEPT
 iptables -A INPUT -p icmp --icmp-type echo-request -j DROP
 
-# Логирование заблокированных пакетов
 iptables -A INPUT -s {src_ip} -j LOG \\
     --log-prefix "SHARD-BLOCKED: " --log-level 4
 
@@ -418,9 +373,6 @@ iptables -L INPUT -n -v | grep {src_ip}
 }
 
 
-# ============================================================
-# SANDBOX ДЛЯ ТЕСТИРОВАНИЯ КОДА
-# ============================================================
 
 class CodeSandbox:
     """
@@ -428,18 +380,18 @@ class CodeSandbox:
     """
 
     DANGEROUS_PATTERNS = [
-        r'rm\s+-rf\s+/',  # Удаление системы
-        r'mkfs\.',  # Форматирование диска
-        r'dd\s+if=',  # Запись на диск
-        r'>\s*/dev/',  # Запись в устройство
-        r'chmod\s+777\s+/',  # Массовая смена прав
-        r'wget.*\|.*sh',  # Скачивание и выполнение
-        r'curl.*\|.*bash',  # Curl pipe bash
-        r':\(\)\s*\{\s*:\|:&\s*\};:',  # Fork bomb
-        r'kill\s+-9\s+-1',  # Убийство всех процессов
-        r'reboot',  # Перезагрузка
-        r'shutdown',  # Выключение
-        r'halt',  # Остановка
+        r'rm\s+-rf\s+/',
+        r'mkfs\.',
+        r'dd\s+if=',
+        r'>\s*/dev/',
+        r'chmod\s+777\s+/',
+        r'wget.*\|.*sh',
+        r'curl.*\|.*bash',
+        r':\(\)\s*\{\s*:\|:&\s*\};:',
+        r'kill\s+-9\s+-1',
+        r'reboot',
+        r'shutdown',
+        r'halt',
     ]
 
     def __init__(self):
@@ -461,27 +413,23 @@ class CodeSandbox:
                 'can_execute': False
             }
 
-            # 1. Проверка на опасные паттерны
             for pattern in self.DANGEROUS_PATTERNS:
                 if re.search(pattern, code, re.IGNORECASE):
                     result['errors'].append(f"Опасный паттерн: {pattern}")
                     result['severity'] = CodeSeverity.BLOCKED
                     return result
 
-            # 2. Синтаксическая проверка
             syntax_ok = self._check_syntax(code, language)
             if not syntax_ok:
                 result['errors'].append(f"Синтаксическая ошибка в {language.value}")
                 return result
 
-            # 3. Статический анализ
             if language == CodeLanguage.PYTHON:
                 ast_ok = self._check_python_ast(code)
                 if not ast_ok:
                     result['errors'].append("Ошибка AST анализа Python")
                     return result
 
-            # 4. Проверка в песочнице
             sandbox_ok = self._run_sandbox(code, language)
             if sandbox_ok:
                 result['valid'] = True
@@ -508,7 +456,6 @@ class CodeSandbox:
                 )
                 return result.returncode == 0
             elif language == CodeLanguage.GO:
-                # Проверяем через gofmt
                 result = subprocess.run(
                     ['gofmt', '-e'],
                     input=code,
@@ -521,7 +468,7 @@ class CodeSandbox:
         except SyntaxError:
             return False
         except Exception:
-            return True  # Для не-Python языков
+            return True
 
     def _check_python_ast(self, code: str) -> bool:
         """AST анализ Python кода на опасные вызовы"""
@@ -529,7 +476,6 @@ class CodeSandbox:
             tree = ast.parse(code)
 
             for node in ast.walk(tree):
-                # Запрещённые вызовы
                 if isinstance(node, ast.Call):
                     if isinstance(node.func, ast.Name):
                         if node.func.id in ['exec', 'eval', 'compile', '__import__']:
@@ -537,7 +483,6 @@ class CodeSandbox:
 
                     if isinstance(node.func, ast.Attribute):
                         if node.func.attr in ['system', 'popen', 'call']:
-                            # Проверяем что это НЕ subprocess с безопасными аргументами
                             args = []
                             for arg in node.args:
                                 if isinstance(arg, ast.Constant):
@@ -557,11 +502,9 @@ class CodeSandbox:
         try:
             sandbox_file = self.sandbox_dir / f'test_code.{language.value}'
 
-            # Сохраняем код
             with open(sandbox_file, 'w') as f:
                 f.write(code)
 
-            # Запускаем в изолированной среде
             if language == CodeLanguage.PYTHON:
                 result = subprocess.run(
                     ['python3', '-c', code],
@@ -591,9 +534,6 @@ class CodeSandbox:
             pass
 
 
-# ============================================================
-# AI CODE GENERATOR
-# ============================================================
 
 class DefenseCodeGenerator:
     """
@@ -606,7 +546,6 @@ class DefenseCodeGenerator:
         self.generated_codes: List[GeneratedCode] = []
         self.code_history: deque = deque(maxlen=1000)
 
-        # Статистика
         self.stats = {
             'total_generated': 0,
             'validated': 0,
@@ -640,10 +579,8 @@ class DefenseCodeGenerator:
 
         with self._lock:
             for lang in languages:
-                # Генерируем код
                 code = self._generate_code(attack_info, lang)
 
-                # Валидируем в песочнице
                 validation = self.sandbox.validate_code(code, lang)
 
                 gen_code = GeneratedCode(
@@ -674,7 +611,6 @@ class DefenseCodeGenerator:
     ) -> str:
         """Генерация кода на конкретном языке"""
 
-        # Базовые параметры
         params = {
             'attack_type': attack_info.get('attack_type', 'Unknown Attack'),
             'src_ip': attack_info.get('src_ip', '0.0.0.0'),
@@ -691,20 +627,16 @@ class DefenseCodeGenerator:
             'cmd_patterns': r';.*wget|;.*curl|;.*bash|;.*nc ',
         }
 
-        # Генерация защитных действий
         actions = self._build_defense_actions(attack_info)
         params['defense_actions'] = actions.get('python', 'pass')
         params['port_rules'] = actions.get('iptables', '')
         params['attack_info'] = json.dumps(attack_info, indent=4)
 
-        # Выбор шаблона
         template = CODE_TEMPLATES.get(language, CODE_TEMPLATES[CodeLanguage.BASH])
 
-        # Заполнение шаблона
         try:
             code = template.format(**params)
         except KeyError as e:
-            # Если шаблон не поддерживает какой-то параметр
             code = template.replace('{' + str(e).split("'")[1] + '}', 'N/A')
 
         return code
@@ -716,16 +648,15 @@ class DefenseCodeGenerator:
         attack_type = attack_info.get('attack_type', '')
 
         python_actions = [
-            f"    # Блокировка источника атаки",
+            f"
             f"    block_ip('{src_ip}', {dst_port})",
         ]
 
         iptables_rules = [
-            f"# Блокировка порта {dst_port} для {src_ip}",
+            f"
             f"iptables -A INPUT -s {src_ip} -p tcp --dport {dst_port} -j DROP",
         ]
 
-        # Специфичные действия по типу атаки
         if 'Brute Force' in attack_type:
             python_actions.append(f"    rate_limit({dst_port}, max_conn=5, window=60)")
             iptables_rules.append(
@@ -742,12 +673,12 @@ class DefenseCodeGenerator:
             ])
 
         if 'SQL' in attack_type or 'XSS' in attack_type:
-            python_actions.append(f"    # WAF защита активирована")
+            python_actions.append(f"
             python_actions.append(f"    redirect_to_honeypot('{src_ip}', {dst_port})")
 
         if 'Botnet' in attack_type or 'C2' in attack_type:
-            python_actions.append(f"    # Изоляция затронутого хоста")
-            python_actions.append(f"    # Мониторинг C2 каналов")
+            python_actions.append(f"
+            python_actions.append(f"
 
         python_actions.append(f"    monitor_attack('{src_ip}')")
 
@@ -782,15 +713,13 @@ class DefenseCodeGenerator:
         filepath = output_path / filename
 
         with open(filepath, 'w') as f:
-            # Шебанг для скриптов
             if gen_code.language == CodeLanguage.PYTHON:
-                f.write('#!/usr/bin/env python3\n')
+                f.write('
             elif gen_code.language in [CodeLanguage.BASH, CodeLanguage.IPTABLES]:
-                f.write('#!/bin/bash\n')
+                f.write('
 
             f.write(gen_code.code)
 
-        # Делаем исполняемым
         os.chmod(filepath, 0o755)
 
         logger.info(f"📝 Код сохранён: {filepath}")
@@ -827,7 +756,6 @@ class DefenseCodeGenerator:
                 'code_preview': gen_code.code[:200]
             }
 
-        # Реальное применение
         try:
             if gen_code.language in [CodeLanguage.BASH, CodeLanguage.IPTABLES]:
                 result = subprocess.run(
@@ -875,9 +803,6 @@ class DefenseCodeGenerator:
             }
 
 
-# ============================================================
-# ТЕСТ
-# ============================================================
 
 def test_code_generator():
     """Тестирование генератора кода"""
@@ -887,7 +812,6 @@ def test_code_generator():
 
     gen = DefenseCodeGenerator()
 
-    # Тестовая атака
     attack = {
         'attack_type': 'SQL Injection',
         'src_ip': '185.142.53.101',
@@ -903,7 +827,6 @@ def test_code_generator():
     print(f"   Источник: {attack['src_ip']}:{attack['src_port']}")
     print(f"   Цель: {attack['dst_ip']}:{attack['dst_port']}")
 
-    # Генерируем на всех языках
     codes = gen.generate_defense(attack)
 
     for code in codes:
@@ -913,11 +836,9 @@ def test_code_generator():
         print(code.code[:300])
         print("...")
 
-        # Сохраняем
         filepath = gen.save_code(code)
         print(f"💾 Сохранён: {filepath}")
 
-    # Статистика
     stats = gen.get_stats()
     print(f"\n📊 Статистика:")
     print(f"   Сгенерировано: {stats['total_generated']}")
@@ -925,7 +846,6 @@ def test_code_generator():
     for lang, count in stats['by_language'].items():
         print(f"   {lang}: {count}")
 
-    # Очистка песочницы
     gen.sandbox.cleanup()
 
     print(f"\n📁 Все скрипты в: defense_scripts/")

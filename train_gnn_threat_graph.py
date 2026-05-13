@@ -21,26 +21,20 @@ import math
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("SHARD-GNN-Trainer")
 
-# ============================================================
-# КОНФИГУРАЦИЯ
-# ============================================================
 
 CONFIG = {
-    'node_features': 12,      # Фичи узла (IP): кол-во атак, типы, score, гео и т.д.
-    'edge_features': 4,       # Фичи ребра: кол-во соединений, порты, протокол, длительность
+    'node_features': 12,
+    'edge_features': 4,
     'hidden_dim': 64,
     'gnn_layers': 3,
-    'num_heads': 4,           # Для GAT (Graph Attention)
+    'num_heads': 4,
     'dropout': 0.2,
     'epochs': 200,
     'lr': 0.001,
-    'num_nodes': 50,          # Узлов в графе
-    'num_edges': 200,         # Рёбер
+    'num_nodes': 50,
+    'num_edges': 200,
 }
 
-# ============================================================
-# ГЕНЕРАТОР СИНТЕТИЧЕСКОГО ГРАФА УГРОЗ
-# ============================================================
 
 class ThreatGraphGenerator:
     """Генерирует реалистичные графы угроз для обучения GNN"""
@@ -60,24 +54,22 @@ class ThreatGraphGenerator:
         Генерирует один граф угроз.
         Returns: node_features, edge_index, edge_features, node_labels
         """
-        # ===== Узлы (IP адреса) =====
         node_features = torch.zeros(self.num_nodes, CONFIG['node_features'])
-        node_labels = torch.zeros(self.num_nodes, dtype=torch.long)  # 0=normal, 1=suspicious, 2=malicious
+        node_labels = torch.zeros(self.num_nodes, dtype=torch.long)
         
         for i in range(self.num_nodes):
-            # Тип узла: нормальный хост, заражённый, C2 сервер, цель атаки
             node_type = random.choices([0, 1, 2, 3], weights=[0.5, 0.2, 0.15, 0.15])[0]
             
-            if node_type == 0:  # Нормальный
+            if node_type == 0:
                 node_features[i] = torch.tensor([
-                    random.uniform(0, 0.2),   # avg_score
-                    random.uniform(0, 0.1),   # attack_count_norm
-                    random.uniform(0, 3),     # unique_ports
-                    0, 0, 0, 0, 0, 0, 0, 0,  # one-hot типов атак
-                    random.uniform(0, 1),     # geo_cluster
+                    random.uniform(0, 0.2),
+                    random.uniform(0, 0.1),
+                    random.uniform(0, 3),
+                    0, 0, 0, 0, 0, 0, 0, 0,
+                    random.uniform(0, 1),
                 ])
                 node_labels[i] = 0
-            elif node_type == 1:  # Подозрительный
+            elif node_type == 1:
                 atype = random.randint(0, 7)
                 node_features[i] = torch.tensor([
                     random.uniform(0.3, 0.6),
@@ -87,8 +79,8 @@ class ThreatGraphGenerator:
                     random.uniform(0, 1),
                 ])
                 node_labels[i] = 1
-            elif node_type == 2:  # Вредоносный (C2/атакующий)
-                atype = random.choice([3, 4, 5, 6, 7])  # Тяжёлые атаки
+            elif node_type == 2:
+                atype = random.choice([3, 4, 5, 6, 7])
                 node_features[i] = torch.tensor([
                     random.uniform(0.6, 1.0),
                     random.uniform(0.5, 1.0),
@@ -97,7 +89,7 @@ class ThreatGraphGenerator:
                     random.uniform(0, 1),
                 ])
                 node_labels[i] = 2
-            else:  # Цель атаки
+            else:
                 node_features[i] = torch.tensor([
                     random.uniform(0.5, 0.9),
                     random.uniform(0.3, 0.7),
@@ -105,9 +97,8 @@ class ThreatGraphGenerator:
                     *[random.uniform(0, 1) for _ in range(8)],
                     random.uniform(0, 1),
                 ])
-                node_labels[i] = 0  # Жертва не виновата
+                node_labels[i] = 0
         
-        # ===== Рёбра (связи между IP) =====
         edge_index = []
         edge_features = []
         
@@ -118,26 +109,25 @@ class ThreatGraphGenerator:
             if src == dst:
                 continue
             
-            # Характер связи зависит от типов узлов
             src_label = node_labels[src].item()
             dst_label = node_labels[dst].item()
             
-            if src_label == 2 and dst_label == 0:  # Атакующий → жертва
+            if src_label == 2 and dst_label == 0:
                 weight = random.uniform(0.7, 1.0)
                 protocol = random.choice([6, 17])
                 port = random.choice([22, 80, 443, 445, 3306, 4444])
                 duration = random.uniform(10, 3600)
-            elif src_label == 1 and dst_label == 0:  # Подозрительный → жертва
+            elif src_label == 1 and dst_label == 0:
                 weight = random.uniform(0.3, 0.7)
                 protocol = random.choice([6, 17])
                 port = random.choice([80, 443, 8080])
                 duration = random.uniform(1, 300)
-            elif src_label == 2 and dst_label == 2:  # C2 ↔ C2 координация
+            elif src_label == 2 and dst_label == 2:
                 weight = random.uniform(0.8, 1.0)
                 protocol = 6
                 port = random.choice([4444, 5555, 6666])
                 duration = random.uniform(3600, 86400)
-            else:  # Нормальный трафик
+            else:
                 weight = random.uniform(0, 0.3)
                 protocol = 6
                 port = random.choice([80, 443, 53])
@@ -161,9 +151,6 @@ class ThreatGraphGenerator:
         return [self.generate_graph() for _ in range(batch_size)]
 
 
-# ============================================================
-# GNN МОДЕЛЬ (Graph Attention Network + Edge Features)
-# ============================================================
 
 class GATLayer(nn.Module):
     """Graph Attention Layer с учётом edge features"""
@@ -173,11 +160,9 @@ class GATLayer(nn.Module):
         self.num_heads = num_heads
         self.out_dim = out_dim
         
-        # Node attention
         self.W = nn.Linear(in_dim, out_dim * num_heads, bias=False)
         self.a = nn.Parameter(torch.zeros(num_heads, 2 * out_dim + edge_dim))
         
-        # Edge embedding
         self.edge_emb = nn.Linear(edge_dim, edge_dim)
         
         self.dropout = nn.Dropout(dropout)
@@ -190,38 +175,32 @@ class GATLayer(nn.Module):
         N = x.size(0)
         E = edge_index.size(1)
         
-        # Проекция узлов
-        h = self.W(x).view(N, self.num_heads, self.out_dim)  # [N, heads, out]
+        h = self.W(x).view(N, self.num_heads, self.out_dim)
         
-        # Edge embedding
-        edge_emb = self.edge_emb(edge_features)  # [E, edge_dim]
+        edge_emb = self.edge_emb(edge_features)
         
-        # Attention scores
         src, dst = edge_index[0], edge_index[1]
-        h_src = h[src]  # [E, heads, out]
-        h_dst = h[dst]  # [E, heads, out]
+        h_src = h[src]
+        h_dst = h[dst]
         
-        # Конкатенация для attention
         a_input = torch.cat([
-            h_src,  # [E, heads, out]
-            h_dst,  # [E, heads, out]
-            edge_emb.unsqueeze(1).expand(-1, self.num_heads, -1),  # [E, heads, edge_dim]
-        ], dim=-1)  # [E, heads, 2*out + edge_dim]
+            h_src,
+            h_dst,
+            edge_emb.unsqueeze(1).expand(-1, self.num_heads, -1),
+        ], dim=-1)
         
-        e = self.leaky_relu((a_input * self.a.unsqueeze(0)).sum(dim=-1))  # [E, heads]
+        e = self.leaky_relu((a_input * self.a.unsqueeze(0)).sum(dim=-1))
         
-        # Softmax по соседям
         attention = torch.zeros(N, self.num_heads, device=x.device)
         attention = attention.index_add(0, dst, e.exp()) + 1e-8
-        alpha = e / attention[dst]  # [E, heads]
+        alpha = e / attention[dst]
         alpha = self.dropout(alpha)
         
-        # Агрегация
         out = torch.zeros(N, self.num_heads, self.out_dim, device=x.device)
-        weighted = h_src * alpha.unsqueeze(-1)  # [E, heads, out]
+        weighted = h_src * alpha.unsqueeze(-1)
         out = out.index_add(0, dst, weighted)
         
-        return out.mean(dim=1)  # [N, out] — усредняем головы
+        return out.mean(dim=1)
 
 
 class ThreatGNN(nn.Module):
@@ -232,7 +211,6 @@ class ThreatGNN(nn.Module):
         
         self.input_proj = nn.Linear(node_dim, hidden_dim)
         
-        # Слои GAT
         self.gat_layers = nn.ModuleList()
         for i in range(num_layers):
             self.gat_layers.append(
@@ -245,55 +223,46 @@ class ThreatGNN(nn.Module):
                 )
             )
         
-        # Выходные головы
         self.node_classifier = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(hidden_dim, num_classes),  # 0=normal, 1=suspicious, 2=malicious
+            nn.Linear(hidden_dim, num_classes),
         )
         
         self.edge_predictor = nn.Sequential(
             nn.Linear(hidden_dim * 2 + edge_dim, hidden_dim),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(hidden_dim, 1),  # 0=no_edge, 1=edge_exists
+            nn.Linear(hidden_dim, 1),
             nn.Sigmoid(),
         )
         
         self.global_pool = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, 1),  # Общий уровень угрозы графа
+            nn.Linear(hidden_dim, 1),
             nn.Sigmoid(),
         )
     
     def forward(self, x, edge_index, edge_features):
-        # Начальная проекция
         x = F.relu(self.input_proj(x))
         
-        # GAT слои
         for gat in self.gat_layers:
             x = gat(x, edge_index, edge_features)
             x = F.relu(x)
         
-        # Классификация узлов
         node_logits = self.node_classifier(x)
         
-        # Предикция рёбер
         src, dst = edge_index[0], edge_index[1]
         edge_emb = torch.cat([x[src], x[dst], edge_features], dim=-1)
         edge_probs = self.edge_predictor(edge_emb)
         
-        # Глобальный score графа
         graph_score = self.global_pool(x.mean(dim=0, keepdim=True))
         
         return node_logits, edge_probs, graph_score
 
 
-# ============================================================
-# ОБУЧЕНИЕ
-# ============================================================
 
 def train():
     logger.info("=" * 60)
@@ -302,7 +271,6 @@ def train():
     
     generator = ThreatGraphGenerator(CONFIG['num_nodes'], CONFIG['num_edges'])
     
-    # Модель
     model = ThreatGNN(
         node_dim=CONFIG['node_features'],
         edge_dim=CONFIG['edge_features'],
@@ -320,7 +288,6 @@ def train():
     node_criterion = nn.CrossEntropyLoss()
     edge_criterion = nn.BCELoss()
     
-    # Обучение
     logger.info(f"\n🔄 Training {CONFIG['epochs']} epochs...")
     
     for epoch in range(CONFIG['epochs']):
@@ -329,23 +296,16 @@ def train():
         node_correct = 0
         node_total = 0
         
-        # Генерируем батч графов
         graphs = generator.generate_batch(batch_size=16)
         
         for node_feat, edge_idx, edge_feat, node_labels in graphs:
-            # Forward
             node_logits, edge_probs, graph_score = model(node_feat, edge_idx, edge_feat)
             
-            # Node loss
             node_loss = node_criterion(node_logits, node_labels)
             
-            # Edge loss (существующие рёбра = 1)
             edge_targets = torch.ones(edge_idx.size(1), 1)
-            # edge_loss выключен для стабильности
 
-            # Total loss — только node classification
             loss = node_loss
-            # Total loss
             
             optimizer.zero_grad()
             loss.backward()
@@ -353,7 +313,6 @@ def train():
             
             total_loss += loss.item()
             
-            # Node accuracy
             pred = node_logits.argmax(dim=1)
             node_correct += (pred == node_labels).sum().item()
             node_total += node_labels.size(0)
@@ -366,7 +325,6 @@ def train():
     
     logger.info(f"✅ Epoch {CONFIG['epochs']}/{CONFIG['epochs']}: final_loss={avg_loss:.4f}, node_acc={node_acc:.2%}")
     
-    # Сохранение
     logger.info(f"\n💾 Saving model...")
     Path('./models/gnn').mkdir(parents=True, exist_ok=True)
     
@@ -378,7 +336,6 @@ def train():
     
     logger.info(f"✅ Model saved: models/gnn/threat_gnn.pt")
     
-    # Тест
     logger.info(f"\n🧪 Testing on new graph...")
     model.eval()
     

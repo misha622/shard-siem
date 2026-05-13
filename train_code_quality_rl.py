@@ -19,9 +19,6 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("SHARD-CodeRL")
 
-# ============================================================
-# КОНФИГУРАЦИЯ
-# ============================================================
 
 CONFIG = {
     'rl_episodes': 50,
@@ -34,9 +31,6 @@ CONFIG = {
     'epsilon_decay': 0.99,
 }
 
-# ============================================================
-# МЕТОД 1: COMPILER FEEDBACK RL
-# ============================================================
 
 class CompilerFeedback:
     """Проверка iptables правил через реальные системные вызовы"""
@@ -52,25 +46,20 @@ class CompilerFeedback:
         """
         self.stats['checks'] += 1
         
-        # Очищаем правило — заменяем <NL> на реальные переносы
         rule = rule.strip().replace('<NL>', '\n').replace(' <NL> ', '\n').replace('  ', ' ')
-        # Убираем повторяющиеся переносы
         while '\n\n' in rule:
             rule = rule.replace('\n\n', '\n')
         
-        # Проверяем кеш
         rule_hash = hash(rule)
         if rule_hash in self.cache:
             return self.cache[rule_hash]
         
-        # === Проверка 1: Структура команды ===
         if not any(kw in rule for kw in ['iptables', 'SecRule', 'sysctl', 'tcpdump']):
             result = (False, "no_known_command", -1.0)
             self.cache[rule_hash] = result
             self.stats['failed'] += 1
             return result
         
-        # === Проверка 2: iptables синтаксис ===
         if 'iptables' in rule:
             reward = self._check_iptables(rule)
         elif 'SecRule' in rule:
@@ -92,18 +81,15 @@ class CompilerFeedback:
     
     def _check_iptables(self, rule: str) -> Tuple[bool, str, float]:
         """Проверка iptables правила"""
-        # Извлекаем все iptables команды из правила
         lines = [l.strip() for l in rule.split('\n') if 'iptables' in l]
         
         total_reward = 0.0
         all_valid = True
         errors = []
         
-        for line in lines[:3]:  # Проверяем первые 3 правила
-            # Базовая валидация структуры
+        for line in lines[:3]:
             parts = line.split()
             
-            # Проверяем флаги
             if '-A' not in parts and '-I' not in parts and '-D' not in parts and '-C' not in parts:
                 all_valid = False
                 errors.append(f"no_action_flag")
@@ -116,7 +102,6 @@ class CompilerFeedback:
                 total_reward -= 0.3
                 continue
             
-            # Проверяем IP адрес
             ip_match = re.search(r'-s\s+(\S+)|-d\s+(\S+)', line)
             if ip_match:
                 ip = ip_match.group(1) or ip_match.group(2)
@@ -126,7 +111,6 @@ class CompilerFeedback:
                     total_reward -= 0.2
                     continue
             
-            # Проверяем порт
             port_match = re.search(r'--dport\s+(\S+)|--sport\s+(\S+)', line)
             if port_match:
                 port = port_match.group(1) or port_match.group(2)
@@ -136,10 +120,8 @@ class CompilerFeedback:
                     total_reward -= 0.2
                     continue
             
-            # Всё правильно — награда
             total_reward += 0.5
             
-            # Пробуем реальную проверку (если есть права)
             try:
                 check_cmd = line.replace(' -A ', ' -C ').replace(' -I ', ' -C ')
                 parts = check_cmd.split()
@@ -147,10 +129,10 @@ class CompilerFeedback:
                     ['iptables'] + parts[1:],
                     capture_output=True, text=True, timeout=1
                 )
-                if result.returncode in [0, 1]:  # 0=exists, 1=not found (both valid syntax)
-                    total_reward += 0.3  # Бонус за реальную проверку
+                if result.returncode in [0, 1]:
+                    total_reward += 0.3
             except Exception:
-                pass  # Нет прав — пропускаем
+                pass
         
         if all_valid and not errors:
             return (True, "iptables_valid", min(1.0, total_reward))
@@ -170,9 +152,6 @@ class CompilerFeedback:
         return (False, "sysctl_invalid", -0.2)
 
 
-# ============================================================
-# МЕТОД 2: SELF-PLAY
-# ============================================================
 
 class SelfPlay:
     """SHARD атакует сам себя для обучения"""
@@ -190,14 +169,12 @@ class SelfPlay:
         """Один цикл self-play: атака → защита → оценка"""
         attack_type, attack_payload = random.choice(self.attack_templates)
         
-        # Генерируем защиту
         attack_desc = f"{attack_type} from 10.0.0.{random.randint(1,255)} on port {random.choice([80,443,3306,22])}"
         
         try:
             src = tokenizer.encode(attack_desc).unsqueeze(0)
             defense_code = seq2seq_model.generate(src, tokenizer, temperature=0.5)
             
-            # Оцениваем качество защиты
             compiler = CompilerFeedback()
             valid, msg, reward = compiler.validate_rule(defense_code)
             
@@ -217,9 +194,6 @@ class SelfPlay:
             return {'attack': attack_desc, 'defense': 'ERROR', 'valid': False, 'reward': -1.0, 'msg': str(e)[:50]}
 
 
-# ============================================================
-# МЕТОД 3: AST VALIDATION
-# ============================================================
 
 class ASTValidator:
     """Проверка структуры сгенерированного кода"""
@@ -231,26 +205,21 @@ class ASTValidator:
         score = 0.0
         issues = []
         
-        # Проверка 1: Сбалансированные кавычки
         if code.count("'") % 2 == 0 and code.count('"') % 2 == 0:
             score += 0.2
         
-        # Проверка 2: Нет опасного экранирования
         if '; rm -rf' not in code and '; wget' not in code:
             score += 0.2
         
-        # Проверка 3: Правильные флаги iptables
         valid_flags = ['-A', '-I', '-D', '-s', '-d', '-p', '--dport', '--sport', '-j', '-m']
         iptables_lines = [l for l in code.split('\n') if 'iptables' in l]
         for line in iptables_lines:
             flags_ok = sum(1 for f in valid_flags if f in line)
             score += min(0.3, flags_ok * 0.05)
         
-        # Проверка 4: Комментарии начинаются с #
-        comment_lines = [l for l in code.split('\n') if l.strip().startswith('#')]
+        comment_lines = [l for l in code.split('\n') if l.strip().startswith('
         score += min(0.1, len(comment_lines) * 0.02)
         
-        # Проверка 5: Нет пустых правил
         if len(code.strip()) > 10:
             score += 0.2
         
@@ -258,30 +227,24 @@ class ASTValidator:
         return valid, min(1.0, score)
 
 
-# ============================================================
-# МЕТОД 4: LLM TEACHER (Few-shot)
-# ============================================================
 
 class LLMTeacher:
     """Использует примеры правильного кода как few-shot учителя"""
     
     def __init__(self):
         self.examples = [
-            # SQL Injection → правильная защита
             {
                 'attack': 'SQL injection on port 3306',
                 'code': 'iptables -A INPUT -s 10.0.0.1 -p tcp --dport 3306 -j DROP\n'
                         'iptables -A INPUT -p tcp --dport 3306 -m string --string "UNION SELECT" --algo bm -j DROP\n'
                         'SecRule REQUEST_URI "@rx union.*select" "id:1001,phase:2,deny,status:403"'
             },
-            # Brute Force → правильная защита
             {
                 'attack': 'SSH brute force on port 22',
                 'code': 'iptables -A INPUT -s 10.0.0.2 -p tcp --dport 22 -j DROP\n'
                         'iptables -A INPUT -p tcp --dport 22 -m state --state NEW -m recent --update --seconds 300 --hitcount 3 -j DROP\n'
                         'iptables -A INPUT -s 10.0.0.2 -j LOG --log-prefix "BRUTE:"'
             },
-            # DDoS → правильная защита
             {
                 'attack': 'DDoS SYN flood on port 443',
                 'code': 'iptables -A INPUT -p tcp --syn -m limit --limit 10/s --limit-burst 20 -j ACCEPT\n'
@@ -311,9 +274,6 @@ class LLMTeacher:
         return min(1.0, overlap)
 
 
-# ============================================================
-# ГЛАВНЫЙ ТРЕНИРОВОЧНЫЙ ЦИКЛ
-# ============================================================
 
 class CodeQualityRLTrainer:
     """Объединяет все 4 метода для улучшения генерации кода"""
@@ -327,7 +287,6 @@ class CodeQualityRLTrainer:
         self.memory = deque(maxlen=CONFIG['memory_size'])
         self.epsilon = CONFIG['epsilon_start']
         
-        # Статистика по методам
         self.stats = {
             'compiler': {'uses': 0, 'rewards': []},
             'self_play': {'uses': 0, 'rewards': []},
@@ -339,7 +298,6 @@ class CodeQualityRLTrainer:
         """Один эпизод обучения со всеми 4 методами"""
         results = {}
         
-        # === Метод 1: Compiler Feedback ===
         attack_desc = f"SQL Injection from 10.0.0.{random.randint(1,255)} on port 3306"
         try:
             src = tokenizer.encode(attack_desc).unsqueeze(0)
@@ -353,14 +311,12 @@ class CodeQualityRLTrainer:
         except Exception as e:
             results['compiler'] = {'valid': False, 'reward': -0.5, 'msg': str(e)[:50]}
         
-        # === Метод 2: Self-Play ===
         sp_result = self.self_play.run_cycle(model, tokenizer)
         self.memory.append(('self_play', sp_result['attack'], sp_result['defense'], sp_result['reward']))
         self.stats['self_play']['uses'] += 1
         self.stats['self_play']['rewards'].append(sp_result['reward'])
         results['self_play'] = sp_result
         
-        # === Метод 3: AST Validation ===
         try:
             src = tokenizer.encode(attack_desc).unsqueeze(0)
             code = model.generate(src, tokenizer, temperature=0.5)
@@ -373,13 +329,11 @@ class CodeQualityRLTrainer:
         except Exception as e:
             results['ast'] = {'valid': False, 'score': 0.0}
         
-        # === Метод 4: LLM Teacher ===
         try:
             few_shot_prompt = self.teacher.get_few_shot_prompt(attack_desc)
             src = tokenizer.encode(attack_desc).unsqueeze(0)
-            code = model.generate(src, tokenizer, temperature=0.3)  # Меньше температуры для точности
+            code = model.generate(src, tokenizer, temperature=0.3)
             
-            # Сравниваем с эталоном
             reference = self.teacher.examples[0]['code']
             similarity = self.teacher.evaluate_similarity(code, reference)
             
@@ -390,7 +344,6 @@ class CodeQualityRLTrainer:
         except Exception as e:
             results['llm'] = {'similarity': 0.0}
         
-        # Затухание epsilon
         self.epsilon = max(CONFIG['epsilon_end'], self.epsilon * CONFIG['epsilon_decay'])
         
         return results
@@ -428,7 +381,6 @@ def main():
     logger.info("   4 метода улучшения генерации кода")
     logger.info("="*60)
     
-    # Загружаем Seq2Seq модель
     logger.info("\n📂 Загрузка Seq2Seq модели...")
     
     from train_seq2seq_defense_v2 import Seq2SeqTransformer, SimpleTokenizer
@@ -461,7 +413,6 @@ def main():
     
     logger.info(f"✅ Модель загружена: {sum(p.numel() for p in model.parameters()):,} параметров")
     
-    # Тренировка
     trainer = CodeQualityRLTrainer()
     
     logger.info(f"\n🔄 Тренировка {CONFIG['rl_episodes']} эпизодов...")
@@ -475,10 +426,8 @@ def main():
                 if 'reward' in res:
                     logger.info(f"     {method}: reward={res.get('reward', 0):.3f}")
     
-    # Финальный отчёт
     trainer.print_report()
     
-    # Тестовая генерация после обучения
     logger.info(f"\n🧪 Тестовая генерация после RL:")
     test_attacks = [
         "SQL Injection from 185.142.53.101 on port 3306",
@@ -490,7 +439,6 @@ def main():
         src = tokenizer.encode(attack).unsqueeze(0)
         code = model.generate(src, tokenizer, temperature=0.5)
         
-        # Проверяем качество
         valid, msg, reward = trainer.compiler.validate_rule(code)
         ast_valid, ast_score = trainer.ast.validate(code)
         

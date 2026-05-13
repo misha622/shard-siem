@@ -15,9 +15,6 @@ import numpy as np
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("SHARD-Defense-Trainer")
 
-# ============================================================
-# КОНСТАНТЫ
-# ============================================================
 
 ATTACK_TYPES = [
     'SQL Injection', 'Brute Force', 'DDoS', 'Port Scan', 'C2 Beacon',
@@ -25,7 +22,6 @@ ATTACK_TYPES = [
     'Botnet', 'Ransomware', 'Phishing', 'Zero-Day'
 ]
 
-# Правила защиты для каждого типа атаки (используются в Defense Pipeline v2)
 DEFENSE_RULES = {
     'SQL Injection': [
         'iptables -A INPUT -s {ip} -p tcp --dport {port} -j DROP',
@@ -101,7 +97,6 @@ DEFENSE_RULES = {
     ],
 }
 
-# IP и порты для генерации датасета
 IPS = [
     '185.142.53.101', '45.155.205.233', '194.61.23.45', '89.248.163.1',
     '103.145.12.67', '185.165.29.82', '45.134.26.99', '203.0.113.100',
@@ -115,7 +110,6 @@ PORTS = [
     9090, 21, 25, 53, 135, 139, 445, 3389, 5985, 8888
 ]
 
-# Вариации описаний для каждой атаки (чем больше, тем лучше обобщение)
 ATTACK_VARIATIONS = {
     'SQL Injection': [
         'SQL Injection from {ip} on port {port}',
@@ -276,9 +270,6 @@ ATTACK_VARIATIONS = {
 }
 
 
-# ============================================================
-# ГЕНЕРАЦИЯ ДАТАСЕТА
-# ============================================================
 
 def create_dataset() -> List[Dict]:
     """
@@ -289,8 +280,8 @@ def create_dataset() -> List[Dict]:
 
     for attack_type, variations in ATTACK_VARIATIONS.items():
         for ip in IPS:
-            for port in PORTS[:5]:  # 5 портов на IP для разнообразия
-                for variant in variations[:3]:  # 3 вариации описания
+            for port in PORTS[:5]:
+                for variant in variations[:3]:
                     attack_text = variant.format(ip=ip, port=port)
                     samples.append({
                         'text': attack_text,
@@ -299,7 +290,6 @@ def create_dataset() -> List[Dict]:
                         'port': port,
                     })
 
-    # Перемешивание для лучшего обучения
     np.random.seed(42)
     np.random.shuffle(samples)
 
@@ -312,9 +302,6 @@ def create_dataset() -> List[Dict]:
     return samples
 
 
-# ============================================================
-# ОБУЧЕНИЕ МОДЕЛИ
-# ============================================================
 
 def train_model(samples: List[Dict]) -> Tuple:
     """
@@ -325,30 +312,26 @@ def train_model(samples: List[Dict]) -> Tuple:
     from sklearn.preprocessing import LabelEncoder
     import xgboost as xgb
 
-    # Подготовка данных
     texts = [s['text'] for s in samples]
     labels = [s['label'] for s in samples]
 
-    # Label encoding
     label_encoder = LabelEncoder()
     y = label_encoder.fit_transform(labels)
 
-    # TF-IDF векторизация с n-граммами
     logger.info("TF-IDF векторизация...")
     vectorizer = TfidfVectorizer(
         max_features=500,
-        ngram_range=(1, 3),  # униграммы, биграммы, триграммы
+        ngram_range=(1, 3),
         analyzer='word',
         stop_words=None,
         lowercase=True,
-        sublinear_tf=True,  # 1 + log(tf)
+        sublinear_tf=True,
     )
     X = vectorizer.fit_transform(texts)
 
     logger.info(f"Матрица признаков: {X.shape}")
     logger.info(f"Словарь: {len(vectorizer.vocabulary_)} токенов")
 
-    # XGBoost классификатор
     logger.info("Обучение XGBoost...")
     classifier = xgb.XGBClassifier(
         n_estimators=200,
@@ -367,12 +350,10 @@ def train_model(samples: List[Dict]) -> Tuple:
 
     classifier.fit(X, y)
 
-    # Оценка точности
     train_preds = classifier.predict(X)
     train_acc = (train_preds == y).mean()
     logger.info(f"Точность на тренировочных данных: {train_acc:.2%}")
 
-    # Probabilities для оценки уверенности
     train_proba = classifier.predict_proba(X)
     avg_confidence = np.max(train_proba, axis=1).mean()
     logger.info(f"Средняя уверенность: {avg_confidence:.2%}")
@@ -380,9 +361,6 @@ def train_model(samples: List[Dict]) -> Tuple:
     return vectorizer, classifier, label_encoder
 
 
-# ============================================================
-# ТЕСТИРОВАНИЕ
-# ============================================================
 
 def test_model(vectorizer, classifier, label_encoder) -> float:
     """Тестирование модели на отложенных примерах"""
@@ -415,7 +393,6 @@ def test_model(vectorizer, classifier, label_encoder) -> float:
     print("=" * 70)
 
     for text, expected in test_cases:
-        # Предсказание
         X = vectorizer.transform([text])
         proba = classifier.predict_proba(X)[0]
         predicted_idx = np.argmax(proba)
@@ -426,7 +403,6 @@ def test_model(vectorizer, classifier, label_encoder) -> float:
         if is_correct:
             correct += 1
 
-        # Извлекаем IP и порт для демонстрации кода защиты
         ip_match = re.search(r'\d+\.\d+\.\d+\.\d+', text)
         ip = ip_match.group(0) if ip_match else '0.0.0.0'
         port_match = re.search(r':(\d+)|port (\d+)', text)
@@ -451,9 +427,6 @@ def test_model(vectorizer, classifier, label_encoder) -> float:
     return accuracy
 
 
-# ============================================================
-# СОХРАНЕНИЕ МОДЕЛИ
-# ============================================================
 
 def save_model(vectorizer, classifier, label_encoder, path: str = './models/defense_classifier_v3.pkl'):
     """Сохранение модели в формате, совместимом с Defense Pipeline v2"""
@@ -478,9 +451,6 @@ def save_model(vectorizer, classifier, label_encoder, path: str = './models/defe
     logger.info(f"✅ Модель сохранена: {path} ({file_size / 1024:.1f} KB)")
 
 
-# ============================================================
-# СОВМЕСТИМОСТЬ С DEFENSE PIPELINE V2
-# ============================================================
 
 def print_pipeline_integration_guide():
     """Инструкция по интеграции в Defense Pipeline v2"""
@@ -495,7 +465,7 @@ def print_pipeline_integration_guide():
 ║  Нужно заменить метод predict() в shard_defense_pipeline_v2.py:     ║
 ║                                                                      ║
 ║  def predict(self, text: str) -> Tuple[str, float]:                  ║
-║      # 1. Пробуем ML модель                                         ║
+║
 ║      if self._ml_loaded:                                             ║
 ║          try:                                                        ║
 ║              X = self.vectorizer.transform([text])                   ║
@@ -507,16 +477,13 @@ def print_pipeline_integration_guide():
 ║                      [idx])[0], conf                                 ║
 ║          except Exception:                                           ║
 ║              pass                                                    ║
-║      # 2. Fallback на keyword matching                              ║
+║
 ║      return self._keyword_predict(text)                              ║
 ║                                                                      ║
 ╚══════════════════════════════════════════════════════════════════════╝
 """)
 
 
-# ============================================================
-# ГЛАВНАЯ ФУНКЦИЯ
-# ============================================================
 
 def main():
     print("=" * 70)
@@ -524,19 +491,15 @@ def main():
     print("   sklearn TfidfVectorizer + XGBoost")
     print("=" * 70)
 
-    # 1. Датасет
     print("\n📊 Шаг 1/4: Генерация датасета...")
     samples = create_dataset()
 
-    # 2. Обучение
     print(f"\n🔄 Шаг 2/4: Обучение модели...")
     vectorizer, classifier, label_encoder = train_model(samples)
 
-    # 3. Тестирование
     print(f"\n🧪 Шаг 3/4: Тестирование модели...")
     accuracy = test_model(vectorizer, classifier, label_encoder)
 
-    # 4. Сохранение
     print(f"\n💾 Шаг 4/4: Сохранение модели...")
     save_model(vectorizer, classifier, label_encoder)
 

@@ -18,21 +18,18 @@ from typing import Dict, List, Tuple
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("SHARD-Pipeline-v3")
 
-# Telegram/Slack/Discord нотификатор
 try:
     from shard_notifier import get_notifier
     _notifier = get_notifier()
 except:
     _notifier = None
 
-# Telegram/Slack/Discord нотификатор
 try:
     from shard_notifier import get_notifier
     _notifier = get_notifier()
 except:
     _notifier = None
 
-# Импорт RL агента
 try:
     from shard_rl_integration import RLDefenseAgent
     RL_AVAILABLE = True
@@ -41,9 +38,6 @@ except ImportError:
     RLDefenseAgent = None
 
 
-# ============================================================
-# Seq2Seq ГЕНЕРАТОР (из train_seq2seq_defense_v2.py)
-# ============================================================
 
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, max_len=200):
@@ -151,9 +145,6 @@ class SimpleTokenizer:
         return ' '.join(words)
 
 
-# ============================================================
-# ЗАГРУЗЧИК МОДЕЛИ (ML + Seq2Seq)
-# ============================================================
 
 class DefenseModelLoader:
     """Загрузчик модели защиты: ML классификатор + Seq2Seq генератор"""
@@ -170,12 +161,10 @@ class DefenseModelLoader:
         self._ml_loaded = False
         self._seq2seq_loaded = False
         
-        # ML компоненты
         self.vectorizer = None
         self.classifier = None
         self.label_encoder = None
         
-        # Seq2Seq компоненты
         self.seq2seq_model = None
         self.src_tokenizer = None
         self.tgt_tokenizer = None
@@ -199,7 +188,6 @@ class DefenseModelLoader:
         self._load()
     
     def _load(self):
-        # Загрузка ML классификатора
         try:
             if self.model_path.exists():
                 with open(self.model_path, 'rb') as f:
@@ -214,18 +202,15 @@ class DefenseModelLoader:
         except Exception as e:
             logger.warning(f"ML модель не загружена: {e}")
         
-        # Загрузка Seq2Seq генератора
         try:
             import json
             weights_path = Path('./models/seq2seq/model_weights.pt')
             config_path = Path('./models/seq2seq/model_config.json')
             
             if weights_path.exists() and config_path.exists():
-                # Загружаем конфиг
                 with open(config_path, 'r') as f:
                     cfg = json.load(f)
                 
-                # Создаём модель
                 self.seq2seq_model = Seq2SeqTransformer(
                     vocab_size=cfg['vocab_size'],
                     embed_dim=cfg['embed_dim'],
@@ -235,11 +220,9 @@ class DefenseModelLoader:
                     dropout=cfg['dropout'],
                     max_len=cfg['max_seq_len']
                 )
-                # Загружаем веса
                 self.seq2seq_model.load_state_dict(torch.load(weights_path, map_location='cpu', weights_only=True))
                 self.seq2seq_model.eval()
                 
-                # Загружаем токенизаторы из JSON
                 self.src_tokenizer = SimpleTokenizer()
                 self.src_tokenizer.load(
                     cfg['src_word2idx'],
@@ -278,30 +261,25 @@ class DefenseModelLoader:
         """Генерация защитного кода через Seq2Seq нейросеть"""
         if self._seq2seq_loaded and self.seq2seq_model and self.src_tokenizer:
             try:
-                # Формируем запрос к модели
                 prompt = f"{attack_text} from {src_ip} on port {dst_port}"
                 src = self.src_tokenizer.encode(prompt).unsqueeze(0)
                 
-                # Генерация
-                code = self.seq2seq_model.generate(src, self.tgt_tokenizer, temperature=0.5)  # FIXED: use tgt_tokenizer  # FIXED: use tgt_tokenizer
+                code = self.seq2seq_model.generate(src, self.tgt_tokenizer, temperature=0.5)
                 
-                # Постобработка: заменяем <NL> на переносы строк
                 code = code.replace(' <NL> ', '\n').replace('<NL>', '\n')
                 
-                # Корректируем IP если модель ошиблась
                 code = re.sub(r'\d+\.\d+\.\d+\.\d+', src_ip, code, count=1)
                 
-                return f"# SHARD Neural Defense (Seq2Seq Transformer)\n{code}"
+                return f"
             except Exception as e:
                 logger.error(f"Seq2Seq generation error: {e}")
         
-        # Fallback: шаблонная генерация
         return self._template_defense(attack_text, src_ip, dst_port)
     
     def _template_defense(self, attack_type: str, src_ip: str, dst_port: int) -> str:
         """Шаблонная генерация (fallback)"""
         templates = {
-            'SQL Injection': f"iptables -A INPUT -s {src_ip} -p tcp --dport {dst_port} -j DROP\n# WAF: ModSecurity SQLi protection",
+            'SQL Injection': f"iptables -A INPUT -s {src_ip} -p tcp --dport {dst_port} -j DROP\n
             'Brute Force': f"iptables -A INPUT -s {src_ip} -p tcp --dport {dst_port} -j DROP\niptables -A INPUT -p tcp --dport {dst_port} -m recent --update --seconds 300 --hitcount 3 -j DROP",
             'DDoS': f"iptables -A INPUT -p tcp --syn -m limit --limit 10/s -j ACCEPT\niptables -A INPUT -p tcp --syn -j DROP\necho 1 > /proc/sys/net/ipv4/tcp_syncookies",
             'C2 Beacon': f"iptables -A INPUT -s {src_ip} -p tcp --dport {dst_port} -j DROP\niptables -A OUTPUT -d {src_ip} -j DROP",
@@ -310,7 +288,7 @@ class DefenseModelLoader:
         }
         atype = self._normalize_attack_type(attack_type)
         template = templates.get(atype, templates['Zero-Day'])
-        return f"# SHARD Template Defense: {atype}\n{template}"
+        return f"
     
     def _keyword_predict(self, text: str) -> Tuple[str, float]:
         text_lower = text.lower()
@@ -331,9 +309,6 @@ class DefenseModelLoader:
         return attack_type
 
 
-# ============================================================
-# DEFENSE PIPELINE V3
-# ============================================================
 
 class DefensePipeline:
     """Defence Pipeline v3 с Seq2Seq генератором"""
@@ -365,10 +340,8 @@ class DefensePipeline:
             src_ip = alert.get('src_ip', '0.0.0.0')
             dst_port = alert.get('dst_port', 0)
             
-            # Классификация
             atype, conf = self.model.predict(attack_text)
             
-            # Генерация кода (Seq2Seq если доступен)
             if self.model._seq2seq_loaded:
                 code = self.model.generate_defense_code(attack_text, src_ip, dst_port)
                 self.stats['seq2seq_used'] += 1
@@ -377,7 +350,6 @@ class DefensePipeline:
                 self.stats['template_used'] += 1
             
             self.stats['defense_generated'] += 1
-            # RL Agent принимает решение о действии
             rl_action = None
             if self.rl_agent and self.rl_agent.loaded:
                 action_id, action_name, action_desc = self.rl_agent.decide_action({
@@ -399,7 +371,6 @@ class DefensePipeline:
             
             logger.warning(f"🛡️ DEFENSE: {atype} ({conf:.0%}) → {src_ip}")
             
-            # АВТО-ПРИМЕНЕНИЕ СГЕНЕРИРОВАННОГО КОДА
             if code and 'iptables' in code.lower():
                 import subprocess, re
                 lines = code.replace('<NL>', '\n').split('\n')
@@ -407,13 +378,10 @@ class DefensePipeline:
                 for line in lines:
                     line = line.strip()
                     if line.startswith('iptables') and '-j' in line:
-                        # Заменяем -A на -C для проверки, потом на -A для применения
                         try:
-                            # Проверяем не существует ли уже правило
                             check = line.replace(' -A ', ' -C ')
                             r = subprocess.run(check.split(), capture_output=True, timeout=2)
                             if r.returncode != 0:
-                                # Применяем правило
                                 r = subprocess.run(line.split(), capture_output=True, timeout=2)
                                 if r.returncode == 0:
                                     applied += 1
@@ -422,7 +390,6 @@ class DefensePipeline:
                 if applied > 0:
                     logger.warning(f"🔧 ПРИМЕНЕНО правил iptables: {applied}")
             
-            # Отправляем в Telegram/Slack/Discord
             if _notifier and _notifier.enabled:
                 try:
                     _notifier.send_alert({
@@ -439,7 +406,6 @@ class DefensePipeline:
                 except Exception:
                     pass
             
-            # Отправляем в Telegram/Slack/Discord
             if _notifier and _notifier.enabled:
                 try:
                     _notifier.send_alert({
@@ -465,5 +431,4 @@ class DefensePipeline:
             }
 
 
-# Совместимость
 ShardDefensePipeline = DefensePipeline

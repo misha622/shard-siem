@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 SHARD Red Team Automation Module
@@ -30,9 +29,6 @@ import requests
 import yaml
 
 
-# ============================================================
-# КОНФИГУРАЦИЯ
-# ============================================================
 
 class AttackPhase(Enum):
     """Фазы атаки по MITRE ATT&CK"""
@@ -65,30 +61,24 @@ class FindingSeverity(Enum):
 class RedTeamConfig:
     """Конфигурация Red Team Automation"""
 
-    # Основные настройки
     enabled: bool = True
-    mode: str = "safe"  # safe, aggressive, custom
+    mode: str = "safe"
 
-    # Цели
     target: str = ""
     scope: List[str] = field(default_factory=list)
     excluded_targets: List[str] = field(default_factory=list)
 
-    # Лимиты
     max_concurrent_scans: int = 5
     scan_timeout: int = 3600
     rate_limit_delay: float = 0.5
 
-    # Инструменты
     tools_path: str = "/usr/bin"
     wordlists_path: str = "/usr/share/wordlists"
 
-    # Отчёты
     reports_dir: str = "./data/red_team/reports/"
     save_evidence: bool = True
     evidence_dir: str = "./data/red_team/evidence/"
 
-    # Уведомления
     alert_on_critical: bool = True
     alert_on_high: bool = True
 
@@ -112,9 +102,6 @@ class Finding:
     raw_output: Optional[str] = None
 
 
-# ============================================================
-# БАЗОВЫЙ КЛАСС СКАНЕРА
-# ============================================================
 
 class BaseScanner:
     """Базовый класс для всех сканеров"""
@@ -133,7 +120,6 @@ class BaseScanner:
     def _run_command(self, cmd: List[str], timeout: int = 300) -> Tuple[int, str, str]:
         """Безопасный запуск команды"""
         try:
-            # Проверка что команда в разрешённом списке
             allowed_commands = ['nmap', 'gobuster', 'nikto', 'sqlmap', 'hydra', 'enum4linux',
                                 'whatweb', 'wpscan', 'searchsploit', 'msfconsole', 'dirb', 'ffuf']
 
@@ -142,7 +128,6 @@ class BaseScanner:
                     self.logger.warning(f"Command {cmd[0]} not in allowed list")
                 return -1, "", f"Command {cmd[0]} not allowed"
 
-            # Запуск
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -181,9 +166,6 @@ class BaseScanner:
         return str(filename)
 
 
-# ============================================================
-# СКАНЕР ПОРТОВ (NMAP)
-# ============================================================
 
 class PortScanner(BaseScanner):
     """Сканер портов через Nmap"""
@@ -196,7 +178,6 @@ class PortScanner(BaseScanner):
         if self.logger:
             self.logger.info(f"🔍 Scanning ports on {target}")
 
-        # Быстрое сканирование 1000 портов
         cmd = ['nmap', '-sV', '-sC', '-T4', '--open', target]
         returncode, stdout, stderr = self._run_command(cmd, timeout=600)
 
@@ -205,7 +186,6 @@ class PortScanner(BaseScanner):
             for f in findings:
                 self._add_finding(f)
 
-        # Сканирование UDP портов (топ 100)
         if self.config.mode == 'aggressive':
             cmd = ['nmap', '-sU', '-sV', '--top-ports', '100', target]
             returncode, stdout, stderr = self._run_command(cmd, timeout=600)
@@ -221,7 +201,6 @@ class PortScanner(BaseScanner):
         """Парсинг вывода Nmap"""
         findings = []
 
-        # Парсинг открытых портов
         port_pattern = r'(\d+)/(tcp|udp)\s+(\w+)\s+(\w+)\s*(.*)'
         service_info = {}
 
@@ -261,7 +240,6 @@ class PortScanner(BaseScanner):
                     )
                     findings.append(finding)
 
-        # Сохраняем полный вывод
         if findings:
             self._save_evidence(f"nmap_{target.replace('.', '_')}", output)
 
@@ -278,9 +256,6 @@ class PortScanner(BaseScanner):
         return recommendations.get(port, f"Review if {service} needs to be exposed")
 
 
-# ============================================================
-# СКАНЕР ВЕБ-УЯЗВИМОСТЕЙ (NIKTO)
-# ============================================================
 
 class WebVulnerabilityScanner(BaseScanner):
     """Сканер веб-уязвимостей через Nikto"""
@@ -300,17 +275,15 @@ class WebVulnerabilityScanner(BaseScanner):
         if self.logger:
             self.logger.info(f"🔍 Scanning web vulnerabilities on {url}")
 
-        # Nikto сканирование
         cmd = ['nikto', '-h', url, '-Tuning', '123456789', '-Format', 'txt']
         returncode, stdout, stderr = self._run_command(cmd, timeout=1800)
 
-        if returncode == 0 or returncode == 1:  # Nikto returns 1 when vulnerabilities found
+        if returncode == 0 or returncode == 1:
             findings = self._parse_nikto(stdout, target, port)
             for f in findings:
                 self._add_finding(f)
             self._save_evidence(f"nikto_{target.replace('.', '_')}", stdout)
 
-        # Дополнительно WhatWeb для определения технологий
         cmd = ['whatweb', url, '--no-errors']
         returncode, stdout, stderr = self._run_command(cmd, timeout=60)
         if returncode == 0:
@@ -327,7 +300,6 @@ class WebVulnerabilityScanner(BaseScanner):
 
         for line in output.split('\n'):
             if '+ OSVDB-' in line or 'OSVDB-' in line:
-                # Извлечение информации
                 severity = FindingSeverity.MEDIUM
                 if 'critical' in line.lower() or 'high' in line.lower():
                     severity = FindingSeverity.HIGH
@@ -366,9 +338,6 @@ class WebVulnerabilityScanner(BaseScanner):
         )
 
 
-# ============================================================
-# СКАНЕР ДИРЕКТОРИЙ (GOBUSTER)
-# ============================================================
 
 class DirectoryScanner(BaseScanner):
     """Сканер директорий через Gobuster"""
@@ -439,9 +408,6 @@ class DirectoryScanner(BaseScanner):
         return findings
 
 
-# ============================================================
-# SQL ИНЪЕКЦИИ (SQLMAP)
-# ============================================================
 
 class SQLInjectionScanner(BaseScanner):
     """Сканер SQL инъекций через SQLMap"""
@@ -461,7 +427,6 @@ class SQLInjectionScanner(BaseScanner):
         if self.logger:
             self.logger.info(f"🔍 Scanning SQL injection on {url}")
 
-        # SQLMap с базовыми параметрами
         cmd = ['sqlmap', '-u', url, '--batch', '--level=1', '--risk=1', '--random-agent']
         returncode, stdout, stderr = self._run_command(cmd, timeout=1200)
 
@@ -486,9 +451,6 @@ class SQLInjectionScanner(BaseScanner):
         return self.findings
 
 
-# ============================================================
-# СКАНЕР УЯЗВИМЫХ ПАРОЛЕЙ (HYDRA)
-# ============================================================
 
 class PasswordBruteForceScanner(BaseScanner):
     """Сканер слабых паролей через Hydra"""
@@ -506,7 +468,6 @@ class PasswordBruteForceScanner(BaseScanner):
         if self.logger:
             self.logger.info(f"🔍 Testing weak passwords on {target}:{port} ({service})")
 
-        # Используем минимальный словарь для проверки
         wordlist = Path(self.config.wordlists_path) / 'fasttrack.txt'
         if not wordlist.exists():
             return []
@@ -555,9 +516,6 @@ class PasswordBruteForceScanner(BaseScanner):
         return ports.get(service, 0)
 
 
-# ============================================================
-# ОСНОВНОЙ ДВИЖОК RED TEAM
-# ============================================================
 
 class RedTeamEngine:
     """
@@ -569,18 +527,15 @@ class RedTeamEngine:
         self.config = config or RedTeamConfig()
         self.logger = logger
 
-        # Сканеры
         self.port_scanner = PortScanner(config, logger)
         self.web_scanner = WebVulnerabilityScanner(config, logger)
         self.dir_scanner = DirectoryScanner(config, logger)
         self.sql_scanner = SQLInjectionScanner(config, logger)
         self.password_scanner = PasswordBruteForceScanner(config, logger)
 
-        # Результаты
         self.findings: List[Finding] = []
         self.scan_history: deque = deque(maxlen=100)
 
-        # Статистика
         self.stats = {
             'total_scans': 0,
             'total_findings': 0,
@@ -612,26 +567,22 @@ class RedTeamEngine:
 
         all_findings = []
 
-        # Фаза 1: Разведка
         if self.logger:
             self.logger.info("📍 Phase 1: Reconnaissance")
 
-        # Сканирование портов
         port_findings = self.port_scanner.run(target)
         all_findings.extend(port_findings)
 
-        # Определение веб-портов
         web_ports = []
         for f in port_findings:
             if f.service in ['http', 'https'] and f.port:
                 web_ports.append(f.port)
 
-        # Фаза 2: Сканирование веб-приложений
         if web_ports:
             if self.logger:
                 self.logger.info("📍 Phase 2: Web Application Scanning")
 
-            for port in web_ports[:3]:  # Ограничиваем количество
+            for port in web_ports[:3]:
                 web_findings = self.web_scanner.run(target, port)
                 all_findings.extend(web_findings)
 
@@ -642,7 +593,6 @@ class RedTeamEngine:
                     sql_findings = self.sql_scanner.run(target, port)
                     all_findings.extend(sql_findings)
 
-        # Фаза 3: Проверка сервисов
         if self.logger:
             self.logger.info("📍 Phase 3: Service Testing")
 
@@ -655,7 +605,6 @@ class RedTeamEngine:
                     pass_findings = self.password_scanner.run(target, f.service, f.port)
                     all_findings.extend(pass_findings)
 
-        # Обновление статистики
         with self._lock:
             self.findings.extend(all_findings)
             self.stats['total_scans'] += 1
@@ -673,10 +622,8 @@ class RedTeamEngine:
 
         duration = time.time() - start_time
 
-        # Генерация отчёта
         report = self.generate_report(target, all_findings, duration)
 
-        # Сохранение в историю
         self.scan_history.append({
             'target': target,
             'timestamp': start_time,
@@ -698,7 +645,6 @@ class RedTeamEngine:
 
     def generate_report(self, target: str, findings: List[Finding], duration: float) -> Dict:
         """Генерация отчёта"""
-        # Группировка по серьёзности
         by_severity = defaultdict(list)
         for f in findings:
             by_severity[f.severity.value].append({
@@ -711,7 +657,6 @@ class RedTeamEngine:
                 'remediation': f.remediation
             })
 
-        # Группировка по фазе
         by_phase = defaultdict(list)
         for f in findings:
             by_phase[f.phase.value].append(f.id)
@@ -768,12 +713,10 @@ class RedTeamEngine:
         """Генерация рекомендаций"""
         recommendations = set()
 
-        # Приоритет по серьёзности
         for f in sorted(findings, key=lambda x: x.severity.value, reverse=True):
             if f.remediation:
                 recommendations.add(f.remediation)
 
-        # Общие рекомендации
         if any(f.port == 23 for f in findings):
             recommendations.add("Disable Telnet - use SSH instead")
         if any(f.port == 21 for f in findings):
@@ -808,21 +751,21 @@ class RedTeamEngine:
     <meta charset="UTF-8">
     <title>SHARD Red Team Report - {report['scan_info']['target']}</title>
     <style>
-        body {{ font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }}
+        body {{ font-family: Arial, sans-serif; margin: 20px; background:
         .container {{ max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }}
-        h1 {{ color: #333; border-bottom: 3px solid #dc3545; padding-bottom: 10px; }}
+        h1 {{ color:
         .summary {{ display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin: 20px 0; }}
         .card {{ padding: 20px; border-radius: 10px; color: white; text-align: center; }}
-        .critical {{ background: #dc3545; }}
-        .high {{ background: #fd7e14; }}
-        .medium {{ background: #ffc107; color: black; }}
-        .low {{ background: #28a745; }}
-        .info {{ background: #17a2b8; }}
-        .finding {{ background: #f8f9fa; padding: 15px; margin: 10px 0; border-left: 4px solid; border-radius: 5px; }}
-        .finding.critical {{ border-color: #dc3545; }}
-        .finding.high {{ border-color: #fd7e14; }}
-        .finding.medium {{ border-color: #ffc107; }}
-        .finding.low {{ border-color: #28a745; }}
+        .critical {{ background:
+        .high {{ background:
+        .medium {{ background:
+        .low {{ background:
+        .info {{ background:
+        .finding {{ background:
+        .finding.critical {{ border-color:
+        .finding.high {{ border-color:
+        .finding.medium {{ border-color:
+        .finding.low {{ border-color:
         .badge {{ display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 0.8em; }}
     </style>
 </head>
@@ -868,7 +811,7 @@ class RedTeamEngine:
         html += """
         </ul>
         <hr>
-        <p style="color: #999; text-align: right;">SHARD Enterprise SIEM - Red Team Module</p>
+        <p style="color:
     </div>
 </body>
 </html>
@@ -887,9 +830,6 @@ class RedTeamEngine:
         return None
 
 
-# ============================================================
-# ИНТЕГРАЦИЯ С SHARD
-# ============================================================
 
 class ShardRedTeamIntegration:
     """Интеграция Red Team Automation в SHARD"""
@@ -921,18 +861,15 @@ class ShardRedTeamIntegration:
         if self.logger:
             self.logger.info(f"🎯 Red Team scan requested for {target}")
 
-        # Запуск в отдельном потоке
         def run_scan():
             report = self.engine.run_full_assessment(target, scope)
 
-            # Сохранение отчёта
             json_path = self.engine.save_report(report)
             html_report = self.engine.generate_html_report(report)
             html_path = json_path.replace('.json', '.html')
             with open(html_path, 'w') as f:
                 f.write(html_report)
 
-            # Публикация критических находок как алертов
             for severity in ['CRITICAL', 'HIGH']:
                 for finding in report['findings_by_severity'].get(severity, []):
                     self._publish_alert(finding, target)
@@ -1013,9 +950,6 @@ class ShardRedTeamIntegration:
         return None
 
 
-# ============================================================
-# ТЕСТИРОВАНИЕ
-# ============================================================
 
 def test_red_team():
     """Тестирование Red Team Automation"""
@@ -1028,14 +962,12 @@ def test_red_team():
 
     engine = RedTeamEngine(config)
 
-    # Тест 1: Сканирование портов localhost
     print("\n📝 Тест 1: Сканирование портов localhost")
     findings = engine.port_scanner.run("127.0.0.1")
     print(f"   Найдено открытых портов: {len(findings)}")
     for f in findings:
         print(f"      [{f.severity.value}] Port {f.port}: {f.service}")
 
-    # Тест 2: Статистика
     print("\n📝 Тест 2: Статистика")
     stats = engine.get_stats()
     print(f"   Всего сканирований: {stats['total_scans']}")

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 SHARD Adversarial Defence Module
@@ -28,44 +27,32 @@ from dataclasses import dataclass, field
 logger = logging.getLogger("SHARD-Adversarial")
 
 
-# ============================================================
-# КОНФИГУРАЦИЯ
-# ============================================================
 
 @dataclass
 class AdversarialDefenceConfig:
     """Конфигурация защиты от adversarial атак"""
 
-    # Очистка признаков
     feature_clipping: bool = True
     feature_clip_min: float = -5.0
     feature_clip_max: float = 5.0
 
-    # Детекция аномалий во входных данных
     anomaly_detection: bool = True
-    anomaly_threshold: float = 3.0  # Z-score порог
-    max_feature_deviation: float = 10.0  # Максимальное отклонение признака
+    anomaly_threshold: float = 3.0
+    max_feature_deviation: float = 10.0
 
-    # Ансамблевая верификация
     ensemble_verification: bool = True
-    ensemble_agreement_threshold: float = 0.7  # Минимум моделей должны согласиться
+    ensemble_agreement_threshold: float = 0.7
 
-    # Кэш нормальных распределений
     normal_stats_window: int = 10000
     stats_update_interval: int = 100
 
-    # Ответ на атаку
     auto_block_on_attack: bool = True
     block_duration: int = 3600
 
-    # Логирование
     log_all_detections: bool = True
     save_adversarial_samples: bool = True
 
 
-# ============================================================
-# STATISTICS TRACKER
-# ============================================================
 
 class FeatureStatistics:
     """
@@ -77,16 +64,13 @@ class FeatureStatistics:
         self.n_features = n_features
         self.window_size = window_size
 
-        # Алгоритм Уэлфорда
         self.count = 0
         self.mean = np.zeros(n_features)
         self.M2 = np.zeros(n_features)
 
-        # Min/max для clipping
         self.min_values = np.full(n_features, np.inf)
         self.max_values = np.full(n_features, -np.inf)
 
-        # Буфер недавних значений
         self.recent_samples = deque(maxlen=window_size)
 
         self._lock = threading.RLock()
@@ -103,11 +87,9 @@ class FeatureStatistics:
             delta2 = features - self.mean
             self.M2 += delta * delta2
 
-            # Min/max
             self.min_values = np.minimum(self.min_values, features)
             self.max_values = np.maximum(self.max_values, features)
 
-            # Буфер
             self.recent_samples.append(features.copy())
 
     def get_std(self) -> np.ndarray:
@@ -153,9 +135,6 @@ class FeatureStatistics:
             }
 
 
-# ============================================================
-# ADVERSARIAL CLEANER
-# ============================================================
 
 class AdversarialCleaner:
     """
@@ -170,7 +149,7 @@ class AdversarialCleaner:
 
     def __init__(self, config: AdversarialDefenceConfig):
         self.config = config
-        self.stats = None  # Будет установлен позже
+        self.stats = None
 
     def clean(self, features: np.ndarray) -> np.ndarray:
         """
@@ -188,14 +167,11 @@ class AdversarialCleaner:
 
         cleaned = features.copy()
 
-        # 1. Feature Clipping
         if self.config.feature_clipping:
             cleaned = self._clip_features(cleaned)
 
-        # 2. Quantization (уменьшение precision атаки)
         cleaned = self._quantize(cleaned)
 
-        # 3. Median filtering для удаления spike-атак
         cleaned = self._median_filter(cleaned)
 
         return cleaned.reshape(original_shape)
@@ -235,16 +211,12 @@ class AdversarialCleaner:
             window = features[i - half:i + half + 1]
             median = np.median(window)
 
-            # Заменяем только если отклонение большое
             if abs(features[i] - median) > 3 * np.std(window):
                 result[i] = median
 
         return result
 
 
-# ============================================================
-# ADVERSARIAL DETECTOR
-# ============================================================
 
 class AdversarialDetector:
     """
@@ -259,15 +231,13 @@ class AdversarialDetector:
     def __init__(self, config: AdversarialDefenceConfig):
         self.config = config
         self.cleaner = AdversarialCleaner(config)
-        self.stats = None  # Будет установлен позже
-        self.models = {}  # Ensemble моделей
+        self.stats = None
+        self.models = {}
         self.event_bus = None
         self.firewall = None
 
-        # История детекций
         self.detection_history = deque(maxlen=1000)
 
-        # Статистика
         self.stats_detector = {
             'total_checked': 0,
             'attacks_detected': 0,
@@ -318,7 +288,6 @@ class AdversarialDetector:
 
             scores = []
 
-            # Метод 1: Статистическая аномалия
             if self.stats is not None and self.stats.count > 100:
                 is_anom, max_z, anom_features = self.stats.is_anomalous(
                     features, self.config.anomaly_threshold
@@ -333,12 +302,10 @@ class AdversarialDetector:
                     'anomalous_features': anom_features[:10]
                 }
 
-            # Метод 2: Feature Squeezing
             if cleaned is not None:
                 l1_diff = np.mean(np.abs(features - cleaned))
                 l2_diff = np.sqrt(np.mean((features - cleaned) ** 2))
 
-                # Нормализуем diff
                 squeeze_score = min(1.0, l1_diff / 0.5)
                 scores.append(squeeze_score)
                 details['methods']['feature_squeezing'] = {
@@ -350,7 +317,6 @@ class AdversarialDetector:
                 if l1_diff > 0.3:
                     self.stats_detector['cleaned_samples'] += 1
 
-            # Метод 3: Ensemble Disagreement (если есть модели)
             if self.models and cleaned is not None:
                 disagreement_score = self._check_ensemble_agreement(features, cleaned)
                 scores.append(disagreement_score)
@@ -358,9 +324,7 @@ class AdversarialDetector:
                     'score': float(disagreement_score)
                 }
 
-            # Итоговый score
             if scores:
-                # Используем максимум (любой метод может обнаружить атаку)
                 total_score = max(scores)
             else:
                 total_score = 0.0
@@ -373,10 +337,8 @@ class AdversarialDetector:
                 self.stats_detector['attacks_detected'] += 1
                 self.detection_history.append(details)
 
-                # Публикуем алерт
                 self._publish_alert(features, details)
 
-                # Автоматическая блокировка
                 if self.config.auto_block_on_attack and self.firewall:
                     self._auto_block(features, total_score)
 
@@ -408,7 +370,6 @@ class AdversarialDetector:
         if len(preds_original) < 2:
             return 0.0
 
-        # Считаем disagreement
         disagreements = 0
         for i in range(len(preds_original)):
             if preds_original[i] != preds_cleaned[i]:
@@ -442,7 +403,6 @@ class AdversarialDetector:
     def _auto_block(self, features: np.ndarray, score: float):
         """Автоматическая блокировка при adversarial атаке"""
         if self.firewall and score > 0.8:
-            # Генерируем временный идентификатор для блокировки
             feature_hash = hashlib.md5(features.tobytes()).hexdigest()[:12]
 
             logger.critical(f"🚫 Auto-blocking adversarial attack pattern: {feature_hash}")
@@ -453,7 +413,6 @@ class AdversarialDetector:
             if was_false_positive:
                 self.stats_detector['false_positives'] += 1
 
-                # Адаптивно повышаем порог
                 fp_rate = self.stats_detector['false_positives'] / max(1, self.stats_detector['attacks_detected'])
                 if fp_rate > 0.3:
                     self.config.anomaly_threshold = min(5.0, self.config.anomaly_threshold * 1.1)
@@ -470,9 +429,6 @@ class AdversarialDetector:
             }
 
 
-# ============================================================
-# ГЛАВНЫЙ МОДУЛЬ
-# ============================================================
 
 class AdversarialDefence:
     """
@@ -492,12 +448,10 @@ class AdversarialDefence:
         self.detector = AdversarialDetector(self.config)
         self.stats = None
 
-        # Интеграции
         self.event_bus = None
         self.firewall = None
         self.rl_agent = None
 
-        # Состояние
         self._running = False
         self._initialized = False
 
@@ -522,7 +476,6 @@ class AdversarialDefence:
         self.cleaner.stats = self.stats
         self.detector.initialize_stats(n_features)
 
-        # Калибровка на нормальных данных
         if calibration_data is not None:
             for i in range(len(calibration_data)):
                 self.stats.update(calibration_data[i])
@@ -564,14 +517,10 @@ class AdversarialDefence:
             'details': {}
         }
 
-        # Шаг 1: Очистка
         cleaned = self.cleaner.clean(features)
         result['cleaned_features'] = cleaned
 
-        # Шаг 2: Обновление статистик (только нормальные сэмплы)
-        # Статистики обновляются извне через update_stats()
 
-        # Шаг 3: Детекция
         is_attack, score, details = self.detector.detect_anomaly(features, cleaned)
         result['is_attack'] = is_attack
         result['attack_score'] = score
@@ -597,10 +546,8 @@ class AdversarialDefence:
         if features is not None:
             features = np.array(features)
 
-            # Очистка и детекция
             result = self.process_features(features)
 
-            # Если атака — RL Agent выбирает действие
             if result['is_attack'] and self.rl_agent:
                 state = {
                     'alert_score': result['attack_score'],
@@ -610,7 +557,6 @@ class AdversarialDefence:
                 action_id, action_name = self.rl_agent.act(state, training=False)
                 result['rl_action'] = action_name
 
-            # Публикуем очищенные признаки
             if self.event_bus:
                 self.event_bus.publish('features.cleaned', {
                     'original': features.tolist(),
@@ -647,9 +593,6 @@ class AdversarialDefence:
         }
 
 
-# ============================================================
-# ИНТЕГРАЦИЯ С SHARD
-# ============================================================
 
 class ShardAdversarialIntegration:
     """Интеграция Adversarial Defence в SHARD Enterprise"""
@@ -704,9 +647,6 @@ class ShardAdversarialIntegration:
         return self.defence.get_stats()
 
 
-# ============================================================
-# ТЕСТИРОВАНИЕ
-# ============================================================
 
 def test_adversarial_defence():
     """Тестирование модуля"""
@@ -714,32 +654,27 @@ def test_adversarial_defence():
     print("🧪 ТЕСТИРОВАНИЕ ADVERSARIAL DEFENCE")
     print("=" * 60)
 
-    # Создаём защиту
     defence = AdversarialDefence()
 
-    # Инициализируем с нормальными данными
     n_features = 78
     normal_data = np.random.randn(1000, n_features) * 0.1
     defence.initialize(n_features, normal_data)
     defence.start()
 
-    # Тест 1: Нормальный сэмпл
     print("\n📝 Тест 1: Нормальный сэмпл")
     normal = np.random.randn(n_features) * 0.1
     result = defence.process_features(normal)
     print(f"   Is attack: {result['is_attack']}")
     print(f"   Score: {result['attack_score']:.3f}")
 
-    # Тест 2: Adversarial сэмпл (FGSM-like)
     print("\n📝 Тест 2: Adversarial сэмпл")
     adversarial = normal + np.random.randn(n_features) * 2.0
-    adversarial[0] = 10.0  # Явный выброс
+    adversarial[0] = 10.0
     result = defence.process_features(adversarial)
     print(f"   Is attack: {result['is_attack']}")
     print(f"   Score: {result['attack_score']:.3f}")
     print(f"   Methods: {list(result['details'].get('methods', {}).keys())}")
 
-    # Тест 3: Очистка
     print("\n📝 Тест 3: Очистка признаков")
     cleaned = defence.clean(adversarial)
     l1_diff = np.mean(np.abs(normal - adversarial))
@@ -748,7 +683,6 @@ def test_adversarial_defence():
     print(f"   L1 diff (cleaned): {l1_cleaned:.4f}")
     print(f"   Improvement: {(1 - l1_cleaned / l1_diff) * 100:.1f}%")
 
-    # Статистика
     print("\n📊 Статистика:")
     stats = defence.get_stats()
     for key, value in stats['detector'].items():

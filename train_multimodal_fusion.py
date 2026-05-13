@@ -17,8 +17,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger("SHARD-Fusion")
 
 CONFIG = {
-    'num_modalities': 7,      # 7 источников сигналов
-    'modal_dims': [13, 100, 5, 1, 1, 3, 1],  # Размерность каждого сигнала
+    'num_modalities': 7,
+    'modal_dims': [13, 100, 5, 1, 1, 3, 1],
     'fusion_dim': 128,
     'num_heads': 4,
     'num_layers': 2,
@@ -28,14 +28,6 @@ CONFIG = {
     'batch_size': 32,
 }
 
-# Источники сигналов:
-# 0: ML Classifier (13 классов)
-# 1: Seq2Seq embedding (100-мерный)
-# 2: RL Action (5 действий)
-# 3: VAE Anomaly Score
-# 4: GNN Graph Threat Score
-# 5: Anomaly Detector (3 класса: normal/suspicious/malicious)
-# 6: Overall confidence
 
 
 class MultiModalFusion(nn.Module):
@@ -47,7 +39,6 @@ class MultiModalFusion(nn.Module):
         if modal_dims is None:
             modal_dims = [13, 100, 5, 1, 1, 3, 1]
         
-        # Проекции каждой модальности в общее пространство
         self.projections = nn.ModuleList([
             nn.Sequential(
                 nn.Linear(dim, fusion_dim),
@@ -56,7 +47,6 @@ class MultiModalFusion(nn.Module):
             ) for dim in modal_dims
         ])
         
-        # Cross-Attention между модальностями
         self.cross_attention = nn.MultiheadAttention(
             embed_dim=fusion_dim,
             num_heads=num_heads,
@@ -64,7 +54,6 @@ class MultiModalFusion(nn.Module):
             batch_first=True,
         )
         
-        # Self-Attention для агрегации
         self.self_attention = nn.MultiheadAttention(
             embed_dim=fusion_dim,
             num_heads=num_heads,
@@ -72,7 +61,6 @@ class MultiModalFusion(nn.Module):
             batch_first=True,
         )
         
-        # Финальный классификатор
         self.classifier = nn.Sequential(
             nn.Linear(fusion_dim, fusion_dim * 2),
             nn.LayerNorm(fusion_dim * 2),
@@ -81,10 +69,9 @@ class MultiModalFusion(nn.Module):
             nn.Linear(fusion_dim * 2, fusion_dim),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(fusion_dim, 3),  # 0=benign, 1=suspicious, 2=critical
+            nn.Linear(fusion_dim, 3),
         )
         
-        # Калибровка уверенности
         self.confidence_head = nn.Sequential(
             nn.Linear(fusion_dim, 64),
             nn.ReLU(),
@@ -92,7 +79,6 @@ class MultiModalFusion(nn.Module):
             nn.Sigmoid(),
         )
         
-        # Модальные веса (learnable)
         self.modal_weights = nn.Parameter(torch.ones(num_modalities) / num_modalities)
     
     def forward(self, modalities):
@@ -100,26 +86,20 @@ class MultiModalFusion(nn.Module):
         modalities: list of tensors, каждый [batch, modal_dim_i]
         Возвращает: threat_logits [batch, 3], confidence [batch, 1], modal_weights [num_modalities]
         """
-        # Проекция каждой модальности
         projected = []
         for i, proj in enumerate(self.projections):
-            p = proj(modalities[i])  # [batch, fusion_dim]
+            p = proj(modalities[i])
             projected.append(p)
         
-        # Стек: [batch, num_modalities, fusion_dim]
         stacked = torch.stack(projected, dim=1)
         
-        # Cross-Attention
         attn_out, _ = self.cross_attention(stacked, stacked, stacked)
         
-        # Self-Attention
         fused, _ = self.self_attention(attn_out, attn_out, attn_out)
         
-        # Взвешенное усреднение с learnable weights
-        weights = torch.softmax(self.modal_weights, dim=0)  # [num_modalities]
-        fused_weighted = (fused * weights.unsqueeze(0).unsqueeze(-1)).sum(dim=1)  # [batch, fusion_dim]
+        weights = torch.softmax(self.modal_weights, dim=0)
+        fused_weighted = (fused * weights.unsqueeze(0).unsqueeze(-1)).sum(dim=1)
         
-        # Классификация
         threat_logits = self.classifier(fused_weighted)
         confidence = self.confidence_head(fused_weighted)
         
@@ -134,23 +114,20 @@ class FusionDataset(torch.utils.data.Dataset):
         self.data = []
         
         for _ in range(size):
-            # Генерируем правдоподобные выходы всех нейросетей
             is_attack = random.random() < 0.4
             
             if not is_attack:
-                # Benign — все сигналы низкие
                 modalities = [
-                    torch.rand(13) * 0.2,                    # ML: слабые вероятности
-                    torch.randn(100) * 0.1,                   # Seq2Seq: почти нулевой
-                    torch.tensor([0.8, 0.1, 0.05, 0.03, 0.02]),  # RL: ignore
-                    torch.tensor([random.uniform(0, 0.3)]),   # VAE: низкий anomaly score
-                    torch.tensor([random.uniform(0, 0.2)]),   # GNN: низкий
-                    torch.tensor([0.8, 0.15, 0.05]),          # Detector: normal
-                    torch.tensor([random.uniform(0, 0.3)]),   # Confidence: низкая
+                    torch.rand(13) * 0.2,
+                    torch.randn(100) * 0.1,
+                    torch.tensor([0.8, 0.1, 0.05, 0.03, 0.02]),
+                    torch.tensor([random.uniform(0, 0.3)]),
+                    torch.tensor([random.uniform(0, 0.2)]),
+                    torch.tensor([0.8, 0.15, 0.05]),
+                    torch.tensor([random.uniform(0, 0.3)]),
                 ]
-                label = 0  # benign
+                label = 0
             elif random.random() < 0.5:
-                # Suspicious
                 atype = random.randint(0, 12)
                 modalities = [
                     torch.rand(13) * 0.5 + torch.tensor([1.0 if i == atype else 0.0 for i in range(13)]) * 0.5,
@@ -161,9 +138,8 @@ class FusionDataset(torch.utils.data.Dataset):
                     torch.tensor([0.1, 0.7, 0.2]),
                     torch.tensor([random.uniform(0.3, 0.6)]),
                 ]
-                label = 1  # suspicious
+                label = 1
             else:
-                # Critical attack
                 atype = random.randint(0, 12)
                 modalities = [
                     torch.rand(13) * 0.3 + torch.tensor([1.0 if i == atype else 0.0 for i in range(13)]) * 0.7,
@@ -174,7 +150,7 @@ class FusionDataset(torch.utils.data.Dataset):
                     torch.tensor([0.02, 0.08, 0.9]),
                     torch.tensor([random.uniform(0.7, 1.0)]),
                 ]
-                label = 2  # critical
+                label = 2
             
             self.data.append((modalities, label))
     
@@ -257,7 +233,6 @@ def train():
     
     logger.info(f"\n✅ Final: acc={acc:.2%}, best_acc={best_acc:.2%}")
     
-    # Сохранение
     Path('./models/fusion').mkdir(parents=True, exist_ok=True)
     torch.save({
         'model_state_dict': model.state_dict(),
@@ -268,7 +243,6 @@ def train():
     
     logger.info(f"\n💾 Model saved: models/fusion/multimodal_fusion.pt")
     
-    # Тест
     logger.info(f"\n🧪 Testing...")
     model.eval()
     

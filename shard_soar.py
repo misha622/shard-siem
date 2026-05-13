@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 SHARD SOAR Integration Module
@@ -30,9 +29,6 @@ import requests
 import yaml
 
 
-# ============================================================
-# КОНФИГУРАЦИЯ
-# ============================================================
 
 class PlaybookStatus(Enum):
     """Статус выполнения playbook"""
@@ -66,7 +62,6 @@ class ActionType(Enum):
 class SOARConfig:
     """Конфигурация SOAR"""
 
-    # Внешние интеграции
     thehive_enabled: bool = False
     thehive_url: str = "http://localhost:9000"
     thehive_api_key: str = ""
@@ -85,22 +80,16 @@ class SOARConfig:
     teams_enabled: bool = False
     teams_webhook: str = ""
 
-    # Playbooks
     playbooks_dir: str = "./data/soar/playbooks/"
     auto_execute_playbooks: bool = True
 
-    # Ограничения
     max_concurrent_playbooks: int = 10
     max_actions_per_playbook: int = 50
-    action_timeout: int = 300  # секунд
+    action_timeout: int = 300
 
-    # База данных
     db_path: str = "./data/soar/soar.db"
 
 
-# ============================================================
-# ДЕЙСТВИЯ (ACTIONS)
-# ============================================================
 
 class BaseAction:
     """Базовый класс для всех действий"""
@@ -124,7 +113,7 @@ class BlockIPAction(BaseAction):
 
     def __init__(self, config: Dict, logger=None):
         super().__init__("block_ip", config, logger)
-        self.firewall = None  # Должен быть установлен извне
+        self.firewall = None
 
     def execute(self, context: Dict) -> Dict:
         ip = context.get('ip') or context.get('alert', {}).get('src_ip')
@@ -141,7 +130,6 @@ class BlockIPAction(BaseAction):
                 result = self.firewall.block_ip(ip, duration)
                 return {'status': 'completed', 'ip': ip, 'duration': duration, 'result': result}
             else:
-                # Fallback - iptables
                 cmd = ['iptables', '-A', 'INPUT', '-s', ip, '-j', 'DROP']
                 subprocess.run(cmd, capture_output=True, check=False)
                 return {'status': 'completed', 'ip': ip, 'duration': duration}
@@ -173,7 +161,6 @@ class IsolateHostAction(BaseAction):
             self.logger.warning(f"🔒 Isolating host: {host}")
 
         try:
-            # Блокировка всего трафика от/к хосту
             cmds = [
                 ['iptables', '-A', 'INPUT', '-s', host, '-j', 'DROP'],
                 ['iptables', '-A', 'OUTPUT', '-d', host, '-j', 'DROP'],
@@ -200,16 +187,14 @@ class NotificationAction(BaseAction):
         message = self.config.get('message', 'Alert triggered')
         severity = context.get('alert', {}).get('severity', 'INFO')
 
-        # Форматирование сообщения
         formatted_message = message.format(**context)
 
         results = {}
 
-        # Slack
         if self.config.get('slack', False) and self.slack_webhook:
             try:
-                color = {'CRITICAL': '#dc3545', 'HIGH': '#fd7e14', 'MEDIUM': '#ffc107', 'LOW': '#28a745'}.get(severity,
-                                                                                                              '#17a2b8')
+                color = {'CRITICAL': '
+                                                                                                              '
                 payload = {
                     'attachments': [{
                         'color': color,
@@ -229,7 +214,6 @@ class NotificationAction(BaseAction):
             except Exception as e:
                 results['slack'] = {'status': 'failed', 'error': str(e)}
 
-        # Microsoft Teams
         if self.config.get('teams', False) and self.teams_webhook:
             try:
                 payload = {
@@ -265,7 +249,6 @@ class EnrichAlertAction(BaseAction):
         alert = context.get('alert', {})
         enriched = alert.copy()
 
-        # GeoIP
         ip = alert.get('src_ip')
         if ip and not ip.startswith(('192.168.', '10.', '172.', '127.')):
             try:
@@ -282,7 +265,6 @@ class EnrichAlertAction(BaseAction):
             except:
                 pass
 
-        # Threat Intelligence (AbuseIPDB)
         abuse_key = self.config.get('abuseipdb_key')
         if abuse_key and ip:
             try:
@@ -323,7 +305,6 @@ class CreateTicketAction(BaseAction):
 
         alert = context.get('enriched_alert', context.get('alert', {}))
 
-        # Формирование тикета
         ticket = {
             'title': f"[SHARD] {alert.get('attack_type', 'Unknown')} from {alert.get('src_ip', 'unknown')}",
             'description': self._format_description(alert),
@@ -401,7 +382,6 @@ class WebhookAction(BaseAction):
         if not url:
             return {'status': 'failed', 'error': 'No URL provided'}
 
-        # Подстановка переменных в URL и тело
         body_template = self.config.get('body', {})
         body = self._interpolate(body_template, context)
 
@@ -459,7 +439,6 @@ class ConditionAction(BaseAction):
         true_branch = self.config.get('true', [])
         false_branch = self.config.get('false', [])
 
-        # Оценка условия
         result = self._evaluate(condition, context)
 
         return {
@@ -470,9 +449,7 @@ class ConditionAction(BaseAction):
 
     def _evaluate(self, condition: str, context: Dict) -> bool:
         """Простая оценка условий"""
-        # Поддержка: alert.severity == 'CRITICAL', alert.score > 0.8, etc.
         try:
-            # Замена переменных
             for match in re.finditer(r'([\w\.]+)', condition):
                 path = match.group(1)
                 if '.' in path:
@@ -482,7 +459,6 @@ class ConditionAction(BaseAction):
                     else:
                         condition = condition.replace(path, str(value))
 
-            # Безопасное вычисление
             allowed_names = {'True': True, 'False': False, 'None': None}
             return eval(condition, {"__builtins__": {}}, allowed_names)
         except:
@@ -499,9 +475,6 @@ class ConditionAction(BaseAction):
         return value
 
 
-# ============================================================
-# PLAYBOOK ENGINE
-# ============================================================
 
 class Playbook:
     """Playbook для автоматизации реагирования"""
@@ -539,14 +512,11 @@ class Playbook:
                     'result': action_result
                 })
 
-                # Обновление контекста
                 self.context[f'action_{i}_result'] = action_result
 
-                # Проверка на условное ветвление
                 if isinstance(action, ConditionAction):
                     next_actions = action_result.get('next_actions', [])
                     if next_actions:
-                        # Выполнение ветки
                         for next_idx in next_actions:
                             if next_idx < len(self.actions):
                                 branch_action = self.actions[next_idx]
@@ -558,7 +528,6 @@ class Playbook:
                                     'branch': True
                                 })
 
-                # Проверка на остановку при ошибке
                 if action_result.get('status') == 'failed' and self.config.get('stop_on_error', True):
                     self.status = PlaybookStatus.FAILED
                     self.error = action_result.get('error', 'Unknown error')
@@ -612,9 +581,6 @@ class Playbook:
         return False
 
 
-# ============================================================
-# PLAYBOOK LOADER
-# ============================================================
 
 class PlaybookLoader:
     """Загрузчик playbook'ов из YAML"""
@@ -641,7 +607,6 @@ class PlaybookLoader:
                     if self.logger:
                         self.logger.error(f"Error loading playbook {pb_file}: {e}")
 
-        # Если нет файлов - создаём встроенные
         if not playbooks:
             playbooks = self._create_embedded_playbooks()
 
@@ -668,7 +633,6 @@ class PlaybookLoader:
         """Создание встроенных playbook'ов"""
         playbooks = []
 
-        # Playbook 1: Critical Alert Response
         pb1_config = {
             'name': 'Critical Alert Response',
             'enabled': True,
@@ -686,7 +650,6 @@ class PlaybookLoader:
         ]
         playbooks.append(Playbook('embedded_critical', 'Critical Alert Response', pb1_config, pb1_actions))
 
-        # Playbook 2: High Alert Response
         pb2_config = {
             'name': 'High Alert Response',
             'enabled': True,
@@ -702,7 +665,6 @@ class PlaybookLoader:
         ]
         playbooks.append(Playbook('embedded_high', 'High Alert Response', pb2_config, pb2_actions))
 
-        # Playbook 3: Brute Force Response
         pb3_config = {
             'name': 'Brute Force Response',
             'enabled': True,
@@ -720,9 +682,6 @@ class PlaybookLoader:
         return playbooks
 
 
-# ============================================================
-# ACTION FACTORY
-# ============================================================
 
 class ActionFactory:
     """Фабрика для создания действий"""
@@ -759,9 +718,6 @@ class ActionFactory:
             return None
 
 
-# ============================================================
-# SOAR ENGINE
-# ============================================================
 
 class SOAREngine:
     """
@@ -773,12 +729,10 @@ class SOAREngine:
         self.config = config or SOARConfig()
         self.logger = logger
 
-        # Playbooks
         self.playbooks: Dict[str, Playbook] = {}
         self.execution_history: deque = deque(maxlen=1000)
         self.executor = ThreadPoolExecutor(max_workers=self.config.max_concurrent_playbooks)
 
-        # Статистика
         self.stats = {
             'total_executions': 0,
             'successful_executions': 0,
@@ -789,7 +743,6 @@ class SOAREngine:
         self._lock = threading.RLock()
         self._running = False
 
-        # Загрузка playbook'ов
         self._load_playbooks()
 
     def _load_playbooks(self):
@@ -901,9 +854,6 @@ class SOAREngine:
         return list(self.execution_history)[-limit:]
 
 
-# ============================================================
-# ИНТЕГРАЦИЯ С SHARD
-# ============================================================
 
 class ShardSOARIntegration:
     """Интеграция SOAR в SHARD"""
@@ -920,9 +870,7 @@ class ShardSOARIntegration:
         self.logger = logger
         self.engine = SOAREngine(self.config, logger)
 
-        # Передача firewall в actions
         if firewall:
-            # Обновляем actions с firewall
             pass
 
         if event_bus:
@@ -981,9 +929,6 @@ class ShardSOARIntegration:
         return {}
 
 
-# ============================================================
-# ТЕСТИРОВАНИЕ
-# ============================================================
 
 def test_soar():
     """Тестирование SOAR"""
@@ -997,12 +942,10 @@ def test_soar():
     engine = SOAREngine(config)
     engine.start()
 
-    # Тест 1: Список playbook'ов
     print(f"\n📝 Тест 1: Playbooks ({len(engine.playbooks)})")
     for pb in engine.list_playbooks():
         print(f"   - {pb['name']} (actions: {pb['actions_count']}, triggers: {len(pb['triggers'])})")
 
-    # Тест 2: Выполнение playbook на тестовом алерте
     print("\n📝 Тест 2: Выполнение playbook")
     test_alert = {
         'attack_type': 'Brute Force',
@@ -1018,16 +961,13 @@ def test_soar():
     triggered = engine.on_alert(test_alert)
     print(f"   Triggered playbooks: {triggered}")
 
-    # Ждём выполнения
     time.sleep(2)
 
-    # Тест 3: Статистика
     print("\n📝 Тест 3: Статистика")
     stats = engine.get_stats()
     for key, value in stats.items():
         print(f"   {key}: {value}")
 
-    # Тест 4: История выполнений
     print("\n📝 Тест 4: История выполнений")
     history = engine.get_execution_history(5)
     for h in history:

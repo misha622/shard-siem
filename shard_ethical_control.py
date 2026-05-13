@@ -23,19 +23,16 @@ from enum import Enum
 logger = logging.getLogger("SHARD-Ethics")
 
 
-# ============================================================
-# УРОВНИ ДЕЙСТВИЙ
-# ============================================================
 
 class ActionLevel(Enum):
     """Уровень действия и требования к подтверждению"""
-    LEVEL_0 = 0  # Логирование — без подтверждения
-    LEVEL_1 = 1  # Rate limiting — без подтверждения
-    LEVEL_2 = 2  # Блокировка порта — без подтверждения
-    LEVEL_3 = 3  # Блокировка IP (временная) — подтверждение при >10/час
-    LEVEL_4 = 4  # Блокировка IP (перманентная) — всегда подтверждение
-    LEVEL_5 = 5  # Изоляция хоста — код подтверждения
-    LEVEL_6 = 6  # Активное противодействие — ЗАПРЕЩЕНО без ручного режима
+    LEVEL_0 = 0
+    LEVEL_1 = 1
+    LEVEL_2 = 2
+    LEVEL_3 = 3
+    LEVEL_4 = 4
+    LEVEL_5 = 5
+    LEVEL_6 = 6
     
     def __ge__(self, other):
         if isinstance(other, ActionLevel):
@@ -67,7 +64,7 @@ class EthicalAction:
     defense_code: Optional[str]
     status: ActionStatus = ActionStatus.PENDING
     created_at: float = field(default_factory=time.time)
-    expires_at: float = field(default_factory=lambda: time.time() + 300)  # 5 минут
+    expires_at: float = field(default_factory=lambda: time.time() + 300)
     approved_by: Optional[str] = None
     approved_at: Optional[float] = None
     confirmation_code: str = field(default_factory=lambda: secrets.token_hex(4).upper())
@@ -75,14 +72,10 @@ class EthicalAction:
     execution_result: Optional[Dict] = None
 
 
-# ============================================================
-# ЭТИЧЕСКИЕ ПРАВИЛА
-# ============================================================
 
 class EthicalRules:
     """База этических правил"""
 
-    # Правила которые НИКОГДА нельзя нарушать
     INVINCIBLE_RULES = [
         "Запрещено атаковать в ответ (только защита)",
         "Запрещено блокировать критическую инфраструктуру без подтверждения",
@@ -91,23 +84,20 @@ class EthicalRules:
         "Запрещено игнорировать команду отката",
     ]
 
-    # IP которые НИКОГДА нельзя блокировать
     SACRED_IPS = {
         '127.0.0.1', '::1', 'localhost',
-        '8.8.8.8', '8.8.4.4',  # Google DNS
-        '1.1.1.1', '1.0.0.1',  # Cloudflare DNS
+        '8.8.8.8', '8.8.4.4',
+        '1.1.1.1', '1.0.0.1',
     }
 
-    # Подсети которые НИКОГДА нельзя блокировать
     SACRED_SUBNETS = [
-        '10.0.0.0/8',  # Внутренняя сеть
-        '172.16.0.0/12',  # Внутренняя сеть
-        '192.168.0.0/16',  # Внутренняя сеть
-        '169.254.0.0/16',  # Link-local
-        '224.0.0.0/4',  # Multicast
+        '10.0.0.0/8',
+        '172.16.0.0/12',
+        '192.168.0.0/16',
+        '169.254.0.0/16',
+        '224.0.0.0/4',
     ]
 
-    # Порты которые НЕЛЬЗЯ блокировать без явного разрешения
     SACRED_PORTS = {
         22: 'SSH (может заблокировать доступ администратора)',
         53: 'DNS (может сломать резолвинг)',
@@ -121,7 +111,6 @@ class EthicalRules:
         27017: 'MongoDB (может быть production DB)',
     }
 
-    # Действия требующие КОД ПОДТВЕРЖДЕНИЯ (не просто yes/no)
     CONFIRMATION_CODE_ACTIONS = {
         ActionLevel.LEVEL_5: "Изоляция хоста",
         ActionLevel.LEVEL_6: "Активное противодействие",
@@ -143,9 +132,6 @@ class EthicalRules:
         return cls.SACRED_PORTS.get(port)
 
 
-# ============================================================
-# АУДИТ ДЕЙСТВИЙ
-# ============================================================
 
 class ActionAudit:
     """Аудит всех этических решений"""
@@ -161,7 +147,6 @@ class ActionAudit:
         with self._lock:
             self.actions.append(action)
 
-            # Сохраняем в файл
             audit_file = self.audit_dir / f"audit_{datetime.now().strftime('%Y%m%d')}.json"
 
             audit_entry = {
@@ -210,9 +195,6 @@ class ActionAudit:
             return {'total': 0, 'approved': 0, 'rejected': 0}
 
 
-# ============================================================
-# ЭТИЧЕСКИЙ КОНТРОЛЛЕР
-# ============================================================
 
 class EthicalController:
     """
@@ -225,11 +207,9 @@ class EthicalController:
         self.logger = logger_instance or logger
         self.audit = ActionAudit()
 
-        # Очередь на подтверждение
         self.pending_actions: Dict[str, EthicalAction] = {}
         self.approval_callbacks: Dict[str, Callable] = {}
 
-        # Статистика
         self.stats = {
             'total_actions': 0,
             'approved': 0,
@@ -239,7 +219,6 @@ class EthicalController:
             'rolled_back': 0,
         }
 
-        # Лимиты
         self.hourly_limits: Dict[ActionLevel, deque] = defaultdict(lambda: deque(maxlen=1000))
         self.max_per_hour = {
             ActionLevel.LEVEL_3: 10,
@@ -247,14 +226,12 @@ class EthicalController:
             ActionLevel.LEVEL_5: 2,
         }
 
-        # Режим работы
-        self.manual_mode = False  # True = все подтверждения вручную
-        self.auto_approve_enabled = False  # True = авто-одобрение низкоуровневых
+        self.manual_mode = False
+        self.auto_approve_enabled = False
 
         self._lock = threading.RLock()
         self._running = False
 
-        # Загружаем доверенных операторов
         self.trusted_operators = self._load_operators()
 
     def _load_operators(self) -> Dict[str, Dict]:
@@ -268,7 +245,6 @@ class EthicalController:
             except:
                 pass
 
-        # По умолчанию — только локальный оператор
         return {
             'admin': {
                 'name': 'Administrator',
@@ -302,7 +278,6 @@ class EthicalController:
         with self._lock:
             self.stats['total_actions'] += 1
 
-            # Проверка священных IP
             src_ip = attack_info.get('src_ip', '')
             if EthicalRules.is_sacred_ip(src_ip):
                 action = EthicalAction(
@@ -317,7 +292,6 @@ class EthicalController:
                 self.stats['rejected'] += 1
                 return action
 
-            # Проверка священных портов
             dst_port = attack_info.get('dst_port', 0)
             port_warning = EthicalRules.get_port_warning(dst_port)
             if port_warning and action_level.value >= ActionLevel.LEVEL_5.value:
@@ -337,7 +311,6 @@ class EthicalController:
                     defense_code=defense_code,
                 )
 
-            # Проверка лимитов
             if not self._check_limits(action_level, attack_info.get('src_ip', '')):
                 action.status = ActionStatus.REJECTED
                 action.description += " (превышен лимит)"
@@ -345,7 +318,6 @@ class EthicalController:
                 self.stats['rejected'] += 1
                 return action
 
-            # Авто-одобрение для низких уровней
             if action_level.value <= ActionLevel.LEVEL_2.value:
                 if self.auto_approve_enabled:
                     action.status = ActionStatus.APPROVED
@@ -360,13 +332,11 @@ class EthicalController:
 
                     return action
 
-            # Добавляем в очередь на подтверждение
             self.pending_actions[action.id] = action
 
             if callback:
                 self.approval_callbacks[action.id] = callback
 
-            # Логируем запрос
             self._log_approval_request(action)
 
             return action
@@ -379,11 +349,9 @@ class EthicalController:
         now = time.time()
         hour_ago = now - 3600
 
-        # Очистка старых записей
         while self.hourly_limits[level] and self.hourly_limits[level][0] < hour_ago:
             self.hourly_limits[level].popleft()
 
-        # Проверка лимита
         if len(self.hourly_limits[level]) >= self.max_per_hour[level]:
             self.logger.warning(
                 f"⚠️ Превышен лимит {level.name}: "
@@ -423,7 +391,6 @@ class EthicalController:
                 del self.pending_actions[action_id]
                 return {'error': 'Время подтверждения истекло'}
 
-            # Проверка прав оператора
             if operator not in self.trusted_operators:
                 return {'error': 'Неизвестный оператор'}
 
@@ -433,7 +400,6 @@ class EthicalController:
                     'error': f"Оператор {operator} не может одобрить уровень {action.level.value}"
                 }
 
-            # Проверка кода подтверждения для высоких уровней
             if action.level in EthicalRules.CONFIRMATION_CODE_ACTIONS:
                 if not confirmation_code:
                     return {
@@ -444,7 +410,6 @@ class EthicalController:
                 if confirmation_code.upper() != action.confirmation_code:
                     return {'error': 'Неверный код подтверждения'}
 
-            # Одобрение
             action.status = ActionStatus.APPROVED
             action.approved_by = operator
             action.approved_at = time.time()
@@ -452,7 +417,6 @@ class EthicalController:
             self.stats['approved'] += 1
             self.audit.log_action(action)
 
-            # Вызов callback
             if action.id in self.approval_callbacks:
                 try:
                     self.approval_callbacks[action.id](action)
@@ -461,7 +425,6 @@ class EthicalController:
                 finally:
                     del self.approval_callbacks[action.id]
 
-            # Удаление из pending
             del self.pending_actions[action_id]
 
             self.logger.info(f"✅ Действие {action_id} одобрено оператором {operator}")
@@ -500,7 +463,6 @@ class EthicalController:
         with self._lock:
             action = None
 
-            # Ищем в аудите
             for a in self.audit.actions:
                 if a.id == action_id:
                     action = a
@@ -512,11 +474,9 @@ class EthicalController:
             if action.status != ActionStatus.EXECUTED:
                 return {'error': f'Действие не выполнено (статус: {action.status.value})'}
 
-            # Откат
             action.status = ActionStatus.ROLLED_BACK
             self.stats['rolled_back'] += 1
 
-            # Здесь должен быть реальный откат iptables правил
             src_ip = action.attack_info.get('src_ip', '')
 
             if src_ip:
@@ -543,7 +503,6 @@ class EthicalController:
         attack_type = action.attack_info.get('attack_type', 'Unknown')
         src_ip = action.attack_info.get('src_ip', 'unknown')
 
-        # Вывод в консоль
         self.logger.warning(f"""
 ╔══════════════════════════════════════════════════════════════════╗
 ║ 🔔 ТРЕБУЕТСЯ ПОДТВЕРЖДЕНИЕ                                      ║
@@ -559,7 +518,6 @@ class EthicalController:
 ╚══════════════════════════════════════════════════════════════════╝
 """)
 
-        # Публикация в EventBus
         if self.event_bus:
             self.event_bus.publish('ethics.approval_required', {
                 'action_id': action.id,
@@ -609,9 +567,6 @@ class EthicalController:
         self.logger.warning(f"⚠️ Режим изменён: {mode}")
 
 
-# ============================================================
-# ИНТЕГРАЦИЯ С SHARD
-# ============================================================
 
 class ShardEthicalIntegration:
     """Интеграция этического контроля в SHARD"""
@@ -675,9 +630,6 @@ class ShardEthicalIntegration:
         return self.controller.get_stats()
 
 
-# ============================================================
-# ТЕСТ
-# ============================================================
 
 def test_ethical_control():
     """Тестирование этического контроля"""
@@ -687,7 +639,6 @@ def test_ethical_control():
 
     controller = EthicalController()
 
-    # Тест 1: Запрос на блокировку IP
     print("\n📝 Тест 1: Запрос на блокировку IP (LEVEL 4)")
     action1 = controller.request_approval(
         action_level=ActionLevel.LEVEL_4,
@@ -703,7 +654,6 @@ def test_ethical_control():
     print(f"   Статус: {action1.status.value}")
     print(f"   Код подтверждения: {action1.confirmation_code}")
 
-    # Тест 2: Запрос на изоляцию (LEVEL 5 — требует код)
     print("\n📝 Тест 2: Запрос на изоляцию хоста (LEVEL 5)")
     action2 = controller.request_approval(
         action_level=ActionLevel.LEVEL_5,
@@ -720,7 +670,6 @@ def test_ethical_control():
     print(f"   Требуется код: ДА")
     print(f"   Код подтверждения: {action2.confirmation_code}")
 
-    # Тест 3: Правильное подтверждение
     print("\n📝 Тест 3: Подтверждение с правильным кодом")
     result = controller.approve_action(
         action2.id,
@@ -729,7 +678,6 @@ def test_ethical_control():
     )
     print(f"   Результат: {result.get('success')} - {result.get('status', result.get('error'))}")
 
-    # Тест 4: Неправильный код
     print("\n📝 Тест 4: Подтверждение с НЕправильным кодом")
     action3 = controller.request_approval(
         action_level=ActionLevel.LEVEL_5,
@@ -748,7 +696,6 @@ def test_ethical_control():
     )
     print(f"   Результат: {result.get('success')} - {result.get('error')}")
 
-    # Тест 5: Попытка заблокировать священный IP
     print("\n📝 Тест 5: Блокировка священного IP (8.8.8.8)")
     action4 = controller.request_approval(
         action_level=ActionLevel.LEVEL_4,
@@ -761,7 +708,6 @@ def test_ethical_control():
     )
     print(f"   Статус: {action4.status.value} (ожидаемо REJECTED)")
 
-    # Статистика
     print(f"\n📊 Статистика:")
     stats = controller.get_stats()
     print(f"   Всего действий: {stats['total_actions']}")

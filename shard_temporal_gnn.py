@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 SHARD Temporal Graph Neural Network - Production-Ready
@@ -26,27 +25,21 @@ import logging
 
 import numpy as np
 
-# Настройка логирования
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger("SHARD-TemporalGNN")
 
-# Подавление предупреждений
 warnings.filterwarnings('ignore')
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-# ============================================================
-# ИМПОРТ БИБЛИОТЕК
-# ============================================================
 
 TF_AVAILABLE = False
 TORCH_AVAILABLE = False
 TORCH_GEOMETRIC_AVAILABLE = False
 NX_AVAILABLE = False
 
-# TensorFlow
 try:
     import tensorflow as tf
     from tensorflow import keras
@@ -57,7 +50,6 @@ try:
 except ImportError:
     logger.warning("⚠️ TensorFlow not installed")
 
-# PyTorch
 try:
     import torch
     import torch.nn as nn
@@ -69,7 +61,6 @@ try:
 except ImportError:
     logger.warning("⚠️ PyTorch not installed")
 
-# PyTorch Geometric
 try:
     from torch_geometric.nn import GCNConv, GATConv, SAGEConv, global_mean_pool, global_max_pool
     from torch_geometric.data import Data, Batch
@@ -80,7 +71,6 @@ try:
 except ImportError:
     logger.warning("⚠️ PyTorch Geometric not installed. Install: pip install torch-geometric")
 
-# NetworkX
 try:
     import networkx as nx
 
@@ -90,38 +80,30 @@ except ImportError:
     logger.warning("⚠️ NetworkX not installed. Install: pip install networkx")
 
 
-# ============================================================
-# КОНФИГУРАЦИЯ
-# ============================================================
 
 @dataclass
 class TemporalGNNConfig:
     """Конфигурация Temporal GNN"""
 
-    # Graph parameters
     max_nodes: int = 2000
     node_feature_dim: int = 64
     edge_feature_dim: int = 16
     time_steps: int = 10
-    temporal_window: int = 60  # секунд
+    temporal_window: int = 60
 
-    # GNN architecture
-    gnn_type: str = 'gat'  # 'gcn', 'gat', 'sage'
+    gnn_type: str = 'gat'
     gnn_hidden_dim: int = 128
     gnn_num_layers: int = 3
-    gnn_heads: int = 4  # для GAT
+    gnn_heads: int = 4
     dropout_rate: float = 0.2
 
-    # Temporal LSTM
     lstm_hidden_dim: int = 64
     lstm_num_layers: int = 2
     lstm_bidirectional: bool = True
 
-    # Attention pooling
     use_attention_pooling: bool = True
     attention_heads: int = 4
 
-    # Training
     learning_rate: float = 0.001
     batch_size: int = 32
     epochs: int = 50
@@ -129,22 +111,18 @@ class TemporalGNNConfig:
     gradient_clip_norm: float = 1.0
     weight_decay: float = 0.0001
 
-    # Contrastive learning
     use_contrastive_loss: bool = True
     contrastive_temperature: float = 0.1
     contrastive_weight: float = 0.3
 
-    # Anomaly detection
     anomaly_threshold: float = 0.7
     node_anomaly_threshold: float = 0.6
     graph_window_size: int = 100
 
-    # Memory and performance
     max_graphs_in_memory: int = 1000
     cleanup_interval: int = 300
     max_workers: int = 4
 
-    # Storage
     model_dir: str = './models/temporal_gnn/'
     checkpoint_frequency: int = 100
 
@@ -162,9 +140,6 @@ class TemporalGNNConfig:
         return cls(**data)
 
 
-# ============================================================
-# GRAPH BUILDER (Production-Ready)
-# ============================================================
 
 class NetworkGraphBuilder:
     """
@@ -180,20 +155,16 @@ class NetworkGraphBuilder:
     def __init__(self, config: TemporalGNNConfig):
         self.config = config
 
-        # Графы
         self.current_graph = nx.DiGraph()
         self.graph_snapshots: deque = deque(maxlen=config.max_graphs_in_memory)
 
-        # Временные метки
         self.last_snapshot_time = time.time()
         self.snapshot_interval = config.temporal_window // config.time_steps
 
-        # Маппинг узлов
         self.node_id_map: Dict[str, int] = {}
         self.reverse_node_map: Dict[int, str] = {}
         self.node_features_cache: Dict[str, np.ndarray] = {}
 
-        # Статистика соединений
         self.connection_stats: Dict[Tuple[str, str], Dict] = defaultdict(lambda: {
             'count': 0,
             'total_bytes': 0,
@@ -204,17 +175,14 @@ class NetworkGraphBuilder:
             'protocols': set()
         })
 
-        # Блокировки
         self._graph_lock = threading.RLock()
         self._stats_lock = threading.RLock()
 
-        # Локальные сети
         self.local_networks = ['192.168.', '10.', '172.16.', '172.17.', '172.18.',
                                '172.19.', '172.20.', '172.21.', '172.22.', '172.23.',
                                '172.24.', '172.25.', '172.26.', '172.27.', '172.28.',
                                '172.29.', '172.30.', '172.31.', '127.']
 
-        # Статистика
         self.stats = {
             'total_connections': 0,
             'total_nodes': 0,
@@ -222,7 +190,6 @@ class NetworkGraphBuilder:
             'snapshots_created': 0
         }
 
-        # Пул для асинхронных операций
         self._executor = ThreadPoolExecutor(max_workers=2)
 
         logger.info(f"✅ NetworkGraphBuilder initialized (window={config.temporal_window}s, "
@@ -247,7 +214,6 @@ class NetworkGraphBuilder:
         timestamp = timestamp or time.time()
 
         with self._graph_lock:
-            # Добавляем узлы
             if src_ip not in self.current_graph:
                 self.current_graph.add_node(
                     src_ip,
@@ -280,7 +246,6 @@ class NetworkGraphBuilder:
                 )
                 self.stats['total_nodes'] += 1
 
-            # Обновляем узлы
             src_node = self.current_graph.nodes[src_ip]
             dst_node = self.current_graph.nodes[dst_ip]
 
@@ -295,7 +260,6 @@ class NetworkGraphBuilder:
             src_node['protocols'].add(protocol)
             dst_node['protocols'].add(protocol)
 
-            # Добавляем/обновляем ребро
             edge_key = (src_ip, dst_ip)
 
             if self.current_graph.has_edge(*edge_key):
@@ -324,7 +288,6 @@ class NetworkGraphBuilder:
 
             self.stats['total_connections'] += 1
 
-            # Обновляем статистику соединений
             with self._stats_lock:
                 conn_key = (src_ip, dst_ip)
                 stats = self.connection_stats[conn_key]
@@ -335,7 +298,6 @@ class NetworkGraphBuilder:
                 stats['ports'].add((src_port, dst_port))
                 stats['protocols'].add(protocol)
 
-            # Проверяем, не пора ли создать снапшот
             if timestamp - self.last_snapshot_time >= self.snapshot_interval:
                 self._executor.submit(self._create_snapshot, timestamp)
 
@@ -345,7 +307,6 @@ class NetworkGraphBuilder:
             if ip.startswith(net):
                 return 'internal'
 
-        # Проверка multicast/broadcast
         if ip.startswith(('224.', '239.', '255.')):
             return 'multicast'
 
@@ -354,18 +315,14 @@ class NetworkGraphBuilder:
     def _create_snapshot(self, timestamp: float):
         """Создаёт снапшот текущего графа"""
         with self._graph_lock:
-            # Копируем граф
             snapshot = self.current_graph.copy()
 
-            # Добавляем временную метку
             snapshot.graph['timestamp'] = timestamp
             snapshot.graph['snapshot_id'] = self.stats['snapshots_created']
 
-            # Сохраняем
             self.graph_snapshots.append(snapshot)
             self.stats['snapshots_created'] += 1
 
-            # Очищаем текущий граф от старых данных
             self._cleanup_current_graph(timestamp)
 
             self.last_snapshot_time = timestamp
@@ -377,7 +334,6 @@ class NetworkGraphBuilder:
         """Очищает текущий граф от устаревших данных"""
         cutoff = current_time - self.config.temporal_window
 
-        # Удаляем старые рёбра
         edges_to_remove = []
         for u, v, data in self.current_graph.edges(data=True):
             if data.get('last_seen', 0) < cutoff:
@@ -386,7 +342,6 @@ class NetworkGraphBuilder:
         for u, v in edges_to_remove:
             self.current_graph.remove_edge(u, v)
 
-        # Удаляем изолированные узлы
         nodes_to_remove = []
         for node in self.current_graph.nodes():
             if self.current_graph.degree(node) == 0:
@@ -425,7 +380,6 @@ class NetworkGraphBuilder:
         if graph.number_of_nodes() == 0:
             return np.array([]), np.array([]), np.array([])
 
-        # Создаём маппинг узлов
         nodes = list(graph.nodes())
         self.node_id_map = {node: i for i, node in enumerate(nodes)}
         self.reverse_node_map = {i: node for node, i in self.node_id_map.items()}
@@ -433,40 +387,29 @@ class NetworkGraphBuilder:
         num_nodes = len(nodes)
         node_features = np.zeros((num_nodes, self.config.node_feature_dim))
 
-        # ============================================================
-        # ИСПРАВЛЕНИЕ: ОДИН вызов для всего графа вместо per-node
-        # ============================================================
 
-        # Betweenness centrality — один вызов для всего графа
         if num_nodes > 1:
-            # k=min(10, num_nodes) — приближённое вычисление для больших графов
             betweenness_dict = nx.betweenness_centrality(
                 graph,
                 k=min(10, num_nodes),
                 normalized=True
             )
-            # PageRank — один вызов
             pagerank_dict = nx.pagerank(
                 graph,
                 max_iter=50,
                 tol=1e-4
             )
-            # Clustering coefficient — один вызов для всего графа
             clustering_dict = nx.clustering(graph)
         else:
             betweenness_dict = {nodes[0]: 0.0} if nodes else {}
             pagerank_dict = {nodes[0]: 1.0} if nodes else {}
             clustering_dict = {nodes[0]: 0.0} if nodes else {}
 
-        # ============================================================
-        # Теперь просто достаём значения из словарей (O(1) на узел)
-        # ============================================================
 
         for node, node_id in self.node_id_map.items():
             attrs = graph.nodes[node]
             features = []
 
-            # Степени (O(1) — NetworkX кэширует)
             in_degree = graph.in_degree(node)
             out_degree = graph.out_degree(node)
             features.append(np.log1p(in_degree) / 10)
@@ -474,15 +417,12 @@ class NetworkGraphBuilder:
             features.append(in_degree / max(1, num_nodes))
             features.append(out_degree / max(1, num_nodes))
 
-            # Betweenness centrality — из предвычисленного словаря (O(1))
             betweenness = betweenness_dict.get(node, 0.0)
             features.append(betweenness)
 
-            # Clustering coefficient — из предвычисленного словаря (O(1))
             clustering = clustering_dict.get(node, 0.0)
             features.append(clustering)
 
-            # Трафик
             total_bytes = attrs.get('total_bytes_in', 0) + attrs.get('total_bytes_out', 0)
             features.append(np.log1p(total_bytes) / 20)
 
@@ -491,51 +431,42 @@ class NetworkGraphBuilder:
             features.append(np.log1p(bytes_in) / 20)
             features.append(np.log1p(bytes_out) / 20)
 
-            # Асимметрия трафика
             if bytes_in + bytes_out > 0:
                 asymmetry = abs(bytes_in - bytes_out) / (bytes_in + bytes_out)
             else:
                 asymmetry = 0
             features.append(asymmetry)
 
-            # Соединения
             conn_in = attrs.get('connections_in', 0)
             conn_out = attrs.get('connections_out', 0)
             features.append(np.log1p(conn_in) / 10)
             features.append(np.log1p(conn_out) / 10)
 
-            # Уникальные порты
             unique_ports = len(attrs.get('unique_ports', set()))
             features.append(min(1.0, unique_ports / 100))
 
-            # Протоколы
             protocols = attrs.get('protocols', set())
-            features.append(1.0 if 6 in protocols else 0.0)  # TCP
-            features.append(1.0 if 17 in protocols else 0.0)  # UDP
+            features.append(1.0 if 6 in protocols else 0.0)
+            features.append(1.0 if 17 in protocols else 0.0)
 
-            # Тип узла
             node_type = attrs.get('type', 'unknown')
             features.append(1.0 if node_type == 'internal' else 0.0)
             features.append(1.0 if node_type == 'external' else 0.0)
 
-            # Время активности
             first_seen = attrs.get('first_seen', time.time())
             last_seen = attrs.get('last_seen', time.time())
             activity_duration = max(0, last_seen - first_seen)
             features.append(min(1.0, activity_duration / self.config.temporal_window))
 
-            # PageRank — из предвычисленного словаря (O(1))
             pagerank = pagerank_dict.get(node, 0.0)
             features.append(pagerank)
 
-            # Дополняем до нужной размерности
             features = features[:self.config.node_feature_dim]
             if len(features) < self.config.node_feature_dim:
                 features.extend([0.0] * (self.config.node_feature_dim - len(features)))
 
             node_features[node_id] = features
 
-        # Извлекаем рёбра и их признаки (этот код без изменений)
         edge_list = []
         edge_features_list = []
 
@@ -598,11 +529,9 @@ class NetworkGraphBuilder:
     def cleanup(self):
         """Очистка старых данных"""
         with self._graph_lock:
-            # Очищаем старые снапшоты
             while len(self.graph_snapshots) > self.config.max_graphs_in_memory:
                 self.graph_snapshots.popleft()
 
-            # Очищаем старую статистику соединений
             cutoff = time.time() - self.config.temporal_window * 2
             with self._stats_lock:
                 expired = [k for k, v in self.connection_stats.items()
@@ -615,9 +544,6 @@ class NetworkGraphBuilder:
         self._executor.shutdown(wait=True)
 
 
-# ============================================================
-# TEMPORAL GNN MODEL (PyTorch)
-# ============================================================
 
 if TORCH_AVAILABLE and TORCH_GEOMETRIC_AVAILABLE:
 
@@ -628,7 +554,6 @@ if TORCH_AVAILABLE and TORCH_GEOMETRIC_AVAILABLE:
             super().__init__()
             self.config = config
 
-            # GNN слои
             self.gnn_layers = nn.ModuleList()
             input_dim = config.node_feature_dim
 
@@ -648,7 +573,6 @@ if TORCH_AVAILABLE and TORCH_GEOMETRIC_AVAILABLE:
 
                 input_dim = config.gnn_hidden_dim
 
-            # Edge encoder
             self.edge_encoder = nn.Sequential(
                 nn.Linear(config.edge_feature_dim, config.gnn_hidden_dim),
                 nn.ReLU(),
@@ -656,13 +580,11 @@ if TORCH_AVAILABLE and TORCH_GEOMETRIC_AVAILABLE:
                 nn.Linear(config.gnn_hidden_dim, config.gnn_hidden_dim)
             )
 
-            # Batch normalization
             self.batch_norms = nn.ModuleList([
                 nn.BatchNorm1d(config.gnn_hidden_dim)
                 for _ in range(config.gnn_num_layers)
             ])
 
-            # Temporal LSTM
             lstm_input_dim = config.gnn_hidden_dim
             self.lstm = nn.LSTM(
                 input_size=lstm_input_dim,
@@ -675,7 +597,6 @@ if TORCH_AVAILABLE and TORCH_GEOMETRIC_AVAILABLE:
 
             lstm_output_dim = config.lstm_hidden_dim * (2 if config.lstm_bidirectional else 1)
 
-            # Attention pooling
             if config.use_attention_pooling:
                 self.attention_pool = nn.MultiheadAttention(
                     embed_dim=config.gnn_hidden_dim,
@@ -684,7 +605,6 @@ if TORCH_AVAILABLE and TORCH_GEOMETRIC_AVAILABLE:
                     batch_first=True
                 )
 
-            # Output heads
             self.node_classifier = nn.Sequential(
                 nn.Linear(config.gnn_hidden_dim, config.gnn_hidden_dim // 2),
                 nn.ReLU(),
@@ -701,7 +621,6 @@ if TORCH_AVAILABLE and TORCH_GEOMETRIC_AVAILABLE:
                 nn.Sigmoid()
             )
 
-            # Projection head для contrastive learning
             if config.use_contrastive_loss:
                 self.projection_head = nn.Sequential(
                     nn.Linear(lstm_output_dim, 128),
@@ -723,13 +642,11 @@ if TORCH_AVAILABLE and TORCH_GEOMETRIC_AVAILABLE:
             """
             x, edge_index, edge_attr = data.x, data.edge_index, data.edge_attr
 
-            # Edge features
             if edge_attr is not None:
                 edge_embedding = self.edge_encoder(edge_attr)
             else:
                 edge_embedding = None
 
-            # GNN слои
             for i, gnn_layer in enumerate(self.gnn_layers):
                 if isinstance(gnn_layer, GATConv):
                     x = gnn_layer(x, edge_index)
@@ -740,15 +657,12 @@ if TORCH_AVAILABLE and TORCH_GEOMETRIC_AVAILABLE:
                 x = F.relu(x)
                 x = self.dropout(x)
 
-            # Attention pooling для графового представления
             if self.config.use_attention_pooling and x.size(0) > 0:
-                # Создаём батч если его нет
                 if not hasattr(data, 'batch') or data.batch is None:
                     batch = torch.zeros(x.size(0), dtype=torch.long, device=x.device)
                 else:
                     batch = data.batch
 
-                # Группируем по графам
                 unique_batches = torch.unique(batch)
                 graph_embeddings = []
                 node_scores = []
@@ -757,14 +671,12 @@ if TORCH_AVAILABLE and TORCH_GEOMETRIC_AVAILABLE:
                     mask = (batch == b)
                     x_batch = x[mask]
 
-                    # Node anomaly scores
                     node_score = self.node_classifier(x_batch)
                     node_scores.append(node_score)
 
-                    # Attention pooling
-                    x_batch = x_batch.unsqueeze(0)  # (1, num_nodes, hidden_dim)
+                    x_batch = x_batch.unsqueeze(0)
                     attn_out, _ = self.attention_pool(x_batch, x_batch, x_batch)
-                    graph_emb = attn_out.mean(dim=1)  # (1, hidden_dim)
+                    graph_emb = attn_out.mean(dim=1)
                     graph_embeddings.append(graph_emb)
 
                 node_scores = torch.cat(node_scores, dim=0)
@@ -773,8 +685,6 @@ if TORCH_AVAILABLE and TORCH_GEOMETRIC_AVAILABLE:
                 node_scores = self.node_classifier(x)
                 graph_emb = global_mean_pool(x, data.batch if hasattr(data, 'batch') else None)
 
-            # LSTM для temporal (если есть последовательность)
-            # Для одного графа просто пропускаем через линейный слой
             graph_score = self.graph_classifier(graph_emb)
 
             result = {
@@ -784,7 +694,6 @@ if TORCH_AVAILABLE and TORCH_GEOMETRIC_AVAILABLE:
                 'graph_embedding': graph_emb
             }
 
-            # Projection для contrastive learning
             if self.config.use_contrastive_loss:
                 result['projection'] = self.projection_head(graph_emb)
 
@@ -796,9 +705,6 @@ if TORCH_AVAILABLE and TORCH_GEOMETRIC_AVAILABLE:
             return result['graph_embedding']
 
 
-# ============================================================
-# TEMPORAL GNN ENGINE (Production-Ready)
-# ============================================================
 
 class TemporalGNNEngine:
     """
@@ -814,10 +720,8 @@ class TemporalGNNEngine:
     def __init__(self, config: TemporalGNNConfig = None):
         self.config = config or TemporalGNNConfig()
 
-        # Определяем устройство
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-        # Компоненты
         self.graph_builder = NetworkGraphBuilder(self.config)
         self.model = None
 
@@ -832,20 +736,16 @@ class TemporalGNNEngine:
                 self.optimizer, mode='min', factor=0.5, patience=5
             )
 
-        # Состояние
         self.is_trained = False
         self.training_history = []
 
-        # Буферы для обучения
         self.normal_graphs: deque = deque(maxlen=5000)
         self.anomaly_graphs: deque = deque(maxlen=1000)
         self.graph_sequence_buffer: deque = deque(maxlen=self.config.time_steps)
 
-        # Пороги
         self.node_threshold = self.config.node_anomaly_threshold
         self.graph_threshold = self.config.anomaly_threshold
 
-        # Статистика
         self.stats = {
             'graphs_processed': 0,
             'anomalies_detected': 0,
@@ -854,22 +754,17 @@ class TemporalGNNEngine:
             'best_loss': float('inf')
         }
 
-        # Блокировки
         self._model_lock = threading.RLock()
         self._training_lock = threading.RLock()
 
-        # Состояние
         self._running = False
         self._training_thread = None
         self._cleanup_thread = None
 
-        # Пул для асинхронных операций
         self._executor = ThreadPoolExecutor(max_workers=self.config.max_workers)
 
-        # Создаём директорию моделей
         Path(self.config.model_dir).mkdir(parents=True, exist_ok=True)
 
-        # Загружаем модель
         self._load_model()
 
         logger.info(f"✅ TemporalGNNEngine initialized on {self.device}")
@@ -918,7 +813,6 @@ class TemporalGNNEngine:
         """Запуск движка"""
         self._running = True
 
-        # Запускаем фоновые потоки
         self._cleanup_thread = threading.Thread(
             target=self._cleanup_loop,
             daemon=True,
@@ -977,7 +871,6 @@ class TemporalGNNEngine:
         Returns:
             Dict с результатами анализа или None
         """
-        # Получаем последний снапшот
         graphs = self.graph_builder.get_temporal_graphs(1)
         if not graphs:
             return None
@@ -989,13 +882,11 @@ class TemporalGNNEngine:
 
         self.stats['graphs_processed'] += 1
 
-        # Извлекаем признаки
         node_features, edge_index, edge_features = self.graph_builder.extract_features(graph)
 
         if len(node_features) == 0:
             return None
 
-        # Создаём Data объект
         data = Data(
             x=torch.FloatTensor(node_features).to(self.device),
             edge_index=torch.LongTensor(edge_index).to(self.device) if edge_index.size > 0 else torch.zeros((2, 0),
@@ -1004,7 +895,6 @@ class TemporalGNNEngine:
             edge_attr=torch.FloatTensor(edge_features).to(self.device) if len(edge_features) > 0 else None
         )
 
-        # Добавляем в буфер последовательности
         self.graph_sequence_buffer.append(data)
 
         if not self.is_trained:
@@ -1022,9 +912,7 @@ class TemporalGNNEngine:
             self.model.eval()
 
             with torch.no_grad():
-                # Если есть последовательность - обрабатываем temporal
                 if len(self.graph_sequence_buffer) >= self.config.time_steps:
-                    # TODO: Реализовать temporal processing через LSTM
                     pass
 
                 result = self.model(data)
@@ -1037,7 +925,6 @@ class TemporalGNNEngine:
         if is_graph_anomaly:
             self.stats['anomalies_detected'] += 1
 
-        # Находим аномальные узлы
         anomalous_nodes = []
         for i, score in enumerate(node_scores):
             if score > self.node_threshold:
@@ -1081,7 +968,6 @@ class TemporalGNNEngine:
         epochs = epochs or self.config.epochs
         batch_size = batch_size or self.config.batch_size
 
-        # Подготавливаем данные
         normal_data = self._prepare_graph_data(normal_graphs)
 
         if anomaly_graphs:
@@ -1095,7 +981,6 @@ class TemporalGNNEngine:
             all_data = normal_data
             labels = torch.zeros(len(normal_data))
 
-        # Создаём даталоадер
         dataset = list(zip(all_data, labels))
         dataloader = DataLoader(
             dataset,
@@ -1122,11 +1007,9 @@ class TemporalGNNEngine:
 
                     result = self.model(batch_data)
 
-                    # Classification loss
                     graph_scores = result['graph_score'].squeeze()
                     class_loss = F.binary_cross_entropy(graph_scores, batch_labels.float())
 
-                    # Contrastive loss
                     total_loss = class_loss
 
                     if self.config.use_contrastive_loss and 'projection' in result:
@@ -1138,7 +1021,6 @@ class TemporalGNNEngine:
 
                     total_loss.backward()
 
-                    # Gradient clipping
                     torch.nn.utils.clip_grad_norm_(
                         self.model.parameters(),
                         self.config.gradient_clip_norm
@@ -1148,7 +1030,6 @@ class TemporalGNNEngine:
 
                     epoch_loss += total_loss.item()
 
-                    # Accuracy
                     predicted = (graph_scores > 0.5).float()
                     correct += (predicted == batch_labels).sum().item()
                     total += batch_labels.size(0)
@@ -1164,7 +1045,6 @@ class TemporalGNNEngine:
                 if verbose and epoch % 10 == 0:
                     logger.info(f"Epoch {epoch}: loss={avg_loss:.4f}, accuracy={accuracy:.4f}")
 
-                # Early stopping
                 if avg_loss < self.stats['best_loss']:
                     self.stats['best_loss'] = avg_loss
                     self._save_model()
@@ -1174,7 +1054,6 @@ class TemporalGNNEngine:
         self.is_trained = True
         self.training_history = history
 
-        # Калибруем пороги
         self._calibrate_thresholds(normal_graphs[:100])
 
         logger.info(f"✅ Training complete. Best loss: {self.stats['best_loss']:.4f}")
@@ -1204,33 +1083,24 @@ class TemporalGNNEngine:
 
     def _contrastive_loss(self, projections: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
         """Supervised Contrastive Loss"""
-        # Нормализуем
         projections = F.normalize(projections, dim=1)
 
-        # Матрица схожести
         sim_matrix = torch.matmul(projections, projections.T) / self.config.contrastive_temperature
 
-        # Маска для positive pairs
         labels = labels.unsqueeze(0)
         mask_positive = (labels == labels.T).float()
 
-        # Убираем self-similarity
         mask_positive = mask_positive - torch.eye(mask_positive.size(0), device=mask_positive.device)
 
-        # Numerical stability
         sim_matrix = sim_matrix - sim_matrix.max(dim=1, keepdim=True)[0]
 
-        # Exp
         exp_sim = torch.exp(sim_matrix)
 
-        # Sum over positives
         pos_sum = (exp_sim * mask_positive).sum(dim=1)
 
-        # Sum over all except self
         mask_all = 1.0 - torch.eye(sim_matrix.size(0), device=sim_matrix.device)
         all_sum = (exp_sim * mask_all).sum(dim=1)
 
-        # Loss
         loss = -torch.log(pos_sum / (all_sum + 1e-8) + 1e-8).mean()
 
         return loss
@@ -1286,9 +1156,6 @@ class TemporalGNNEngine:
         }
 
 
-# ============================================================
-# ТЕСТИРОВАНИЕ
-# ============================================================
 
 def test_temporal_gnn():
     """Тестирование Temporal GNN"""
@@ -1300,17 +1167,14 @@ def test_temporal_gnn():
         print("❌ PyTorch Geometric not available")
         return
 
-    # Конфигурация
     config = TemporalGNNConfig()
     config.max_nodes = 500
     config.time_steps = 5
     config.epochs = 20
 
-    # Создаём движок
     engine = TemporalGNNEngine(config)
     engine.start()
 
-    # Симулируем сетевой трафик
     print("\n📊 Simulating network traffic...")
 
     local_ips = [f'192.168.1.{i}' for i in range(1, 11)]
@@ -1320,7 +1184,6 @@ def test_temporal_gnn():
     normal_graphs = []
 
     for window in range(30):
-        # Нормальный трафик
         for _ in range(50):
             src = np.random.choice(local_ips)
 
@@ -1335,53 +1198,47 @@ def test_temporal_gnn():
                 src, dst,
                 np.random.randint(30000, 60000),
                 port,
-                6,  # TCP
+                6,
                 np.random.randint(100, 10000),
                 np.random.randint(1, 20)
             )
 
-        # Анализируем окно
         result = engine.process_time_window()
 
         if result:
             normal_graphs.append(engine.graph_builder.get_temporal_graphs(1)[-1])
 
-    # Обучаем модель
     print("\n🔄 Training model...")
     history = engine.train(normal_graphs, epochs=config.epochs, verbose=1)
 
-    # Симулируем атаку
     print("\n📊 Simulating attack...")
 
     for _ in range(20):
-        # Lateral movement
         src = np.random.choice(local_ips)
         dst = np.random.choice(local_ips)
 
         engine.add_connection(
             src, dst,
             np.random.randint(40000, 50000),
-            445,  # SMB
+            445,
             6,
             np.random.randint(5000, 50000),
             np.random.randint(50, 200)
         )
 
     for _ in range(10):
-        # C2 communication
         src = np.random.choice(local_ips)
         dst = np.random.choice(malicious_ips)
 
         engine.add_connection(
             src, dst,
             np.random.randint(50000, 60000),
-            4444,  # C2 port
+            4444,
             6,
             np.random.randint(1000, 10000),
             np.random.randint(10, 50)
         )
 
-    # Анализируем
     result = engine.process_time_window()
 
     if result:
@@ -1394,7 +1251,6 @@ def test_temporal_gnn():
         for node in result['anomalous_nodes'][:5]:
             print(f"      - {node['ip']}: score={node['score']:.3f} ({node['severity']})")
 
-    # Статистика
     print("\n📊 Statistics:")
     stats = engine.get_stats()
     print(f"   Graphs processed: {stats['detection']['graphs_processed']}")

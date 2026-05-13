@@ -11,9 +11,6 @@ import numpy as np
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("SHARD-CodeGen-v3")
 
-# ============================================================
-# TF-IDF ВЕКТОРИЗАТОР
-# ============================================================
 
 class SimpleTFIDF:
     """Простой TF-IDF векторизатор"""
@@ -26,28 +23,22 @@ class SimpleTFIDF:
     def _tokenize(self, text: str) -> List[str]:
         """Токенизация с n-gram"""
         text = text.lower()
-        # Униграммы
         tokens = re.findall(r'[a-z0-9]+', text)
-        # Биграммы
         bigrams = [f"{tokens[i]}_{tokens[i+1]}" for i in range(len(tokens)-1)]
-        # Триграммы
         trigrams = [f"{tokens[i]}_{tokens[i+1]}_{tokens[i+2]}" for i in range(len(tokens)-2)]
         return tokens + bigrams + trigrams
     
     def fit(self, texts: List[str]):
         """Обучение словаря"""
-        # Подсчёт DF
         df = {}
         for text in texts:
             tokens = set(self._tokenize(text))
             for token in tokens:
                 df[token] = df.get(token, 0) + 1
         
-        # Выбор топ-N признаков по DF
         sorted_tokens = sorted(df.items(), key=lambda x: -x[1])[:self.max_features]
         self.vocabulary = {token: i for i, (token, _) in enumerate(sorted_tokens)}
         
-        # IDF
         n_docs = len(texts)
         self.idf = np.zeros(len(self.vocabulary))
         for token, idx in self.vocabulary.items():
@@ -62,7 +53,6 @@ class SimpleTFIDF:
             if token in self.vocabulary:
                 tf[self.vocabulary[token]] += 1
         
-        # Нормализация TF
         if tf.sum() > 0:
             tf = tf / tf.sum()
         
@@ -73,14 +63,10 @@ class SimpleTFIDF:
         return np.array([self.transform(t) for t in texts])
 
 
-# ============================================================
-# РАСШИРЕННЫЙ ДАТАСЕТ
-# ============================================================
 
 def create_large_dataset() -> List[Dict]:
     """Создание датасета на 500+ сэмплов"""
     
-    # Правила защиты для каждого типа атаки
     defense_rules = {
         'SQL Injection': [
             'iptables -A INPUT -s {ip} -p tcp --dport {port} -j DROP',
@@ -156,7 +142,6 @@ def create_large_dataset() -> List[Dict]:
         ],
     }
     
-    # Генерация датасета
     ips = [
         '185.142.53.101', '45.155.205.233', '194.61.23.45', '89.248.163.1',
         '103.145.12.67', '45.134.26.99', '203.0.113.50', '198.51.100.200',
@@ -167,7 +152,6 @@ def create_large_dataset() -> List[Dict]:
     
     samples = []
     
-    # Вариации описаний атак
     variations = {
         'SQL Injection': [
             'SQL Injection from {ip} on port {port}',
@@ -243,13 +227,12 @@ def create_large_dataset() -> List[Dict]:
         ],
     }
     
-    # Генерация сэмплов
     for attack_type, rules in defense_rules.items():
         variants = variations.get(attack_type, [attack_type + ' from {ip} on port {port}'])
         
         for ip in ips:
             for port in ports[:5]:
-                for variant in variants[:2]:  # 2 вариации на комбинацию
+                for variant in variants[:2]:
                     attack = variant.format(ip=ip, port=port)
                     defense = '\n'.join(rule.format(ip=ip, port=port) for rule in rules)
                     samples.append({'attack': attack, 'defense': defense})
@@ -258,9 +241,6 @@ def create_large_dataset() -> List[Dict]:
     return samples
 
 
-# ============================================================
-# УЛУЧШЕННАЯ МОДЕЛЬ
-# ============================================================
 
 class ImprovedDefenseClassifier:
     """Классификатор с TF-IDF признаками"""
@@ -275,13 +255,11 @@ class ImprovedDefenseClassifier:
     
     def train(self, samples: List[Dict], epochs: int = 200, lr: float = 0.01):
         """Обучение с TF-IDF"""
-        # Извлекаем типы атак
         attack_texts = [s['attack'] for s in samples]
         self.attack_types = sorted(set(
             ' '.join(s['attack'].split()[:2]) for s in samples
         ))
         
-        # TF-IDF векторизация
         logger.info("TF-IDF векторизация...")
         X = self.vectorizer.fit_transform(attack_texts)
         logger.info(f"Размерность: {X.shape}")
@@ -289,7 +267,6 @@ class ImprovedDefenseClassifier:
         n_features = X.shape[1]
         n_classes = len(self.attack_types)
         
-        # One-hot labels
         y = np.zeros((len(samples), n_classes))
         for i, s in enumerate(samples):
             attack_prefix = ' '.join(s['attack'].split()[:2])
@@ -297,16 +274,13 @@ class ImprovedDefenseClassifier:
                 if attack_prefix in atype or atype in attack_prefix:
                     y[i, j] = 1.0
         
-        # Инициализация весов (Xavier)
         self.weights = np.random.randn(n_features, n_classes) * np.sqrt(2.0 / n_features)
         self.bias = np.zeros(n_classes)
         
-        # Обучение с mini-batch SGD
         batch_size = 32
         n_batches = (len(samples) + batch_size - 1) // batch_size
         
         for epoch in range(epochs):
-            # Перемешивание
             indices = np.random.permutation(len(samples))
             
             epoch_loss = 0.0
@@ -319,27 +293,21 @@ class ImprovedDefenseClassifier:
                 X_batch = X[batch_indices]
                 y_batch = y[batch_indices]
                 
-                # Forward pass
                 logits = np.dot(X_batch, self.weights) + self.bias
                 
-                # Stable softmax
                 logits_max = np.max(logits, axis=1, keepdims=True)
                 exp_logits = np.exp(logits - logits_max)
                 probs = exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
                 
-                # Cross-entropy loss
                 loss = -np.mean(np.sum(y_batch * np.log(probs + 1e-8), axis=1))
                 epoch_loss += loss
                 
-                # Backward
                 d_logits = (probs - y_batch) / len(batch_indices)
                 d_weights = np.dot(X_batch.T, d_logits)
                 d_bias = np.sum(d_logits, axis=0)
                 
-                # L2 regularization
                 d_weights += 0.0001 * self.weights
                 
-                # Gradient descent
                 self.weights -= lr * d_weights
                 self.bias -= lr * d_bias
             
@@ -347,7 +315,6 @@ class ImprovedDefenseClassifier:
             self.train_losses.append(avg_loss)
             
             if epoch % 40 == 0:
-                # Accuracy на тренировочных данных
                 logits = np.dot(X, self.weights) + self.bias
                 preds = np.argmax(logits, axis=1)
                 true_labels = np.argmax(y, axis=1)
@@ -362,7 +329,6 @@ class ImprovedDefenseClassifier:
         X = self.vectorizer.transform(attack_text).reshape(1, -1)
         logits = np.dot(X, self.weights) + self.bias
         
-        # Stable softmax
         logits_max = np.max(logits)
         exp_logits = np.exp(logits - logits_max)
         probs = exp_logits / np.sum(exp_logits)
@@ -386,26 +352,19 @@ class ImprovedDefenseClassifier:
         logger.info(f"✅ Модель сохранена: {path}")
 
 
-# ============================================================
-# ГЛАВНАЯ ФУНКЦИЯ
-# ============================================================
 
 def main():
     print("=" * 60)
     print("🧠 SHARD CODE DEFENSE v3 — TF-IDF + n-gram")
     print("=" * 60)
     
-    # Датасет
     samples = create_large_dataset()
     
-    # Модель
     model = ImprovedDefenseClassifier()
     model.train(samples, epochs=200, lr=0.02)
     
-    # Сохранение
     model.save('./models/defense_classifier_v3.pkl')
     
-    # Тест
     print("\n" + "=" * 60)
     print("🧪 ТЕСТ ГЕНЕРАЦИИ ЗАЩИТЫ")
     print("=" * 60)

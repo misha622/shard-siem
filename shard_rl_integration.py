@@ -14,9 +14,6 @@ from typing import Dict, Tuple
 
 logger = logging.getLogger("SHARD-RL-Integration")
 
-# ============================================================
-# DQN МОДЕЛЬ (та же что в обучении)
-# ============================================================
 
 class DQN(nn.Module):
     def __init__(self, state_dim=10, hidden_dim=128, n_actions=5):
@@ -37,9 +34,6 @@ class DQN(nn.Module):
         return self.net(x)
 
 
-# ============================================================
-# ДЕЙСТВИЯ
-# ============================================================
 
 ACTIONS = {
     0: ('ignore', 'Игнорировать', 0),
@@ -60,7 +54,6 @@ class RLDefenseAgent:
         self.optimal_actions = {}
         self.severity_map = {}
         
-        # Статистика
         self.stats = {
             'decisions': 0,
             'blocks': 0,
@@ -103,22 +96,20 @@ class RLDefenseAgent:
             attack_type = alert.get('attack_type', 'Unknown')
             severity_str = alert.get('severity', 'LOW')
             
-            # Числовая серьёзность
             severity_map = {'INFO': 0, 'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'CRITICAL': 4}
             severity_num = severity_map.get(severity_str, 1)
             
-            # Нормализованные фичи
             state = np.array([
-                alert.get('score', 0.5),                    # score
-                alert.get('confidence', 0.5),               # confidence
-                severity_num / 4.0,                         # severity (0-1)
-                alert.get('dst_port', 80) / 65535.0,        # port
-                time.localtime().tm_hour / 24.0,            # hour
-                time.localtime().tm_wday / 7.0,             # day
-                6.0 / 255.0,                                # protocol (TCP)
-                min(1.0, alert.get('connection_rate', 0.1)), # connection_rate
-                min(1.0, alert.get('unique_ips', 1) / 100.0), # unique_ips
-                min(1.0, alert.get('bytes_sent', 0) / 1e9),  # bytes_sent
+                alert.get('score', 0.5),
+                alert.get('confidence', 0.5),
+                severity_num / 4.0,
+                alert.get('dst_port', 80) / 65535.0,
+                time.localtime().tm_hour / 24.0,
+                time.localtime().tm_wday / 7.0,
+                6.0 / 255.0,
+                min(1.0, alert.get('connection_rate', 0.1)),
+                min(1.0, alert.get('unique_ips', 1) / 100.0),
+                min(1.0, alert.get('bytes_sent', 0) / 1e9),
             ], dtype=np.float32)
             
             return state
@@ -134,7 +125,6 @@ class RLDefenseAgent:
             (action_id, action_name, action_description)
         """
         if not self.loaded:
-            # Fallback: правила на основе severity
             severity = alert.get('severity', 'LOW')
             score = alert.get('score', 0)
             
@@ -157,7 +147,6 @@ class RLDefenseAgent:
                 q_values = self.model(state_tensor)
                 action_id = q_values.argmax().item()
             
-            # Обновляем статистику
             self.stats['decisions'] += 1
             if action_id >= 3:
                 self.stats['blocks'] += 1

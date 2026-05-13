@@ -17,18 +17,14 @@ from datetime import datetime
 import subprocess
 import signal
 
-# ============================================================
-# КОНФИГУРАЦИЯ ТЕСТА
-# ============================================================
 
 TARGET_HOST = os.environ.get('SHARD_HOST', '127.0.0.1')
 TARGET_PORTS = [2222, 3306, 5432, 6379, 8080, 8443, 21, 23, 27017, 9200]
 CONCURRENT_WORKERS = int(os.environ.get('SHARD_WORKERS', '300'))
 PACKETS_PER_WORKER = int(os.environ.get('SHARD_PACKETS', '500'))
-TEST_DURATION = int(os.environ.get('SHARD_DURATION', '30'))  # секунд
+TEST_DURATION = int(os.environ.get('SHARD_DURATION', '30'))
 
-# Симулируем реальный трафик
-NORMAL_TRAFFIC = 0.7  # 70% нормального, 30% атакующего
+NORMAL_TRAFFIC = 0.7
 
 NORMAL_PAYLOADS = [
     b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n",
@@ -37,30 +33,23 @@ NORMAL_PAYLOADS = [
     b"GET /images/logo.png HTTP/1.1\r\n\r\n",
     b"HEAD /health HTTP/1.1\r\n\r\n",
     b"GET /favicon.ico HTTP/1.1\r\n\r\n",
-    *([b"\x00" * 64] * 3),  # Бинарный трафик
+    *([b"\x00" * 64] * 3),
 ]
 
 ATTACK_PAYLOADS = [
-    # SQL Injection
     b"GET /?id=1' UNION SELECT password FROM users-- HTTP/1.0\r\n\r\n",
     b"POST /login HTTP/1.0\r\n\r\nuser=admin' OR '1'='1",
-    # Brute Force
     b"SSH-2.0-OpenSSH\r\nroot:admin123\n",
     b"FTP USER admin\r\nFTP PASS password123\r\n",
-    # DDoS
     b"GET / HTTP/1.0\r\n" * 100,
     b"\x00" * 1500,
-    # C2 Beacon
     b"\x16\x03\x01\x00\x62" + b"\x00" * 200,
-    # Data Exfiltration
     b"POST /upload HTTP/1.0\r\nContent-Length: 99999\r\n\r\n" + b"A" * 2000,
-    # Web attacks
     b"GET /wp-admin HTTP/1.0\r\n\r\n",
     b"GET /.env HTTP/1.0\r\n\r\n",
     b"GET /config.php.bak HTTP/1.0\r\n\r\n",
 ]
 
-# Метрики
 stats = {
     'sent': 0,
     'errors': 0,
@@ -117,7 +106,6 @@ def traffic_worker(worker_id):
         
         send_packet(TARGET_HOST, port, payload, is_attack)
         
-        # Небольшая пауза между пакетами для реалистичности
         time.sleep(random.uniform(0, 0.001))
 
 
@@ -129,7 +117,6 @@ def resource_monitor():
     
     while running:
         try:
-            # Получаем метрики из Docker если доступен
             result = subprocess.run(
                 ['docker', 'stats', '--no-stream', '--format', 
                  '{{.CPUPerc}}|{{.MemUsage}}|{{.MemPerc}}', 'shard-enterprise'],
@@ -165,11 +152,9 @@ def run_benchmark():
     
     print_header()
     
-    # Запускаем мониторинг ресурсов
     monitor_thread = threading.Thread(target=resource_monitor)
     monitor_thread.start()
     
-    # Запускаем генерацию трафика
     stats['start_time'] = time.time()
     
     print("⏳ Генерация трафика...")
@@ -179,7 +164,6 @@ def run_benchmark():
         for i in range(CONCURRENT_WORKERS):
             futures.append(executor.submit(traffic_worker, i))
         
-        # Ждём завершения или таймаута
         done_count = 0
         update_interval = max(1, len(futures) // 10)
         for i, future in enumerate(futures):
@@ -198,9 +182,6 @@ def run_benchmark():
     stats['end_time'] = time.time()
     monitor_thread.join(timeout=2)
     
-    # ============================================================
-    # ОТЧЁТ
-    # ============================================================
     elapsed = stats['end_time'] - stats['start_time']
     pps = stats['sent'] / elapsed if elapsed > 0 else 0
     
@@ -239,7 +220,6 @@ def run_benchmark():
     print(f"""╚══════════════════════════════════════════════════════════════════════╝
 """)
     
-    # Сохраняем JSON-отчёт
     report = {
         'timestamp': datetime.now().isoformat(),
         'duration': elapsed,
@@ -289,7 +269,6 @@ if __name__ == '__main__':
     
     report = run_benchmark()
     
-    # Проверим что SHARD обработал
     try:
         result = subprocess.run(
             ['docker', 'logs', 'shard-enterprise'], 

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 SHARD Code Security Module
@@ -28,9 +27,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import yaml
 
 
-# ============================================================
-# КОНФИГУРАЦИЯ
-# ============================================================
 
 class VulnerabilitySeverity(Enum):
     """Уровни серьёзности уязвимостей"""
@@ -43,46 +39,38 @@ class VulnerabilitySeverity(Enum):
 
 class VulnerabilityType(Enum):
     """Типы уязвимостей"""
-    # Injection
     SQL_INJECTION = "SQL Injection"
     COMMAND_INJECTION = "Command Injection"
     CODE_INJECTION = "Code Injection"
     LDAP_INJECTION = "LDAP Injection"
     XML_INJECTION = "XML Injection"
 
-    # XSS
     REFLECTED_XSS = "Reflected XSS"
     STORED_XSS = "Stored XSS"
     DOM_XSS = "DOM XSS"
 
-    # Security Misconfiguration
     HARDCODED_SECRET = "Hardcoded Secret"
     HARDCODED_CREDENTIAL = "Hardcoded Credential"
     DEBUG_ENABLED = "Debug Mode Enabled"
     INSECURE_CONFIG = "Insecure Configuration"
 
-    # Cryptographic Failures
     WEAK_CRYPTO = "Weak Cryptography"
     WEAK_HASH = "Weak Hash Algorithm"
     HARDCODED_KEY = "Hardcoded Encryption Key"
     INSUFFICIENT_ENTROPY = "Insufficient Entropy"
 
-    # Access Control
     MISSING_AUTH = "Missing Authentication"
     BROKEN_ACCESS_CONTROL = "Broken Access Control"
     PRIVILEGE_ESCALATION = "Privilege Escalation"
 
-    # File Operations
     PATH_TRAVERSAL = "Path Traversal"
     INSECURE_FILE_UPLOAD = "Insecure File Upload"
     INSECURE_DESERIALIZATION = "Insecure Deserialization"
 
-    # Network
     SSRF = "Server-Side Request Forgery"
     OPEN_REDIRECT = "Open Redirect"
     INSECURE_TLS = "Insecure TLS Configuration"
 
-    # Other
     RACE_CONDITION = "Race Condition"
     INTEGER_OVERFLOW = "Integer Overflow"
     NULL_POINTER = "Null Pointer Dereference"
@@ -92,35 +80,26 @@ class VulnerabilityType(Enum):
 class CodeSecurityConfig:
     """Конфигурация анализатора кода"""
 
-    # Языки для анализа
     enabled_languages: List[str] = field(default_factory=lambda: ['python', 'javascript', 'go', 'java', 'php', 'ruby'])
 
-    # Правила
     enable_builtin_rules: bool = True
     custom_rules_path: str = "./data/code_security/custom_rules.yaml"
 
-    # Сканирование
     max_file_size_mb: int = 10
     max_files_per_scan: int = 10000
     scan_timeout_seconds: int = 300
 
-    # Интеграция
     watch_directories: List[str] = field(default_factory=list)
     auto_scan_on_commit: bool = True
     block_on_critical: bool = False
 
-    # Отчёты
     reports_dir: str = "./data/code_security/reports/"
     save_findings: bool = True
 
-    # Severity thresholds
     fail_on_severity: str = "CRITICAL"
     warn_on_severity: str = "HIGH"
 
 
-# ============================================================
-# БАЗА ЗНАНИЙ УЯЗВИМОСТЕЙ
-# ============================================================
 
 class VulnerabilityKnowledgeBase:
     """База знаний уязвимостей для разных языков"""
@@ -132,9 +111,7 @@ class VulnerabilityKnowledgeBase:
     def _init_builtin_rules(self):
         """Инициализация встроенных правил"""
 
-        # ===== PYTHON =====
         self.rules['python'] = [
-            # Command Injection
             {
                 'id': 'PY-CMD-001',
                 'name': 'Command Injection via os.system',
@@ -166,7 +143,6 @@ class VulnerabilityKnowledgeBase:
                 'cwe': 'CWE-78'
             },
 
-            # Code Injection
             {
                 'id': 'PY-CODE-001',
                 'name': 'Code Injection via eval',
@@ -218,7 +194,6 @@ class VulnerabilityKnowledgeBase:
                 'cwe': 'CWE-502'
             },
 
-            # SQL Injection
             {
                 'id': 'PY-SQL-001',
                 'name': 'SQL Injection via string formatting',
@@ -260,7 +235,6 @@ class VulnerabilityKnowledgeBase:
                 'cwe': 'CWE-89'
             },
 
-            # Hardcoded Secrets
             {
                 'id': 'PY-SECRET-001',
                 'name': 'Hardcoded Password',
@@ -302,7 +276,6 @@ class VulnerabilityKnowledgeBase:
                 'cwe': 'CWE-798'
             },
 
-            # Path Traversal
             {
                 'id': 'PY-PATH-001',
                 'name': 'Path Traversal via user input',
@@ -314,7 +287,6 @@ class VulnerabilityKnowledgeBase:
                 'cwe': 'CWE-22'
             },
 
-            # SSRF
             {
                 'id': 'PY-SSRF-001',
                 'name': 'Server-Side Request Forgery',
@@ -326,7 +298,6 @@ class VulnerabilityKnowledgeBase:
                 'cwe': 'CWE-918'
             },
 
-            # Weak Crypto
             {
                 'id': 'PY-CRYPTO-001',
                 'name': 'Weak Hash Algorithm (MD5)',
@@ -359,9 +330,7 @@ class VulnerabilityKnowledgeBase:
             },
         ]
 
-        # ===== JAVASCRIPT =====
         self.rules['javascript'] = [
-            # XSS
             {
                 'id': 'JS-XSS-001',
                 'name': 'innerHTML XSS',
@@ -403,7 +372,6 @@ class VulnerabilityKnowledgeBase:
                 'cwe': 'CWE-95'
             },
 
-            # Injection
             {
                 'id': 'JS-INJ-001',
                 'name': 'Command Injection in child_process',
@@ -415,7 +383,6 @@ class VulnerabilityKnowledgeBase:
                 'cwe': 'CWE-78'
             },
 
-            # Hardcoded Secrets
             {
                 'id': 'JS-SECRET-001',
                 'name': 'Hardcoded API Key',
@@ -437,7 +404,6 @@ class VulnerabilityKnowledgeBase:
                 'cwe': 'CWE-798'
             },
 
-            # localStorage for sensitive data
             {
                 'id': 'JS-STORAGE-001',
                 'name': 'Sensitive data in localStorage',
@@ -450,9 +416,7 @@ class VulnerabilityKnowledgeBase:
             },
         ]
 
-        # ===== GO =====
         self.rules['go'] = [
-            # Command Injection
             {
                 'id': 'GO-CMD-001',
                 'name': 'Command Injection',
@@ -464,7 +428,6 @@ class VulnerabilityKnowledgeBase:
                 'cwe': 'CWE-78'
             },
 
-            # SQL Injection
             {
                 'id': 'GO-SQL-001',
                 'name': 'SQL Injection via fmt.Sprintf',
@@ -476,7 +439,6 @@ class VulnerabilityKnowledgeBase:
                 'cwe': 'CWE-89'
             },
 
-            # Hardcoded Secrets
             {
                 'id': 'GO-SECRET-001',
                 'name': 'Hardcoded Secret',
@@ -488,7 +450,6 @@ class VulnerabilityKnowledgeBase:
                 'cwe': 'CWE-798'
             },
 
-            # Unsafe operations
             {
                 'id': 'GO-UNSAFE-001',
                 'name': 'Unsafe pointer usage',
@@ -501,9 +462,7 @@ class VulnerabilityKnowledgeBase:
             },
         ]
 
-        # ===== JAVA =====
         self.rules['java'] = [
-            # Command Injection
             {
                 'id': 'JAVA-CMD-001',
                 'name': 'Command Injection in Runtime.exec',
@@ -515,7 +474,6 @@ class VulnerabilityKnowledgeBase:
                 'cwe': 'CWE-78'
             },
 
-            # SQL Injection
             {
                 'id': 'JAVA-SQL-001',
                 'name': 'SQL Injection in Statement',
@@ -527,7 +485,6 @@ class VulnerabilityKnowledgeBase:
                 'cwe': 'CWE-89'
             },
 
-            # Hardcoded Secrets
             {
                 'id': 'JAVA-SECRET-001',
                 'name': 'Hardcoded Password',
@@ -539,7 +496,6 @@ class VulnerabilityKnowledgeBase:
                 'cwe': 'CWE-798'
             },
 
-            # Deserialization
             {
                 'id': 'JAVA-DESER-001',
                 'name': 'Unsafe Deserialization',
@@ -551,7 +507,6 @@ class VulnerabilityKnowledgeBase:
                 'cwe': 'CWE-502'
             },
 
-            # XXE
             {
                 'id': 'JAVA-XXE-001',
                 'name': 'XXE Vulnerability',
@@ -564,9 +519,7 @@ class VulnerabilityKnowledgeBase:
             },
         ]
 
-        # ===== PHP =====
         self.rules['php'] = [
-            # Command Injection
             {
                 'id': 'PHP-CMD-001',
                 'name': 'Command Injection',
@@ -578,7 +531,6 @@ class VulnerabilityKnowledgeBase:
                 'cwe': 'CWE-78'
             },
 
-            # SQL Injection
             {
                 'id': 'PHP-SQL-001',
                 'name': 'SQL Injection in mysql_query',
@@ -590,7 +542,6 @@ class VulnerabilityKnowledgeBase:
                 'cwe': 'CWE-89'
             },
 
-            # File Inclusion
             {
                 'id': 'PHP-LFI-001',
                 'name': 'Local File Inclusion',
@@ -602,7 +553,6 @@ class VulnerabilityKnowledgeBase:
                 'cwe': 'CWE-98'
             },
 
-            # Hardcoded Secrets
             {
                 'id': 'PHP-SECRET-001',
                 'name': 'Hardcoded Password',
@@ -614,7 +564,6 @@ class VulnerabilityKnowledgeBase:
                 'cwe': 'CWE-798'
             },
 
-            # Unserialize
             {
                 'id': 'PHP-DESER-001',
                 'name': 'Unsafe Unserialize',
@@ -627,9 +576,7 @@ class VulnerabilityKnowledgeBase:
             },
         ]
 
-        # ===== RUBY =====
         self.rules['ruby'] = [
-            # Command Injection
             {
                 'id': 'RUBY-CMD-001',
                 'name': 'Command Injection',
@@ -641,11 +588,10 @@ class VulnerabilityKnowledgeBase:
                 'cwe': 'CWE-78'
             },
 
-            # SQL Injection
             {
                 'id': 'RUBY-SQL-001',
                 'name': 'SQL Injection',
-                'pattern': r'(where|find_by_sql|execute)\s*\(\s*["\']*#\{',
+                'pattern': r'(where|find_by_sql|execute)\s*\(\s*["\']*
                 'severity': VulnerabilitySeverity.CRITICAL,
                 'type': VulnerabilityType.SQL_INJECTION,
                 'description': 'String interpolation in SQL query',
@@ -653,7 +599,6 @@ class VulnerabilityKnowledgeBase:
                 'cwe': 'CWE-89'
             },
 
-            # Hardcoded Secrets
             {
                 'id': 'RUBY-SECRET-001',
                 'name': 'Hardcoded Secret',
@@ -665,7 +610,6 @@ class VulnerabilityKnowledgeBase:
                 'cwe': 'CWE-798'
             },
 
-            # Mass Assignment
             {
                 'id': 'RUBY-MASS-001',
                 'name': 'Mass Assignment',
@@ -677,7 +621,6 @@ class VulnerabilityKnowledgeBase:
                 'cwe': 'CWE-915'
             },
 
-            # YAML Deserialization
             {
                 'id': 'RUBY-YAML-001',
                 'name': 'Unsafe YAML Load',
@@ -713,9 +656,6 @@ class VulnerabilityKnowledgeBase:
             print(f"Error loading custom rules: {e}")
 
 
-# ============================================================
-# АНАЛИЗАТОР КОДА
-# ============================================================
 
 class CodeSecurityAnalyzer:
     """
@@ -727,11 +667,9 @@ class CodeSecurityAnalyzer:
         self.config = config or CodeSecurityConfig()
         self.knowledge_base = VulnerabilityKnowledgeBase()
 
-        # Загрузка кастомных правил
         if self.config.custom_rules_path:
             self.knowledge_base.load_custom_rules(self.config.custom_rules_path)
 
-        # Статистика
         self.stats = {
             'total_files_scanned': 0,
             'total_lines_scanned': 0,
@@ -742,9 +680,8 @@ class CodeSecurityAnalyzer:
             'scan_duration_ms': 0
         }
 
-        # Кэш результатов
         self.scan_cache: Dict[str, Tuple[float, List[Dict]]] = {}
-        self.cache_ttl = 300  # 5 минут
+        self.cache_ttl = 300
 
         self._lock = threading.RLock()
 
@@ -761,13 +698,11 @@ class CodeSecurityAnalyzer:
         """
         filepath = str(filepath)
 
-        # Проверка кэша
         if not force_rescan and filepath in self.scan_cache:
             cached_time, cached_result = self.scan_cache[filepath]
             if time.time() - cached_time < self.cache_ttl:
                 return cached_result
 
-        # Проверка размера файла
         try:
             file_size = os.path.getsize(filepath)
             if file_size > self.config.max_file_size_mb * 1024 * 1024:
@@ -775,7 +710,6 @@ class CodeSecurityAnalyzer:
         except:
             return []
 
-        # Определение языка
         ext = Path(filepath).suffix.lower()
         lang_map = {
             '.py': 'python',
@@ -792,7 +726,6 @@ class CodeSecurityAnalyzer:
         if not language or language not in self.config.enabled_languages:
             return []
 
-        # Чтение файла
         try:
             with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
                 code = f.read()
@@ -803,7 +736,6 @@ class CodeSecurityAnalyzer:
                 'error': str(e)
             }]
 
-        # Анализ
         findings = []
 
         with self._lock:
@@ -816,10 +748,8 @@ class CodeSecurityAnalyzer:
             try:
                 matches = re.finditer(rule['pattern'], code, re.IGNORECASE | re.MULTILINE)
                 for match in matches:
-                    # Определение номера строки
                     line_no = code[:match.start()].count('\n') + 1
 
-                    # Контекст (2 строки до и после)
                     start_line = max(0, line_no - 3)
                     end_line = min(len(lines), line_no + 2)
                     context = '\n'.join(lines[start_line:end_line])
@@ -849,21 +779,17 @@ class CodeSecurityAnalyzer:
             except Exception as e:
                 continue
 
-        # Дополнительный анализ для Python (AST)
         if language == 'python':
             ast_findings = self._analyze_python_ast(filepath, code)
             findings.extend(ast_findings)
 
-        # Дополнительный анализ для JavaScript (package.json)
         if language == 'javascript' and filepath.endswith('package.json'):
             dep_findings = self._analyze_package_json(filepath, code)
             findings.extend(dep_findings)
 
-        # Сохранение в кэш
         with self._lock:
             self.scan_cache[filepath] = (time.time(), findings)
             if len(self.scan_cache) > 1000:
-                # Очистка старых записей
                 now = time.time()
                 self.scan_cache = {k: v for k, v in self.scan_cache.items()
                                    if now - v[0] < self.cache_ttl}
@@ -878,7 +804,6 @@ class CodeSecurityAnalyzer:
             tree = ast.parse(code)
 
             for node in ast.walk(tree):
-                # Проверка на использование eval/exec
                 if isinstance(node, ast.Call):
                     if isinstance(node.func, ast.Name):
                         if node.func.id in ['eval', 'exec']:
@@ -896,7 +821,6 @@ class CodeSecurityAnalyzer:
                                 'snippet': ast.unparse(node)[:200]
                             })
 
-                    # Проверка на os.system
                     if isinstance(node.func, ast.Attribute):
                         if node.func.attr == 'system' and hasattr(node.func.value, 'id') and node.func.value.id == 'os':
                             findings.append({
@@ -913,7 +837,6 @@ class CodeSecurityAnalyzer:
                                 'snippet': ast.unparse(node)[:200]
                             })
 
-                # Проверка на hardcoded secrets в присваиваниях
                 if isinstance(node, ast.Assign):
                     for target in node.targets:
                         if isinstance(target, ast.Name):
@@ -952,7 +875,6 @@ class CodeSecurityAnalyzer:
             dependencies.update(data.get('dependencies', {}))
             dependencies.update(data.get('devDependencies', {}))
 
-            # Проверка известных уязвимых версий (упрощённо)
             vulnerable_packages = {
                 'lodash': {'<4.17.21': 'Prototype Pollution'},
                 'axios': {'<0.21.2': 'SSRF'},
@@ -997,12 +919,10 @@ class CodeSecurityAnalyzer:
         if not path.exists():
             return results
 
-        # Сбор файлов
         files = []
         if recursive:
             for ext in ['.py', '.js', '.mjs', '.ts', '.go', '.java', '.php', '.rb']:
                 for filepath in path.rglob(f'*{ext}'):
-                    # Проверка исключений
                     if not any(excl in str(filepath) for excl in exclude_dirs):
                         files.append(filepath)
         else:
@@ -1010,11 +930,9 @@ class CodeSecurityAnalyzer:
                 for filepath in path.glob(f'*{ext}'):
                     files.append(filepath)
 
-        # Ограничение количества файлов
         if len(files) > self.config.max_files_per_scan:
             files = files[:self.config.max_files_per_scan]
 
-        # Параллельное сканирование
         with ThreadPoolExecutor(max_workers=4) as executor:
             futures = {executor.submit(self.analyze_file, str(f)): str(f) for f in files}
 
@@ -1044,7 +962,6 @@ class CodeSecurityAnalyzer:
             if findings:
                 results[filepath] = findings
 
-                # Проверка на критические уязвимости
                 for finding in findings:
                     if finding.get('severity') == VulnerabilitySeverity.CRITICAL.value:
                         critical_found = True
@@ -1193,9 +1110,6 @@ class CodeSecurityAnalyzer:
             self.scan_cache.clear()
 
 
-# ============================================================
-# ИНТЕГРАЦИЯ С SHARD
-# ============================================================
 
 class ShardCodeSecurityIntegration:
     """Интеграция анализатора кода в SHARD"""
@@ -1222,7 +1136,6 @@ class ShardCodeSecurityIntegration:
         """Запуск интеграции"""
         self._running = True
 
-        # Запуск вотчеров для директорий
         for directory in self.config.watch_directories:
             thread = threading.Thread(target=self._watch_directory, args=(directory,), daemon=True)
             thread.start()
@@ -1247,10 +1160,9 @@ class ShardCodeSecurityIntegration:
         last_scan = time.time()
 
         while self._running:
-            time.sleep(60)  # Проверка каждую минуту
+            time.sleep(60)
 
             try:
-                # Поиск изменённых файлов
                 changed_files = []
                 for ext in ['.py', '.js', '.go', '.java', '.php', '.rb']:
                     for filepath in path.rglob(f'*{ext}'):
@@ -1261,7 +1173,7 @@ class ShardCodeSecurityIntegration:
                     if self.logger:
                         self.logger.info(f"Обнаружено {len(changed_files)} изменённых файлов")
 
-                    for filepath in changed_files[:10]:  # Ограничение
+                    for filepath in changed_files[:10]:
                         findings = self.analyzer.analyze_file(filepath, force_rescan=True)
                         if findings:
                             self._publish_findings(filepath, findings)
@@ -1310,10 +1222,8 @@ class ShardCodeSecurityIntegration:
 
         findings = self.analyzer.analyze_directory(directory, recursive)
 
-        # Сохранение отчёта
         report_path = self.analyzer.save_report(findings)
 
-        # Подсчёт критических
         critical_count = sum(
             1 for file_findings in findings.values()
             for f in file_findings if f.get('severity') == 'CRITICAL'
@@ -1363,9 +1273,6 @@ class ShardCodeSecurityIntegration:
         return self.analyzer.get_stats()
 
 
-# ============================================================
-# ТЕСТИРОВАНИЕ
-# ============================================================
 
 def test_code_security():
     """Тестирование анализатора кода"""
@@ -1375,7 +1282,6 @@ def test_code_security():
 
     analyzer = CodeSecurityAnalyzer()
 
-    # Тест 1: Анализ Python кода с уязвимостями
     print("\n📝 Тест 1: Анализ Python кода")
     test_code = '''
 import os
@@ -1383,29 +1289,22 @@ import pickle
 import hashlib
 
 def vulnerable_function(user_input):
-    # Command Injection
     os.system("ls " + user_input)
 
-    # SQL Injection
     query = "SELECT * FROM users WHERE id = '%s'" % user_input
 
-    # Code Injection
     result = eval(user_input)
 
-    # Hardcoded secret
     password = "super_secret_123"
     api_key = "sk-1234567890abcdef"
 
-    # Unsafe deserialization
     data = pickle.loads(user_input)
 
-    # Weak crypto
     hash = hashlib.md5(user_input).hexdigest()
 
     return result
 '''
 
-    # Сохраняем тестовый файл
     test_file = "/tmp/test_vulnerable.py"
     with open(test_file, 'w') as f:
         f.write(test_code)
@@ -1415,7 +1314,6 @@ def vulnerable_function(user_input):
     for f in findings:
         print(f"      [{f['severity']}] Line {f['line']}: {f['rule_name']}")
 
-    # Тест 2: Анализ JavaScript кода
     print("\n📝 Тест 2: Анализ JavaScript кода")
     test_js = '''
 const userInput = req.query.input;
@@ -1439,7 +1337,6 @@ eval(userInput);
     for f in findings:
         print(f"      [{f['severity']}] Line {f['line']}: {f['rule_name']}")
 
-    # Тест 3: Генерация отчёта
     print("\n📝 Тест 3: Генерация отчёта")
     results = {
         test_file: analyzer.analyze_file(test_file),
@@ -1448,14 +1345,12 @@ eval(userInput);
     report = analyzer.generate_report(results, 'json')
     print(f"   Отчёт сгенерирован, размер: {len(report)} байт")
 
-    # Статистика
     print("\n📊 Статистика:")
     stats = analyzer.get_stats()
     for key, value in stats.items():
         if not isinstance(value, dict):
             print(f"   {key}: {value}")
 
-    # Очистка
     os.unlink(test_file)
     os.unlink(test_js_file)
 

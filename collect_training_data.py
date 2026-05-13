@@ -18,9 +18,7 @@ class SHARDLogCollector:
     def __init__(self):
         self.training_data = []
 
-        # ПРАВИЛА АВТОМАТИЧЕСКОЙ РАЗМЕТКИ
         self.attack_patterns = [
-            # Реальные атаки
             (r'🍯.*Honeypot.*triggered', 'honeypot', 1.0),
             (r'🔔 ALERT:.*Deception trap', 'honeypot', 1.0),
             (r'SQL Injection', 'web_attack', 1.0),
@@ -33,7 +31,6 @@ class SHARDLogCollector:
         ]
 
         self.system_patterns = [
-            # Системные сообщения (НЕ атаки)
             (r'INFO:SHARD\\.(ML|Dashboard|Prometheus|Capture)', 'benign', 1.0),
             (r'✅.*загружен', 'benign', 1.0),
             (r'🚀.*запущен', 'benign', 1.0),
@@ -54,7 +51,7 @@ class SHARDLogCollector:
     def extract_features(self, log_line: str) -> Dict:
         """Извлечение признаков из строки лога"""
         features = {
-            'raw_log': log_line[:500],  # Обрезаем длинные строки
+            'raw_log': log_line[:500],
             'length': len(log_line),
             'has_emoji': any(c in log_line for c in ['🍯', '🔔', '✅', '🚀', '📊', '⚠️', '🎯', '🤖', '🧠']),
             'has_ip': bool(re.search(r'\d+\.\d+\.\d+\.\d+', log_line)),
@@ -88,17 +85,14 @@ class SHARDLogCollector:
         Автоматическая классификация лога
         Returns: (label, confidence)
         """
-        # Сначала проверяем атаки (высокий приоритет)
         for pattern, label, confidence in self.attack_patterns:
             if re.search(pattern, log_line):
                 return label, confidence
 
-        # Потом системные сообщения
         for pattern, label, confidence in self.system_patterns:
             if re.search(pattern, log_line):
                 return label, confidence
 
-        # По умолчанию - неизвестно
         return 'unknown', 0.5
 
     def collect_from_file(self, log_file: str) -> int:
@@ -116,15 +110,12 @@ class SHARDLogCollector:
                 if not line or len(line) < 10:
                     continue
 
-                # Классифицируем
                 label, confidence = self.classify_log(line)
 
-                # Извлекаем признаки
                 features = self.extract_features(line)
 
-                # Добавляем в датасет
                 self.training_data.append({
-                    'log': line[:300],  # Сохраняем начало строки
+                    'log': line[:300],
                     'label': label,
                     'confidence': confidence,
                     'features': features,
@@ -169,7 +160,6 @@ class SHARDLogCollector:
         print(f"💾 Датасет сохранён: {output_file}")
         print(f"   Всего записей: {len(self.training_data)}")
 
-        # Сохраняем также в CSV для удобства
         csv_file = output_file.replace('.jsonl', '.csv')
         import csv
         with open(csv_file, 'w', newline='', encoding='utf-8') as f:
@@ -194,7 +184,6 @@ def main():
 
     collector = SHARDLogCollector()
 
-    # Файлы логов для обработки
     log_files = [
         'shard.log',
         'shard_security.log',
@@ -208,7 +197,6 @@ def main():
         print("\n⚠️ Логи не найдены. Создаю синтетический датасет...")
         collector._create_synthetic_dataset()
 
-    # Статистика
     print("\n" + "=" * 60)
     print("📊 СТАТИСТИКА СОБРАННЫХ ДАННЫХ")
     print("=" * 60)
@@ -227,7 +215,6 @@ def main():
     for comp, count in sorted(stats['by_component'].items(), key=lambda x: -x[1])[:10]:
         print(f"  {comp}: {count}")
 
-    # Сохраняем
     collector.save_dataset('shard_logs_dataset.jsonl')
 
     print("\n" + "=" * 60)

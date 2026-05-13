@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 shard_enterprise_complete.py - SHARD ENTERPRISE FINAL
@@ -57,22 +56,17 @@ from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor
 from abc import ABC, abstractmethod
 
-# Исправление кодировки для Windows
 if sys.platform == 'win32':
     import io
 
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
-# Исправление путей для WSL
 if sys.platform == 'linux':
     try:
-        # Проверяем, в WSL ли мы
         with open('/proc/version', 'r') as f:
             if 'microsoft' in f.read().lower():
-                # Мы в WSL
                 import locale
-                # Пробуем разные локали
                 for loc in ['en_US.UTF-8', 'C.UTF-8', 'C', 'en_US', '']:
                     try:
                         locale.setlocale(locale.LC_ALL, loc)
@@ -83,9 +77,6 @@ if sys.platform == 'linux':
         pass
 
 
-# ============================================================
-# ЗАГРУЗКА БИБЛИОТЕК
-# ============================================================
 
 def safe_import(module_name: str, submodule: str = None) -> Optional[Any]:
     """Безопасный импорт с поддержкой подмодулей"""
@@ -96,7 +87,6 @@ def safe_import(module_name: str, submodule: str = None) -> Optional[Any]:
     except ImportError:
         return None
 
-# Обновить использование:
 sklearn_ensemble_module = safe_import('sklearn', 'ensemble')
 if sklearn_ensemble_module:
     from sklearn.ensemble import IsolationForest
@@ -122,21 +112,16 @@ torch_geometric = safe_import('torch_geometric')
 torch_geometric_nn = safe_import('torch_geometric.nn') if torch_geometric else None
 
 
-# ============================================================
-# БЕЗОПАСНЫЙ ИМПОРТ И ПРОВЕРКА ЗАВИСИМОСТЕЙ (пункт 73)
-# ============================================================
 
 def require_module(module_name: str):
     """Декоратор для проверки наличия модуля"""
 
     def decorator(func):
         def wrapper(*args, **kwargs):
-            # Проверяем глобальные переменные импорта
             module_var = f"{module_name}_all"
             if module_var in globals() and globals()[module_var] is not None:
                 return func(*args, **kwargs)
 
-            # Пробуем импортировать
             try:
                 __import__(module_name)
                 return func(*args, **kwargs)
@@ -159,11 +144,7 @@ def safe_import_scapy():
         return False, None
 
 
-# ============================================================
-# КОНФИГУРАЦИЯ
-# ============================================================
 
-# В начале файла, после определения Enum'ов добавить:
 
 class AttackType(Enum):
     """Типы атак"""
@@ -192,12 +173,10 @@ class AttackType(Enum):
         if not value:
             return cls.UNKNOWN
 
-        # Прямое совпадение по значению
         for attack_type in cls:
             if attack_type.value == value:
                 return attack_type
 
-        # Совпадение по имени (для обратной совместимости)
         normalized = value.upper().replace(' ', '_')
         try:
             return cls[normalized]
@@ -209,7 +188,7 @@ class AttackType(Enum):
             return self.value == other.value
         if isinstance(other, str):
             return self.value == other
-        return NotImplemented  # ← ВАЖНО: позволяет str.__eq__ отработать
+        return NotImplemented
 
     def __hash__(self):
         return hash(self.value)
@@ -262,7 +241,6 @@ class AlertSeverity(Enum):
         return hash(self.value)
 
 
-# ========== ХЕЛПЕРЫ ВНЕ КЛАССА ==========
 def is_attack_type(value, expected):
     """Безопасное сравнение типа атаки"""
     if isinstance(value, AttackType):
@@ -302,11 +280,11 @@ class DNSThresholds:
 
 class ExfilThresholds:
     """Пороги для обнаружения утечки данных"""
-    SINGLE_DST_CRITICAL = 50_000_000   # 50 MB
-    SINGLE_DST_HIGH = 20_000_000       # 20 MB
-    SINGLE_DST_MEDIUM = 5_000_000      # 5 MB
-    TOTAL_CRITICAL = 200_000_000       # 200 MB
-    TOTAL_HIGH = 100_000_000           # 100 MB
+    SINGLE_DST_CRITICAL = 50_000_000
+    SINGLE_DST_HIGH = 20_000_000
+    SINGLE_DST_MEDIUM = 5_000_000
+    TOTAL_CRITICAL = 200_000_000
+    TOTAL_HIGH = 100_000_000
     CONNECTIONS_FLOOD = 100
     CONNECTIONS_HIGH = 50
     ASYMMETRIC_RATIO = 10
@@ -344,23 +322,23 @@ class MLThresholds:
 
 class CacheTTL:
     """TTL для различных кэшей"""
-    THREAT_INTEL = 3600       # 1 час
-    GEO_LOCATION = 86400      # 24 часа
-    LDAP_USER = 3600          # 1 час
-    LDAP_GROUP = 3600         # 1 час
-    TLS_SESSION = 3600        # 1 час
-    BASELINE_STATS = 60       # 1 минута
-    TOKEN = 3600              # 1 час
+    THREAT_INTEL = 3600
+    GEO_LOCATION = 86400
+    LDAP_USER = 3600
+    LDAP_GROUP = 3600
+    TLS_SESSION = 3600
+    BASELINE_STATS = 60
+    TOKEN = 3600
 
 
 class CleanupIntervals:
     """Интервалы очистки"""
-    ATTACK_CHAIN = 300        # 5 минут
-    TLS_SESSIONS = 300        # 5 минут
-    THREAT_CACHE = 300        # 5 минут
-    FLOWS = 600               # 10 минут
-    REPORTS = 3600            # 1 час
-    ACTION_LEVEL_DECAY = 1800 # 30 минут
+    ATTACK_CHAIN = 300
+    TLS_SESSIONS = 300
+    THREAT_CACHE = 300
+    FLOWS = 600
+    REPORTS = 3600
+    ACTION_LEVEL_DECAY = 1800
 
 
 class ConfigManager:
@@ -386,7 +364,6 @@ class ConfigManager:
         """Вычисление HMAC подписи данных"""
         import hmac
         import hashlib
-        # Конвертируем данные в строку если нужно
         if isinstance(data, dict):
             data = json.dumps(data, sort_keys=True)
         elif not isinstance(data, str):
@@ -524,19 +501,16 @@ class ConfigManager:
         temp_sig_path = None
 
         try:
-            # Создаём временный файл для конфига
             temp_fd, temp_path = tempfile.mkstemp(
                 dir=str(self.config_path.parent),
                 prefix='.config_',
                 suffix='.tmp'
             )
 
-            # Записываем данные
             content = yaml.dump(self.data, default_flow_style=False, allow_unicode=True)
             with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
                 f.write(content)
 
-            # Создаём временный файл для подписи
             temp_sig_fd, temp_sig_path = tempfile.mkstemp(
                 dir=str(self.config_path.parent),
                 prefix='.config_sig_',
@@ -547,7 +521,6 @@ class ConfigManager:
             with os.fdopen(temp_sig_fd, 'w', encoding='utf-8') as f:
                 f.write(signature)
 
-            # Атомарное переименование
             if sys.platform == 'win32':
                 if self.config_path.exists():
                     self.config_path.unlink()
@@ -557,7 +530,6 @@ class ConfigManager:
             os.replace(temp_path, self.config_path)
             os.replace(temp_sig_path, self.signature_path)
 
-            # Устанавливаем права
             if sys.platform != 'win32':
                 os.chmod(self.config_path, 0o600)
                 os.chmod(self.signature_path, 0o600)
@@ -575,9 +547,6 @@ class ConfigManager:
                     pass
             raise e
 
-# ============================================================
-# LOGGING SERVICE
-# ============================================================
 
 class LoggingService:
     """Сервис логирования с централизованной обработкой критических событий"""
@@ -628,9 +597,6 @@ class LoggingService:
                 'details': data or {}
             })
 
-# ============================================================
-# EVENT BUS
-# ============================================================
 
 class EventBus:
     """
@@ -645,7 +611,6 @@ class EventBus:
     """
 
     def __init__(self, max_queue_size: int = 10000):
-        # Приоритеты
         self.priority_map = {
             'alert.detected': 'high',
             'exfiltration.detected': 'high',
@@ -658,11 +623,9 @@ class EventBus:
             'dpi.dns': 'low',
         }
 
-        # Per-subscriber очереди: {event_type: [(queue, callback, worker_thread)]}
         self._subscribers: Dict[str, List[Tuple[queue.Queue, Callable, threading.Thread]]] = defaultdict(list)
         self._subscriber_lock = threading.RLock()
 
-        # Общие очереди для новых событий (короткоживущие)
         self._high_queue = queue.Queue(maxsize=max_queue_size)
         self._normal_queue = queue.Queue(maxsize=max_queue_size * 2)
         self._low_queue = queue.Queue(maxsize=max_queue_size * 5)
@@ -670,7 +633,6 @@ class EventBus:
         self._running = True
         self.max_queue_size = max_queue_size
 
-        # Статистика
         self.stats = {
             'high': 0,
             'normal': 0,
@@ -682,10 +644,9 @@ class EventBus:
         }
         self._stats_lock = threading.RLock()
 
-        # Диспетчеры: читают из приоритетных очередей и раскидывают подписчикам
         self._dispatchers = []
         for priority in ['high', 'normal', 'low']:
-            for _ in range(2):  # По 2 диспетчера на приоритет
+            for _ in range(2):
                 t = threading.Thread(
                     target=self._dispatcher_worker,
                     args=(priority,),
@@ -711,14 +672,12 @@ class EventBus:
             try:
                 event_type, data = q.get(timeout=1)
 
-                # Находим подписчиков
                 with self._subscriber_lock:
                     subscribers = [
                         (sub_q, callback)
                         for sub_q, callback, _ in self._subscribers.get(event_type, [])
                     ]
 
-                # Раскидываем по очередям подписчиков (без блокировки!)
                 delivered = 0
                 for sub_q, callback in subscribers:
                     try:
@@ -758,7 +717,6 @@ class EventBus:
             with self._stats_lock:
                 self.stats['dropped'] += 1
 
-            # Для высокоприоритетных — прямая доставка подписчикам
             if priority == 'high':
                 with self._subscriber_lock:
                     subscribers = [
@@ -768,7 +726,6 @@ class EventBus:
 
                 for sub_q, callback in subscribers:
                     try:
-                        # Прямой вызов callback'а для критических событий
                         callback(data)
                     except Exception:
                         pass
@@ -778,10 +735,8 @@ class EventBus:
         Подписка на события.
         Создаёт отдельную очередь и воркер для каждого подписчика.
         """
-        # Создаём персональную очередь для подписчика
         sub_queue = queue.Queue(maxsize=self.max_queue_size)
 
-        # Воркер подписчика
         def subscriber_worker():
             while self._running:
                 try:
@@ -789,7 +744,7 @@ class EventBus:
                     try:
                         callback(data)
                     except Exception:
-                        pass  # Ошибка в callback не должна ронять воркер
+                        pass
                 except queue.Empty:
                     continue
 
@@ -808,13 +763,11 @@ class EventBus:
         """Отписка от событий"""
         with self._subscriber_lock:
             if event_type in self._subscribers:
-                # Находим и удаляем подписчика
                 self._subscribers[event_type] = [
                     (q, cb, w) for q, cb, w in self._subscribers[event_type]
                     if cb != callback
                 ]
 
-                # Очищаем пустой список
                 if not self._subscribers[event_type]:
                     del self._subscribers[event_type]
 
@@ -825,7 +778,6 @@ class EventBus:
         with self._stats_lock:
             stats = dict(self.stats)
 
-            # Добавляем информацию о подписчиках
             with self._subscriber_lock:
                 event_counts = {
                     event_type: len(subs)
@@ -834,7 +786,6 @@ class EventBus:
                 stats['events_subscribed'] = event_counts
                 stats['total_event_types'] = len(self._subscribers)
 
-                # Размеры очередей
                 stats['high_queue_size'] = self._high_queue.qsize()
                 stats['normal_queue_size'] = self._normal_queue.qsize()
                 stats['low_queue_size'] = self._low_queue.qsize()
@@ -845,11 +796,9 @@ class EventBus:
         """Graceful shutdown"""
         self._running = False
 
-        # Ждём завершения диспетчеров
         for t in self._dispatchers:
             t.join(timeout=2)
 
-        # Ждём завершения воркеров подписчиков
         with self._subscriber_lock:
             for event_type, subscribers in self._subscribers.items():
                 for _, _, worker in subscribers:
@@ -858,9 +807,6 @@ class EventBus:
         self._subscribers.clear()
 
 
-# ============================================================
-# БАЗОВЫЙ МОДУЛЬ
-# ============================================================
 
 class BaseModule(ABC):
     """Базовый класс для всех модулей"""
@@ -885,9 +831,6 @@ class BaseModule(ABC):
         return self.running and not self._stop_event.is_set()
 
 
-# ============================================================
-# 1️⃣ DNS АНАЛИТИКА (ТУННЕЛИ, ЭНТРОПИЯ)
-# ============================================================
 
 class DNSAnalyzer(BaseModule):
     """Глубокий анализ DNS трафика"""
@@ -943,16 +886,14 @@ class DNSAnalyzer(BaseModule):
                 src_ip = data.get('src_ip', 'unknown')
                 dst_ip = data.get('dst_ip', 'unknown')
 
-                # Анализ DNS запросов
-                if packet.haslayer(DNS) and packet[DNS].qr == 0:  # Запрос
+                if packet.haslayer(DNS) and packet[DNS].qr == 0:
                     dns_layer = packet[DNS]
                     if dns_layer.qdcount > 0:
                         query = dns_layer[DNSQR].qname.decode('utf-8', errors='ignore').rstrip('.')
                         self._analyze_dns_query(src_ip, query, packet)
 
-                # Анализ размера пакетов (признак туннеля)
                 packet_size = len(packet)
-                if packet_size > 512:  # Нормальный DNS пакет обычно меньше
+                if packet_size > 512:
                     self._check_dns_tunnel(src_ip, dst_ip, packet_size)
 
         except Exception as e:
@@ -999,7 +940,6 @@ class DNSAnalyzer(BaseModule):
             entropy = self._calculate_entropy(query)
             stats['entropy_values'].append(entropy)
 
-            # Используем константы вместо magic numbers
             if len(query) > DNSThresholds.LONG_QUERY:
                 result['is_suspicious'] = True
                 result['reasons'].append(f"long_query:{len(query)}")
@@ -1108,17 +1048,14 @@ class DNSAnalyzer(BaseModule):
     def _check_dns_tunnel(self, src_ip: str, dst_ip: str, packet_size: int, packet: Any = None) -> None:
         """Проверка на DNS туннель (исправлено - учёт направления и типа)"""
 
-        # Определяем направление - туннели обычно исходящие
         local_networks = self.config.get('network.local_networks', ['192.168.', '10.', '172.16.'])
         is_outbound = not any(dst_ip.startswith(net) for net in local_networks)
 
-        # Для входящих DNS ответов - более высокий порог
         size_threshold = 1000 if is_outbound else 2000
 
         if packet_size <= size_threshold:
             return
 
-        # Дополнительная проверка - это DNS запрос или ответ?
         is_query = True
         if packet:
             try:
@@ -1128,7 +1065,6 @@ class DNSAnalyzer(BaseModule):
             except:
                 pass
 
-        # Для ответов - ещё выше порог
         if not is_query and packet_size < 3000:
             return
 
@@ -1188,16 +1124,12 @@ class DNSAnalyzer(BaseModule):
                     'last_seen': stats.get('last_seen', 0)
                 }
 
-            # Общая статистика
             return {
                 'total_ips': len(self.dns_queries),
                 'total_queries': sum(s.get('count', 0) for s in self.dns_queries.values())
             }
 
 
-# ============================================================
-# 2️⃣ THREAT INTELLIGENCE (ABUSEIPDB/VIRUSTOTAL)
-# ============================================================
 
 class ThreatIntelligence(BaseModule):
     """Интеграция с базами репутации IP (полная реальная версия)"""
@@ -1205,33 +1137,27 @@ class ThreatIntelligence(BaseModule):
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("ThreatIntel", config, event_bus, logger)
 
-        # API ключи
         self.abuseipdb_key = config.get('threat_intel.abuseipdb_key') or os.environ.get('ABUSEIPDB_KEY', '')
         self.virustotal_key = config.get('threat_intel.virustotal_key') or os.environ.get('VIRUSTOTAL_KEY', '')
         self.alienvault_key = config.get('threat_intel.alienvault_key') or os.environ.get('ALIENVAULT_KEY', '')
         self.ipinfo_token = config.get('threat_intel.ipinfo_token') or os.environ.get('IPINFO_TOKEN', '')
 
-        # Геолокация
         self.geoip_db_path = config.get('threat_intel.geoip_db') or '/usr/share/GeoIP/GeoLite2-City.mmdb'
         self.geoip_city_path = config.get('threat_intel.geoip_city_db') or '/usr/share/GeoIP/GeoLite2-City.mmdb'
         self.geoip_asn_path = config.get('threat_intel.geoip_asn_db') or '/usr/share/GeoIP/GeoLite2-ASN.mmdb'
         self.geoip_reader = None
         self.geoip_asn_reader = None
 
-        # Кэш
         self.cache: Dict[str, Dict] = {}
-        self.cache_ttl = 3600  # 1 час
+        self.cache_ttl = 3600
         self.geo_cache: Dict[str, Dict] = {}
-        self.geo_cache_ttl = 86400  # 24 часа для геолокации
+        self.geo_cache_ttl = 86400
 
-        # Блокировки
         self._lock = threading.RLock()
         self._geo_lock = threading.RLock()
 
-        # HTTP сессия
         self._session = None
 
-        # Executor для асинхронных запросов
         self.pg_pool = None
         self.pg_pool = None
         self.pg_pool = None
@@ -1239,17 +1165,14 @@ class ThreatIntelligence(BaseModule):
         self._pending_checks: Set[str] = set()
         self._pending_lock = threading.RLock()
 
-        # Списки известных вредоносных IP (локальный кэш)
         self.known_malicious_ips: Set[str] = set()
         self.known_tor_exit_nodes: Set[str] = set()
         self.known_vpn_ips: Set[str] = set()
 
-        # Инициализация
         self._init_http_session()
         self._init_geoip()
         self._load_local_lists()
 
-        # Подписки на события
         self.event_bus.subscribe('alert.detected', self.on_alert)
         self.event_bus.subscribe('packet.received', self.on_packet)
         self.event_bus.subscribe('threat_intel.check_ip', self.on_check_ip_request)
@@ -1261,7 +1184,6 @@ class ThreatIntelligence(BaseModule):
             self._session.headers.update({
                 'User-Agent': 'SHARD-SIEM/2.0 (+https://github.com/shard/siem)'
             })
-            # Настройка таймаутов и retry
             from requests.adapters import HTTPAdapter
             from urllib3.util.retry import Retry
 
@@ -1276,11 +1198,9 @@ class ThreatIntelligence(BaseModule):
 
     def _init_geoip(self) -> None:
         """Инициализация GeoIP баз данных"""
-        # Пробуем загрузить MaxMind GeoIP2
         try:
             import geoip2.database
 
-            # City база
             if Path(self.geoip_city_path).exists():
                 self.geoip_reader = geoip2.database.Reader(self.geoip_city_path)
                 self.logger.info(f"GeoIP City база загружена: {self.geoip_city_path}")
@@ -1291,7 +1211,6 @@ class ThreatIntelligence(BaseModule):
                 self.logger.warning(
                     f"GeoIP база не найдена. Скачайте с https://dev.maxmind.com/geoip/geolite2-free-geolocation-data")
 
-            # ASN база
             if Path(self.geoip_asn_path).exists():
                 self.geoip_asn_reader = geoip2.database.Reader(self.geoip_asn_path)
                 self.logger.info(f"GeoIP ASN база загружена: {self.geoip_asn_path}")
@@ -1301,11 +1220,9 @@ class ThreatIntelligence(BaseModule):
         except Exception as e:
             self.logger.warning(f"Ошибка загрузки GeoIP: {e}")
 
-        # Fallback на geoip2 (бесплатная альтернатива)
         if not self.geoip_reader:
             try:
                 import geoip2
-                # Пробуем стандартные пути
                 standard_paths = [
                     '/usr/local/share/GeoIP/GeoLite2-City.mmdb',
                     '/usr/share/GeoIP/GeoLite2-City.mmdb',
@@ -1324,7 +1241,6 @@ class ThreatIntelligence(BaseModule):
 
     def _load_local_lists(self) -> None:
         """Загрузка локальных списков известных вредоносных IP"""
-        # Списки можно загружать из файлов или URL
         list_paths = [
             Path('data/tor_exit_nodes.txt'),
             Path('data/known_malicious.txt'),
@@ -1335,7 +1251,7 @@ class ThreatIntelligence(BaseModule):
             if path.exists():
                 try:
                     with open(path, 'r') as f:
-                        ips = {line.strip() for line in f if line.strip() and not line.startswith('#')}
+                        ips = {line.strip() for line in f if line.strip() and not line.startswith('
                         if 'tor' in path.name:
                             self.known_tor_exit_nodes.update(ips)
                             self.logger.info(f"Загружено {len(ips)} Tor exit nodes")
@@ -1348,7 +1264,6 @@ class ThreatIntelligence(BaseModule):
                 except Exception as e:
                     self.logger.debug(f"Ошибка загрузки списка {path}: {e}")
 
-        # Загрузка из URL если списки пусты
         if not self.known_tor_exit_nodes:
             threading.Thread(target=self._download_tor_exit_list, daemon=True).start()
 
@@ -1356,18 +1271,16 @@ class ThreatIntelligence(BaseModule):
         """Скачивание списка Tor exit nodes (с проверкой сертификата)"""
         try:
             if self._session:
-                # Используем HTTPS с проверкой сертификата
                 response = self._session.get(
                     'https://check.torproject.org/torbulkexitlist',
                     timeout=30,
-                    verify=True  # Явно включаем проверку SSL
+                    verify=True
                 )
                 if response.status_code == 200:
                     ips = set()
                     for line in response.text.strip().split('\n'):
                         line = line.strip()
-                        if line and not line.startswith('#'):
-                            # Валидация IP перед добавлением
+                        if line and not line.startswith('
                             if self._is_public_ip(line):
                                 ips.add(line)
 
@@ -1383,13 +1296,11 @@ class ThreatIntelligence(BaseModule):
         """Запуск модуля"""
         self.running = True
 
-        # Создаём executor при старте
         self._executor = ThreadPoolExecutor(
             max_workers=8,
             thread_name_prefix="ThreatIntel"
         )
 
-        # Запускаем фоновые потоки
         threading.Thread(target=self._cleanup_loop, daemon=True).start()
         threading.Thread(target=self._cache_warmup_loop, daemon=True).start()
 
@@ -1407,17 +1318,14 @@ class ThreatIntelligence(BaseModule):
         """Остановка модуля с graceful shutdown"""
         self.running = False
 
-        # Закрываем HTTP сессию
         if self._session:
             try:
                 self._session.close()
             except:
                 pass
 
-        # Graceful shutdown executor
         if self._executor is not None:
             try:
-                # Пробуем разные варианты shutdown
                 if hasattr(self._executor, 'shutdown'):
                     import sys
                     if sys.version_info >= (3, 9):
@@ -1425,7 +1333,6 @@ class ThreatIntelligence(BaseModule):
                             self._executor.shutdown(wait=False, cancel_futures=True)
                         except:
                             pass
-                    # Просто shutdown без аргументов
                     try:
                         self._executor.shutdown()
                     except:
@@ -1435,7 +1342,6 @@ class ThreatIntelligence(BaseModule):
             finally:
                 self._executor = None
 
-        # Закрываем GeoIP
         if self.geoip_reader:
             try:
                 self.geoip_reader.close()
@@ -1455,7 +1361,6 @@ class ThreatIntelligence(BaseModule):
         src_ip = alert.get('src_ip', '')
         dst_ip = alert.get('dst_ip', '')
 
-        # Проверяем оба IP если они публичные
         for ip in (src_ip, dst_ip):
             if ip and self._is_public_ip(ip):
                 self._executor.submit(self._check_ip_and_enrich_alert, ip, alert)
@@ -1468,7 +1373,6 @@ class ThreatIntelligence(BaseModule):
             alert['threat_intel'] = result
             alert['score'] = min(1.0, alert.get('score', 0) + result['score'] * 0.3)
 
-            # Добавляем геолокацию
             if 'geo' in result:
                 alert['geo_location'] = result['geo']
 
@@ -1484,20 +1388,17 @@ class ThreatIntelligence(BaseModule):
 
         for ip in (src_ip, dst_ip):
             if ip and self._is_public_ip(ip):
-                # Проверяем не чаще чем раз в минуту
                 with self._lock:
                     if ip in self.cache:
                         last_check = self.cache[ip].get('timestamp', 0)
                         if time.time() - last_check < 60:
                             continue
 
-                # Проверяем, не проверяется ли уже этот IP
                 with self._pending_lock:
                     if ip in self._pending_checks:
                         continue
                     self._pending_checks.add(ip)
 
-                # Асинхронная проверка
                 self._executor.submit(self._check_and_alert_wrapper, ip)
 
     def on_check_ip_request(self, data: Dict) -> None:
@@ -1538,11 +1439,9 @@ class ThreatIntelligence(BaseModule):
                 'explanation': f"IP {ip} обнаружен в базе угроз (score: {result['score']:.2f})"
             }
 
-            # Добавляем информацию об источнике обнаружения
             if result.get('sources'):
                 alert['explanation'] += f" Источники: {', '.join(result['sources'])}"
 
-            # Добавляем геолокацию
             if result.get('geo', {}).get('country'):
                 alert['geo_location'] = result['geo']
 
@@ -1551,14 +1450,12 @@ class ThreatIntelligence(BaseModule):
     def check_ip(self, ip: str) -> Dict:
         """Полная проверка IP через все доступные источники (параллельные запросы)"""
 
-        # Проверка кэша
         with self._lock:
             if ip in self.cache:
                 cached = self.cache[ip]
                 if time.time() - cached.get('timestamp', 0) < self.cache_ttl:
                     return cached['result'].copy()
 
-        # Быстрая проверка локальных списков
         quick_result = self._check_local_lists(ip)
         if quick_result['is_malicious'] and quick_result['score'] > 0.8:
             result = quick_result
@@ -1588,30 +1485,23 @@ class ThreatIntelligence(BaseModule):
                 'reputation_services': {}
             }
 
-            # Параллельные запросы к внешним API
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = {}
 
-                # Геолокация
                 futures['geo'] = executor.submit(self.get_geo_location, ip)
 
-                # AbuseIPDB
                 if self.abuseipdb_key:
                     futures['abuse'] = executor.submit(self._check_abuseipdb_full, ip)
 
-                # VirusTotal
                 if self.virustotal_key:
                     futures['vt'] = executor.submit(self._check_virustotal_full, ip)
 
-                # AlienVault
                 if self.alienvault_key:
                     futures['otx'] = executor.submit(self._check_alienvault, ip)
 
-                # IPinfo
                 if self.ipinfo_token:
                     futures['ipinfo'] = executor.submit(self._check_ipinfo, ip)
 
-                # Сбор результатов с таймаутом
                 for key, future in futures.items():
                     try:
                         data = future.result(timeout=5)
@@ -1678,18 +1568,16 @@ class ThreatIntelligence(BaseModule):
                             result['is_proxy'] = data.get('proxy', result['is_proxy'])
                             result['is_tor'] = data.get('tor', result['is_tor'])
 
-                    except TimeoutError:  # ← ИСПРАВЛЕНО: было FutureTimeoutError
+                    except TimeoutError:
                         self.logger.debug(f"Таймаут запроса {key} для IP {ip}")
                     except Exception as e:
                         self.logger.debug(f"Ошибка запроса {key} для IP {ip}: {type(e).__name__}")
 
-        # Нормализация score
         result['score'] = min(1.0, result['score'])
 
         if len(result['sources']) >= 2:
             result['confidence'] = min(1.0, result['confidence'] + 0.1)
 
-        # Сохраняем в кэш
         with self._lock:
             self.cache[ip] = {
                 'result': result.copy(),
@@ -1710,7 +1598,6 @@ class ThreatIntelligence(BaseModule):
             'categories': []
         }
 
-        # Проверка Tor exit nodes
         if ip in self.known_tor_exit_nodes:
             result['is_malicious'] = True
             result['is_tor'] = True
@@ -1719,7 +1606,6 @@ class ThreatIntelligence(BaseModule):
             result['sources'].append('Tor Exit List')
             result['categories'].append('Tor')
 
-        # Проверка известных вредоносных IP
         if ip in self.known_malicious_ips:
             result['is_malicious'] = True
             result['score'] = max(result['score'], 0.8)
@@ -1727,7 +1613,6 @@ class ThreatIntelligence(BaseModule):
             result['sources'].append('Local Blocklist')
             result['categories'].append('Malicious')
 
-        # Проверка VPN
         if ip in self.known_vpn_ips:
             result['is_vpn'] = True
             result['score'] = max(result['score'], 0.4)
@@ -1738,7 +1623,6 @@ class ThreatIntelligence(BaseModule):
 
     def get_geo_location(self, ip: str) -> Dict:
         """Получение геолокации IP из разных источников"""
-        # Проверка кэша геолокации
         with self._geo_lock:
             if ip in self.geo_cache:
                 cached = self.geo_cache[ip]
@@ -1766,7 +1650,6 @@ class ThreatIntelligence(BaseModule):
             'source': 'unknown'
         }
 
-        # 1. Локальная GeoIP база MaxMind
         if self.geoip_reader:
             try:
                 response = self.geoip_reader.city(ip)
@@ -1778,13 +1661,11 @@ class ThreatIntelligence(BaseModule):
                 result['longitude'] = response.location.longitude
                 result['timezone'] = response.location.time_zone
 
-                # Континент и регион
                 if hasattr(response, 'continent'):
                     result['continent'] = response.continent.name
                 if hasattr(response, 'subdivisions') and response.subdivisions:
                     result['region'] = response.subdivisions[0].name
 
-                # Признаки
                 if hasattr(response, 'traits'):
                     result['is_anonymous'] = getattr(response.traits, 'is_anonymous_proxy', False)
                     result['is_hosting'] = getattr(response.traits, 'is_hosting_provider', False)
@@ -1794,7 +1675,6 @@ class ThreatIntelligence(BaseModule):
             except Exception as e:
                 self.logger.debug(f"GeoIP ошибка для {ip}: {e}")
 
-        # 2. ASN информация
         if self.geoip_asn_reader:
             try:
                 asn_response = self.geoip_asn_reader.asn(ip)
@@ -1803,7 +1683,6 @@ class ThreatIntelligence(BaseModule):
             except:
                 pass
 
-        # 3. Fallback на ip-api.com (бесплатный, без ключа)
         if not result['country'] and self._session:
             try:
                 response = self._session.get(
@@ -1833,7 +1712,6 @@ class ThreatIntelligence(BaseModule):
             except Exception as e:
                 self.logger.debug(f"ip-api.com ошибка: {e}")
 
-        # 4. Fallback на ipapi.co
         if not result['country'] and self._session:
             try:
                 response = self._session.get(
@@ -1857,7 +1735,6 @@ class ThreatIntelligence(BaseModule):
             except Exception as e:
                 self.logger.debug(f"ipapi.co ошибка: {e}")
 
-        # 5. IPinfo (если есть токен)
         if self.ipinfo_token and not result['isp'] and self._session:
             try:
                 response = self._session.get(
@@ -1872,7 +1749,6 @@ class ThreatIntelligence(BaseModule):
                     result['region'] = data.get('region', result['region'])
                     result['postal_code'] = data.get('postal', result['postal_code'])
 
-                    # Парсинг локации
                     loc = data.get('loc', '')
                     if loc and ',' in loc:
                         lat, lon = loc.split(',')
@@ -1883,7 +1759,6 @@ class ThreatIntelligence(BaseModule):
                     result['asn'] = data.get('asn', {}).get('asn', result['asn'])
                     result['timezone'] = data.get('timezone', result['timezone'])
 
-                    # Признаки из privacy информации
                     privacy = data.get('privacy', {})
                     result['is_vpn'] = privacy.get('vpn', False)
                     result['is_proxy'] = privacy.get('proxy', False)
@@ -1894,7 +1769,6 @@ class ThreatIntelligence(BaseModule):
             except Exception as e:
                 self.logger.debug(f"ipinfo.io ошибка: {e}")
 
-        # Сохраняем в кэш
         with self._geo_lock:
             self.geo_cache[ip] = {
                 'data': result.copy(),
@@ -1909,7 +1783,6 @@ class ThreatIntelligence(BaseModule):
             return None
 
         try:
-            # Основная проверка
             response = self._session.get(
                 'https://api.abuseipdb.com/api/v2/check',
                 params={
@@ -1945,7 +1818,6 @@ class ThreatIntelligence(BaseModule):
                 'categories': []
             }
 
-            # Получаем детали отчётов
             if data.get('reports'):
                 categories = set()
                 for report in data['reports'][:10]:
@@ -2006,7 +1878,6 @@ class ThreatIntelligence(BaseModule):
             data = response.json()
             attributes = data.get('data', {}).get('attributes', {})
 
-            # Статистика детектирования
             stats = attributes.get('last_analysis_stats', {})
 
             result = {
@@ -2024,7 +1895,6 @@ class ThreatIntelligence(BaseModule):
                 'tags': attributes.get('tags', [])
             }
 
-            # Собираем категории из результатов
             results = attributes.get('last_analysis_results', {})
             for engine, engine_result in results.items():
                 category = engine_result.get('category')
@@ -2067,7 +1937,6 @@ class ThreatIntelligence(BaseModule):
                 'asn': data.get('asn')
             }
 
-            # Собираем теги из пульсов
             pulses = data.get('pulse_info', {}).get('pulses', [])
             for pulse in pulses[:10]:
                 result['tags'].extend(pulse.get('tags', []))
@@ -2127,7 +1996,6 @@ class ThreatIntelligence(BaseModule):
             first = int(parts[0])
             second = int(parts[1]) if len(parts) > 1 else 0
 
-            # Приватные диапазоны
             if first == 10:
                 return False
             if first == 172 and 16 <= second <= 31:
@@ -2142,7 +2010,7 @@ class ThreatIntelligence(BaseModule):
                 return False
             if first == 169 and second == 254:
                 return False
-            if first == 100 and 64 <= second <= 127:  # CGNAT
+            if first == 100 and 64 <= second <= 127:
                 return False
 
             return True
@@ -2152,10 +2020,9 @@ class ThreatIntelligence(BaseModule):
     def _cleanup_loop(self) -> None:
         """Очистка устаревшего кэша (исправлено - безопасное удаление)"""
         while self.running:
-            time.sleep(300)  # Каждые 5 минут
+            time.sleep(300)
             now = time.time()
 
-            # Собираем ключи для удаления
             expired_threat = []
             expired_geo = []
 
@@ -2169,7 +2036,6 @@ class ThreatIntelligence(BaseModule):
                     if now - data['timestamp'] > self.geo_cache_ttl * 2:
                         expired_geo.append(ip)
 
-            # Удаляем под отдельными блокировками
             if expired_threat:
                 with self._lock:
                     for ip in expired_threat:
@@ -2187,8 +2053,7 @@ class ThreatIntelligence(BaseModule):
     def _cache_warmup_loop(self) -> None:
         """Периодический прогрев кэша важных IP"""
         while self.running:
-            time.sleep(3600)  # Раз в час
-            # Можно добавить прогрев для часто встречающихся IP
+            time.sleep(3600)
             pass
 
     def get_cache_stats(self) -> Dict:
@@ -2215,9 +2080,7 @@ class ThreatIntelligence(BaseModule):
         if not public_ips:
             return results
 
-        # Используем СУЩЕСТВУЮЩИЙ executor вместо создания нового
         if self._executor is None:
-            # Если executor ещё не создан - создаём
             self._executor = ThreadPoolExecutor(max_workers=8, thread_name_prefix="ThreatIntel")
 
         futures = {}
@@ -2244,17 +2107,15 @@ class ThreatIntelligence(BaseModule):
         with self._lock:
             self.known_malicious_ips.add(ip)
 
-            # ИНВАЛИДАЦИЯ КЭША для этого IP
             if ip in self.cache:
                 del self.cache[ip]
                 self.logger.debug(f"Кэш для IP {ip} инвалидирован после добавления в блок-лист")
 
-        # Сохраняем в файл
         try:
             list_path = Path('data/known_malicious.txt')
             list_path.parent.mkdir(parents=True, exist_ok=True)
             with open(list_path, 'a', encoding='utf-8') as f:
-                f.write(f"{ip} # {reason} - {datetime.now().isoformat()}\n")
+                f.write(f"{ip}
 
             self.logger.info(f"IP {ip} добавлен в локальный блок-лист (причина: {reason})")
         except Exception as e:
@@ -2266,7 +2127,6 @@ class ThreatIntelligence(BaseModule):
             if ip in self.known_malicious_ips:
                 self.known_malicious_ips.remove(ip)
 
-                # Инвалидация кэша
                 if ip in self.cache:
                     del self.cache[ip]
 
@@ -2275,9 +2135,6 @@ class ThreatIntelligence(BaseModule):
 
 
 
-# ============================================================
-# 3️⃣ ОБНАРУЖЕНИЕ УТЕЧКИ ДАННЫХ
-# ============================================================
 
 class DataExfiltrationDetector(BaseModule):
     """Обнаружение утечки данных (Data Exfiltration) с дедупликацией алертов"""
@@ -2285,7 +2142,6 @@ class DataExfiltrationDetector(BaseModule):
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("ExfilDetector", config, event_bus, logger)
 
-        # Структура с ключом (src_ip, dst_ip) - defaultdict с лямбдой
         self.flows: Dict[Tuple[str, str], Dict] = defaultdict(lambda: {
             'bytes_out': deque(maxlen=1000),
             'bytes_in': deque(maxlen=1000),
@@ -2299,7 +2155,6 @@ class DataExfiltrationDetector(BaseModule):
             'packet_sizes': deque(maxlen=100)
         })
 
-        # Агрегированная статистика по хостам
         self.host_stats: Dict[str, Dict] = defaultdict(lambda: {
             'total_bytes_out': 0,
             'total_bytes_in': 0,
@@ -2311,18 +2166,15 @@ class DataExfiltrationDetector(BaseModule):
             'suspicious_score': 0.0
         })
 
-        # Порты
         self.normal_ports = {80, 443, 8080, 8443, 21, 22, 25, 587, 993, 995, 143, 110}
         self.exfil_ports = {53, 123, 137, 138, 139, 445, 3389, 4444, 5555, 6666, 7777, 8888, 9999}
 
-        # Подозрительные user-agent'ы
         self.suspicious_user_agents = {
             'curl', 'wget', 'python', 'powershell', 'nc', 'netcat',
             'meterpreter', 'metasploit', 'nmap', 'zgrab', 'gobuster',
             'sqlmap', 'nikto', 'burp', 'hydra'
         }
 
-        # Дедупликация алертов
         self._recent_alerts: Dict[str, float] = {}
         self._alert_cooldown = 60
         self._alert_lock = threading.RLock()
@@ -2350,27 +2202,22 @@ class DataExfiltrationDetector(BaseModule):
         now = time.time()
 
         with self._alert_lock:
-            # Сброс счётчика каждую минуту
             if now - self._alert_counter_reset > 60:
                 self._alert_counter.clear()
                 self._alert_counter_reset = now
 
-            # Проверка cooldown для конкретной пары
             last_time = self._recent_alerts.get(alert_key, 0)
             if now - last_time < self._alert_cooldown:
                 self._suppressed_count['cooldown'] = self._suppressed_count.get('cooldown', 0) + 1
                 return True
 
-            # Проверка общего лимита алертов от одного источника
             self._alert_counter[src_ip] += 1
             if self._alert_counter[src_ip] > self._max_alerts_per_minute:
                 self._suppressed_count['rate_limit'] += 1
                 return True
 
-            # Обновляем время последнего алерта
             self._recent_alerts[alert_key] = now
 
-            # Очистка старых ключей (каждые 100 алертов)
             if len(self._recent_alerts) > 1000:
                 cutoff = now - self._alert_cooldown * 2
                 self._recent_alerts = {k: v for k, v in self._recent_alerts.items() if v > cutoff}
@@ -2390,7 +2237,6 @@ class DataExfiltrationDetector(BaseModule):
         try:
             packet_size = len(packet)
 
-            # Определяем направление трафика
             local_networks = self.config.get('network.local_networks', ['192.168.', '10.', '172.16.', '127.'])
             is_outbound = not any(dst_ip.startswith(net) for net in local_networks)
 
@@ -2409,7 +2255,6 @@ class DataExfiltrationDetector(BaseModule):
         user_agent = data.get('user_agent', '')
         content_length = data.get('content_length', 0)
 
-        # Проверка на подозрительный User-Agent
         if user_agent:
             ua_lower = user_agent.lower()
             for sus_ua in self.suspicious_user_agents:
@@ -2429,8 +2274,7 @@ class DataExfiltrationDetector(BaseModule):
                         }
                         self.event_bus.publish('exfiltration.detected', alert)
 
-        # Проверка на POST/PUT с большим телом
-        if method in ('POST', 'PUT') and content_length > 1_000_000:  # > 1MB
+        if method in ('POST', 'PUT') and content_length > 1_000_000:
             alert_key = f"http_large:{src_ip}:{dst_ip}"
             if not self._should_suppress_alert(alert_key, src_ip):
                 alert = {
@@ -2452,13 +2296,11 @@ class DataExfiltrationDetector(BaseModule):
         flow_key = (src_ip, dst_ip)
 
         with self._lock:
-            # defaultdict автоматически создаёт структуру, не нужна ручная проверка
             flow = self.flows[flow_key]
             host = self.host_stats[src_ip]
 
             now = time.time()
 
-            # Обновление статистики пары
             flow['bytes_out'].append((now, bytes_count))
             flow['connections'].append(now)
             flow['unique_ports'].add(dst_port)
@@ -2466,7 +2308,6 @@ class DataExfiltrationDetector(BaseModule):
             flow['total_bytes_out'] += bytes_count
             flow['packet_sizes'].append(bytes_count)
 
-            # Обновление статистики хоста
             host['total_bytes_out'] += bytes_count
             host['unique_destinations'].add(dst_ip)
             host['unique_ports'].add(dst_port)
@@ -2481,7 +2322,6 @@ class DataExfiltrationDetector(BaseModule):
                 'severity': AlertSeverity.LOW.value
             }
 
-            # 1. Большой объём данных на ОДИН внешний адрес
             cutoff_5min = now - ExfilThresholds.TIME_WINDOW_5MIN
             recent_bytes_single_dst = sum(b for t, b in flow['bytes_out'] if t > cutoff_5min)
 
@@ -2500,7 +2340,6 @@ class DataExfiltrationDetector(BaseModule):
                 result['reasons'].append(f"volume_single_dst:{recent_bytes_single_dst / 1_000_000:.1f}MB")
                 result['score'] += 0.25
 
-            # 2. Общий объём на ВСЕ внешние адреса
             total_recent_bytes = 0
             for (s, d), f in self.flows.items():
                 if s == src_ip:
@@ -2514,7 +2353,6 @@ class DataExfiltrationDetector(BaseModule):
                 result['score'] += 0.15
                 result['reasons'].append(f"high_total_volume:{total_recent_bytes / 1_000_000:.1f}MB")
 
-            # 3. Много соединений к одному внешнему адресу
             cutoff_1min = now - ExfilThresholds.TIME_WINDOW_1MIN
             recent_conn_single_dst = len([t for t in flow['connections'] if t > cutoff_1min])
 
@@ -2527,7 +2365,6 @@ class DataExfiltrationDetector(BaseModule):
                 result['reasons'].append(f"many_connections_single_dst:{recent_conn_single_dst}")
                 result['score'] += 0.25
 
-            # 4. Нестандартные порты
             if dst_port not in self.normal_ports:
                 if dst_port in self.exfil_ports:
                     result['is_exfiltration'] = True
@@ -2538,12 +2375,11 @@ class DataExfiltrationDetector(BaseModule):
                     result['reasons'].append(f"unusual_port:{dst_port}")
                     result['score'] += 0.25
 
-            # 5. Много уникальных внешних адресов с большим объёмом
             unique_dsts_with_volume = 0
             for (s, d), f in self.flows.items():
                 if s == src_ip:
                     dst_bytes = sum(b for t, b in f['bytes_out'] if t > cutoff_5min)
-                    if dst_bytes > ExfilThresholds.SINGLE_DST_MEDIUM:  # Было 1_000_000
+                    if dst_bytes > ExfilThresholds.SINGLE_DST_MEDIUM:
                         unique_dsts_with_volume += 1
 
             if unique_dsts_with_volume > ExfilThresholds.MANY_DESTINATIONS:
@@ -2551,7 +2387,6 @@ class DataExfiltrationDetector(BaseModule):
                 result['reasons'].append(f"many_dst_with_volume:{unique_dsts_with_volume}")
                 result['score'] += 0.2
 
-            # 6. Асимметрия трафика
             total_in = flow['total_bytes_in']
             total_out = flow['total_bytes_out']
             if total_out > total_in * ExfilThresholds.ASYMMETRIC_RATIO and total_out > 1_000_000:
@@ -2561,7 +2396,6 @@ class DataExfiltrationDetector(BaseModule):
 
             result['score'] = min(1.0, result['score'])
 
-            # Определение серьёзности
             if result['score'] > 0.7:
                 result['severity'] = AlertSeverity.CRITICAL.value
             elif result['score'] > 0.5:
@@ -2569,7 +2403,6 @@ class DataExfiltrationDetector(BaseModule):
             elif result['score'] > 0.3:
                 result['severity'] = AlertSeverity.MEDIUM.value
 
-            # Обновляем счётчик подозрительности
             if result['is_exfiltration']:
                 flow['suspicious_score'] = min(1.0, flow['suspicious_score'] + result['score'] * 0.1)
                 host['suspicious_score'] = min(1.0, host['suspicious_score'] + result['score'] * 0.1)
@@ -2599,7 +2432,6 @@ class DataExfiltrationDetector(BaseModule):
                 now = time.time()
                 cutoff = now - 3600
 
-                # Используем ЕДИНУЮ блокировку для consistency
                 with self._lock:
                     expired_flows = [k for k, v in self.flows.items() if v['last_seen'] < cutoff]
                     for k in expired_flows:
@@ -2615,7 +2447,6 @@ class DataExfiltrationDetector(BaseModule):
             if src_ip:
                 host_stats = self.host_stats.get(src_ip, {})
 
-                # Собираем статистику по всем потокам этого хоста
                 host_flows_bytes = 0
                 host_flows_count = 0
                 unique_dsts = set()
@@ -2639,7 +2470,6 @@ class DataExfiltrationDetector(BaseModule):
                     'last_seen': host_stats.get('last_seen', 0)
                 }
 
-            # Общая статистика
             total_hosts = len(self.host_stats)
             total_flows = len(self.flows)
             total_bytes_out = sum(h['total_bytes_out'] for h in self.host_stats.values())
@@ -2671,9 +2501,6 @@ class DataExfiltrationDetector(BaseModule):
         self.logger.info("Статистика детектора утечек сброшена")
 
 
-# ============================================================
-# 4️⃣ UBA/UEBA (ПОВЕДЕНИЕ ПОЛЬЗОВАТЕЛЕЙ)
-# ============================================================
 
 class UserBehaviorAnalytics(BaseModule):
     """Анализ поведения пользователей и сущностей (UBA/UEBA)"""
@@ -2683,12 +2510,12 @@ class UserBehaviorAnalytics(BaseModule):
 
         self.users: Dict[str, Dict] = defaultdict(lambda: {
             'ips': set(),
-            'login_times': defaultdict(int),  # час -> количество
-            'login_days': defaultdict(int),  # день недели -> количество
-            'accessed_resources': defaultdict(int),  # ресурс -> количество
-            'bytes_downloaded': deque(maxlen=100),  # (timestamp, bytes)
+            'login_times': defaultdict(int),
+            'login_days': defaultdict(int),
+            'accessed_resources': defaultdict(int),
+            'bytes_downloaded': deque(maxlen=100),
             'bytes_uploaded': deque(maxlen=100),
-            'sessions': deque(maxlen=200),  # (timestamp, type, details)
+            'sessions': deque(maxlen=200),
             'geo_locations': set(),
             'devices': set(),
             'risk_score': 0.0,
@@ -2700,16 +2527,15 @@ class UserBehaviorAnalytics(BaseModule):
         })
 
         self.ip_to_user: Dict[str, str] = {}
-        self.user_peer_groups: Dict[str, List[str]] = defaultdict(list)  # Группы похожих пользователей
+        self.user_peer_groups: Dict[str, List[str]] = defaultdict(list)
 
-        # Пороги для аномалий
         self.thresholds = {
-            'unusual_hour_threshold': 0.1,  # 10% от среднего
+            'unusual_hour_threshold': 0.1,
             'new_geo_score': 0.4,
-            'volume_multiplier': 5,  # В 5 раз больше среднего
+            'volume_multiplier': 5,
             'new_resource_score': 0.25,
-            'failed_login_threshold': 5,  # 5 неудачных попыток
-            'rapid_sessions_threshold': 10  # 10 сессий за минуту
+            'failed_login_threshold': 5,
+            'rapid_sessions_threshold': 10
         }
 
         self._lock = threading.RLock()
@@ -2723,9 +2549,7 @@ class UserBehaviorAnalytics(BaseModule):
         self.running = True
         self.logger.info("UBA/UEBA запущен")
 
-        # Поток обновления peer groups
         threading.Thread(target=self._peer_group_loop, daemon=True).start()
-        # Поток снижения риска
         threading.Thread(target=self._risk_decay_loop, daemon=True).start()
 
     def stop(self) -> None:
@@ -2807,7 +2631,6 @@ class UserBehaviorAnalytics(BaseModule):
         username = self.ip_to_user.get(src_ip, src_ip)
         bytes_count = len(packet)
 
-        # Определяем направление
         local_networks = self.config.get('network.local_networks', ['192.168.', '10.', '172.16.'])
         dst_ip = data.get('dst_ip', '')
         is_download = any(dst_ip.startswith(net) for net in local_networks)
@@ -2839,7 +2662,6 @@ class UserBehaviorAnalytics(BaseModule):
             now = datetime.now()
             current_time = time.time()
 
-            # Обновление статистики
             user['login_times'][now.hour] += 1
             user['login_days'][now.weekday()] += 1
             user['last_seen'] = current_time
@@ -2850,16 +2672,14 @@ class UserBehaviorAnalytics(BaseModule):
             elif event_type == 'failed_login':
                 user['failed_logins'] += 1
 
-            # СОЗДАЁМ КОПИЮ details для хранения
             details_copy = {}
             if details:
                 for key, value in details.items():
                     if isinstance(value, (str, int, float, bool, type(None))):
                         details_copy[key] = value
                     elif isinstance(value, (list, tuple)):
-                        details_copy[key] = list(value)[:10]  # Ограничиваем размер
+                        details_copy[key] = list(value)[:10]
                     elif isinstance(value, dict):
-                        # Поверхностная копия словаря
                         details_copy[key] = dict(list(value.items())[:10])
                     else:
                         details_copy[key] = str(value)[:100]
@@ -2881,7 +2701,6 @@ class UserBehaviorAnalytics(BaseModule):
             if src_ip not in user['ips']:
                 user['ips'].add(src_ip)
 
-            # Анализ аномалий
             alert = self._analyze_anomalies(username, user, event_type, details_copy)
 
             if alert:
@@ -2890,7 +2709,6 @@ class UserBehaviorAnalytics(BaseModule):
             else:
                 user['risk_score'] = max(0.0, user['risk_score'] - 0.01)
 
-            # Проверка на высокий риск
             if user['risk_score'] > 0.7:
                 risk_alert = {
                     'username': username,
@@ -2917,31 +2735,23 @@ class UserBehaviorAnalytics(BaseModule):
         current_hour = now.hour
         current_weekday = now.weekday()
 
-        # 1. Необычное время входа (ИСПРАВЛЕНО)
         if event_type in ('login', 'failed_login'):
-            # Получаем ИСТОРИЧЕСКУЮ активность (без текущего часа)
             historical_hours = {h: c for h, c in user['login_times'].items() if h != current_hour}
 
             if historical_hours:
-                # Средняя активность по другим часам
                 avg_activity = sum(historical_hours.values()) / len(historical_hours)
 
-                # Текущая активность в этот час (уже с учётом нового события)
                 current_hour_activity = user['login_times'].get(current_hour, 0)
 
-                # Проверяем, является ли этот час необычным
                 if avg_activity > 0:
-                    # Если текущая активность значительно ниже средней - это необычное время
-                    if current_hour_activity < avg_activity * 0.2:  # Меньше 20% от среднего
+                    if current_hour_activity < avg_activity * 0.2:
                         alert['anomalies'].append(f"unusual_time:{current_hour}:00")
                         alert['score'] += 0.3
 
-                    # Если это ПЕРВЫЙ вход в этот час за всю историю
                     if current_hour_activity == 1 and len(historical_hours) > 10:
                         alert['anomalies'].append(f"first_time_this_hour:{current_hour}:00")
                         alert['score'] += 0.15
 
-            # Необычный день недели (аналогичная логика)
             historical_days = {d: c for d, c in user['login_days'].items() if d != current_weekday}
 
             if len(historical_days) > 3:
@@ -2952,19 +2762,16 @@ class UserBehaviorAnalytics(BaseModule):
                     alert['anomalies'].append(f"unusual_day:{current_weekday}")
                     alert['score'] += 0.2
 
-        # 2. Новая геолокация (без изменений)
         if 'geo' in details and details['geo']:
             if details['geo'] not in user['geo_locations'] and len(user['geo_locations']) > 0:
                 alert['anomalies'].append(f"new_geo:{details['geo']}")
                 alert['score'] += self.thresholds['new_geo_score']
 
-        # 3. Новое устройство (без изменений)
         if 'device' in details and details['device']:
             if details['device'] not in user['devices'] and len(user['devices']) > 0:
                 alert['anomalies'].append(f"new_device:{details['device']}")
                 alert['score'] += 0.25
 
-        # 4. Аномальный объём данных (без изменений)
         if event_type in ('login', 'traffic'):
             all_bytes = [b for _, b in user['bytes_downloaded']] + [b for _, b in user['bytes_uploaded']]
             if all_bytes:
@@ -2976,7 +2783,6 @@ class UserBehaviorAnalytics(BaseModule):
                         alert['anomalies'].append(f"unusual_volume:{recent_avg / 1024:.1f}KB")
                         alert['score'] += 0.3
 
-        # 5. Множественные неудачные попытки (без изменений)
         if event_type == 'failed_login':
             recent_failed = sum(1 for s in user['sessions']
                                 if s.get('type') == 'failed_login' and time.time() - s.get('time', 0) < 300)
@@ -2984,19 +2790,16 @@ class UserBehaviorAnalytics(BaseModule):
                 alert['anomalies'].append(f"multiple_failures:{recent_failed}")
                 alert['score'] += 0.35
 
-        # 6. Быстрые сессии (без изменений)
         recent_sessions = [s for s in user['sessions'] if time.time() - s.get('time', 0) < 60]
         if len(recent_sessions) >= self.thresholds['rapid_sessions_threshold']:
             alert['anomalies'].append(f"rapid_sessions:{len(recent_sessions)}")
             alert['score'] += 0.3
 
-        # 7. Новый IP (без изменений)
         if 'src_ip' in details and details['src_ip'] not in user['ips']:
             if len(user['ips']) > 3:
                 alert['anomalies'].append(f"new_ip:{details['src_ip']}")
                 alert['score'] += 0.2
 
-        # 8. Необычное соотношение успешных/неудачных входов (без изменений)
         total_logins = user['successful_logins'] + user['failed_logins']
         if total_logins > 10:
             fail_rate = user['failed_logins'] / total_logins
@@ -3006,7 +2809,6 @@ class UserBehaviorAnalytics(BaseModule):
 
         alert['score'] = min(1.0, alert['score'])
 
-        # Определение серьёзности
         if alert['score'] > 0.7:
             alert['severity'] = AlertSeverity.CRITICAL.value
         elif alert['score'] > 0.5:
@@ -3021,19 +2823,17 @@ class UserBehaviorAnalytics(BaseModule):
     def _peer_group_loop(self) -> None:
         """Обновление групп похожих пользователей"""
         while self.running:
-            time.sleep(3600)  # Каждый час
+            time.sleep(3600)
             self._update_peer_groups()
 
     def _update_peer_groups(self) -> None:
         """Обновление peer groups на основе поведения"""
         with self._lock:
-            # Простая кластеризация на основе активности
             user_activity = {}
             for username, data in self.users.items():
                 activity = sum(data['login_times'].values())
                 user_activity[username] = activity
 
-            # Группировка по уровню активности
             if user_activity:
                 avg_activity = sum(user_activity.values()) / len(user_activity)
 
@@ -3049,10 +2849,9 @@ class UserBehaviorAnalytics(BaseModule):
     def _risk_decay_loop(self) -> None:
         """Постепенное снижение риска"""
         while self.running:
-            time.sleep(60)  # Каждую минуту
+            time.sleep(60)
             with self._lock:
                 for user in self.users.values():
-                    # Снижаем риск на 1% в минуту, если нет новых алертов
                     user['risk_score'] = max(0.0, user['risk_score'] * 0.99)
 
     def get_user_risk(self, username: str) -> float:
@@ -3080,9 +2879,6 @@ class UserBehaviorAnalytics(BaseModule):
         return None
 
 
-# ============================================================
-# 5️⃣ АВТОМАТИЧЕСКИЙ ОТЧЁТ ОБ ИНЦИДЕНТЕ
-# ============================================================
 
 class IncidentReportGenerator(BaseModule):
     """Генерация автоматических отчётов об инцидентах (исправлен - защита от циклов, экранирование, ограничение частоты)"""
@@ -3094,7 +2890,6 @@ class IncidentReportGenerator(BaseModule):
         self.reports_dir = Path('reports')
         self.reports_dir.mkdir(exist_ok=True)
 
-        # Ограничение частоты отчётов
         self._last_report_time: Dict[str, float] = {}
         self._report_cooldown = 300
         self._max_reports_per_hour = 20
@@ -3102,12 +2897,9 @@ class IncidentReportGenerator(BaseModule):
         self._report_count_reset = time.time()
         self._report_lock = threading.RLock()
 
-        # ========== ЗАЩИТА ОТ ЦИКЛОВ ==========
         self._reported_investigations: Set[str] = set()
         self._investigation_lock = threading.RLock()
-        # ====================================
 
-        # Шаблоны рекомендаций
         self.recommendation_templates = {
             'Brute Force': [
                 'Включить многофакторную аутентификацию',
@@ -3155,7 +2947,7 @@ class IncidentReportGenerator(BaseModule):
         if not text:
             return ""
         return str(text).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace(
-            "'", '&#39;')
+            "'", '&
 
     def _escape_text(self, text: str) -> str:
         """Безопасное форматирование текста для отчёта"""
@@ -3191,20 +2983,16 @@ class IncidentReportGenerator(BaseModule):
         """Генерация отчёта при завершении расследования (с защитой от циклов)"""
         inv_id = investigation.get('id')
 
-        # ========== ЗАЩИТА ОТ ЦИКЛОВ ==========
         with self._investigation_lock:
             if inv_id in self._reported_investigations:
                 self.logger.debug(f"Investigation {inv_id} already reported, skipping")
                 return
             self._reported_investigations.add(inv_id)
 
-            # Ограничиваем размер set'а
             if len(self._reported_investigations) > 1000:
-                # Удаляем старые (первые 100)
                 for _ in range(100):
                     if self._reported_investigations:
                         self._reported_investigations.pop()
-        # ====================================
 
         alerts = investigation.get('alerts', [])
         if not alerts:
@@ -3213,7 +3001,6 @@ class IncidentReportGenerator(BaseModule):
         src_ip = investigation.get('src_ip', 'unknown')
         now = time.time()
 
-        # Применяем ограничения частоты
         with self._report_lock:
             if now - self._report_count_reset > 3600:
                 self._report_count.clear()
@@ -3419,24 +3206,24 @@ ID инцидента: {inv_id}
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline';">
     <title>SHARD Incident Report - {inv_id}</title>
     <style>
-        body {{ font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }}
+        body {{ font-family: Arial, sans-serif; margin: 20px; background:
         .container {{ max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
-        h1 {{ color: #333; border-bottom: 3px solid #007bff; padding-bottom: 10px; }}
-        h2 {{ color: #555; margin-top: 30px; }}
+        h1 {{ color:
+        h2 {{ color:
         .header-info {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 20px 0; }}
-        .info-item {{ padding: 10px; background: #f8f9fa; border-radius: 5px; }}
-        .info-label {{ font-weight: bold; color: #666; }}
-        .info-value {{ color: #333; }}
-        .severity-CRITICAL {{ color: #dc3545; font-weight: bold; }}
-        .severity-HIGH {{ color: #fd7e14; font-weight: bold; }}
-        .severity-MEDIUM {{ color: #ffc107; }}
-        .severity-LOW {{ color: #28a745; }}
+        .info-item {{ padding: 10px; background:
+        .info-label {{ font-weight: bold; color:
+        .info-value {{ color:
+        .severity-CRITICAL {{ color:
+        .severity-HIGH {{ color:
+        .severity-MEDIUM {{ color:
+        .severity-LOW {{ color:
         table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
-        th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }}
-        th {{ background: #007bff; color: white; }}
-        tr:hover {{ background: #f5f5f5; }}
-        .recommendations {{ background: #e7f3ff; padding: 15px; border-radius: 5px; }}
-        .footer {{ margin-top: 30px; text-align: center; color: #999; font-size: 12px; }}
+        th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid
+        th {{ background:
+        tr:hover {{ background:
+        .recommendations {{ background:
+        .footer {{ margin-top: 30px; text-align: center; color:
     </style>
 </head>
 <body>
@@ -3564,17 +3351,10 @@ ID инцидента: {inv_id}
                     'reported_investigations': len(self._reported_investigations)
                 }
 
-# ============================================================
-# 6️⃣ WEB DASHBOARD
-# ============================================================
-# ============================================================
-# HTTP ОБРАБОТЧИК ДЛЯ ДАШБОРДА (вынесен наружу - пункт 77)
-# ============================================================
 
 class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     """Обработчик HTTP запросов для дашборда (исправлен - path traversal защита, безопасное сравнение)"""
 
-    # Классовые переменные - устанавливаются ОДИН раз при инициализации
     dashboard_stats = None
     dashboard_logger = None
     dashboard_lock = None
@@ -3583,7 +3363,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     dashboard_validate_ip = None
 
     def log_message(self, format, *args):
-        pass  # Отключаем стандартное логирование
+        pass
 
     def handle(self):
         """Обработка запроса с игнорированием BrokenPipe"""
@@ -3608,7 +3388,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         try:
-            # Проверка аутентификации
             if self.dashboard_auth_enabled and self.dashboard_check_auth and \
                     not self.dashboard_check_auth(dict(self.headers)):
                 self.send_response(401)
@@ -3664,10 +3443,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             elif path.startswith('/api/report/'):
                 incident_id = path.split('/')[-1]
 
-                # ========== ИСПРАВЛЕНО: ПОЛНАЯ ЗАЩИТА ОТ PATH TRAVERSAL ==========
                 import os.path
 
-                # Санитизация - только буквы, цифры, подчёркивания, дефисы, точки
                 safe_id = re.sub(r'[^a-zA-Z0-9_\-\.]', '', incident_id)
                 if safe_id != incident_id:
                     self.send_response(400)
@@ -3675,7 +3452,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     self.wfile.write(b'Invalid incident ID')
                     return
 
-                # Защита от path traversal через нормализацию пути
                 reports_dir = Path('reports').resolve()
                 report_pattern = f"incident_{safe_id}_*.txt"
 
@@ -3684,7 +3460,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     if reports:
                         report_path = reports[0].resolve()
 
-                        # Проверка что файл действительно внутри reports_dir
                         if not str(report_path).startswith(str(reports_dir)):
                             self.send_response(403)
                             self.end_headers()
@@ -3704,7 +3479,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_response(500)
                     self.end_headers()
                     self.wfile.write(b'Internal server error')
-                # =================================================================
 
             else:
                 self.send_response(404)
@@ -3798,8 +3572,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #fff;
+            background: linear-gradient(135deg,
+            color:
             min-height: 100vh;
             padding: 20px;
         }
@@ -3808,7 +3582,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             font-size: 2.5em;
             margin-bottom: 20px;
             text-shadow: 0 0 20px rgba(0,255,255,0.5);
-            border-bottom: 2px solid #00ffff;
+            border-bottom: 2px solid
             padding-bottom: 10px;
         }
         .stats-grid {
@@ -3829,7 +3603,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         .stat-value {
             font-size: 3em;
             font-weight: bold;
-            color: #00ffff;
+            color:
         }
         .stat-label {
             font-size: 0.9em;
@@ -3847,7 +3621,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         }
         .panel h2 {
             margin-bottom: 15px;
-            color: #00ffff;
+            color:
             font-size: 1.3em;
         }
         table {
@@ -3859,11 +3633,11 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             text-align: left;
             border-bottom: 1px solid rgba(255,255,255,0.1);
         }
-        th { color: #00ffff; font-weight: 500; }
-        .alert-critical { color: #ff4444; }
-        .alert-high { color: #ff8800; }
-        .alert-medium { color: #ffcc00; }
-        .alert-low { color: #00ff00; }
+        th { color:
+        .alert-critical { color:
+        .alert-high { color:
+        .alert-medium { color:
+        .alert-low { color:
         .two-columns {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -3881,7 +3655,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             right: 20px;
             background: rgba(255,255,255,0.1);
             border: 1px solid rgba(255,255,255,0.2);
-            color: #fff;
+            color:
             padding: 8px 16px;
             border-radius: 8px;
             cursor: pointer;
@@ -4074,9 +3848,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 </html>'''
 
 
-# ============================================================
-# WEB DASHBOARD (исправлен - пункты 24, 29, 30, 44, 77)
-# ============================================================
 
 class WebDashboard(BaseModule):
     """Веб-дашборд для мониторинга (исправлен - аутентификация, валидация, нет утечек)"""
@@ -4088,7 +3859,6 @@ class WebDashboard(BaseModule):
         self.enabled = config.get('dashboard.enabled', True)
         self.httpd = None
 
-        # Аутентификация
         self.auth_enabled = config.get('dashboard.auth.enabled', True)
         self.username = config.get('dashboard.auth.username', 'admin')
         self.password = config.get('dashboard.auth.password', self._generate_default_password())
@@ -4096,11 +3866,9 @@ class WebDashboard(BaseModule):
         self.session_tokens: Dict[str, float] = {}
         self.token_ttl = 3600
 
-        # Очередь для отложенного снижения счётчика активных угроз
         self._decay_queue = queue.Queue()
         self._decay_thread = None
 
-        # Данные для дашборда
         self.stats = {
             'total_packets': 0,
             'total_alerts': 0,
@@ -4115,12 +3883,10 @@ class WebDashboard(BaseModule):
 
         self._lock = threading.RLock()
 
-        # Подписки на события
         self.event_bus.subscribe('packet.processed', self.on_packet)
         self.event_bus.subscribe('alert.detected', self.on_alert)
         self.event_bus.subscribe('firewall.blocked', self.on_block)
 
-        # Инициализация класса обработчика (однократно)
         self._init_handler_class()
 
         if self.auth_enabled:
@@ -4147,7 +3913,6 @@ class WebDashboard(BaseModule):
 
         auth_header = headers.get('Authorization', '')
 
-        # Bearer token
         if auth_header.startswith('Bearer '):
             token = auth_header[7:]
             if token in self.api_keys:
@@ -4159,7 +3924,6 @@ class WebDashboard(BaseModule):
                     del self.session_tokens[token]
             return False
 
-        # Basic Auth с защитой от timing attack
         if auth_header.startswith('Basic '):
             import base64
             import hmac
@@ -4167,7 +3931,6 @@ class WebDashboard(BaseModule):
                 decoded = base64.b64decode(auth_header[6:]).decode('utf-8')
                 username, password = decoded.split(':', 1)
 
-                # Безопасное сравнение
                 if not hmac.compare_digest(username, self.username):
                     return False
                 if not hmac.compare_digest(password, self.password):
@@ -4325,9 +4088,6 @@ class WebDashboard(BaseModule):
         return DashboardHandler
 
 
-# ============================================================
-# 7️⃣ КОНТЕКСТ ACTIVE DIRECTORY / LDAP
-# ============================================================
 
 class LDAPContextProvider(BaseModule):
     """Получение контекста из Active Directory / LDAP (исправлен - реальное шифрование пароля)"""
@@ -4340,7 +4100,6 @@ class LDAPContextProvider(BaseModule):
         self.base_dn = config.get('ldap.base_dn') or os.environ.get('LDAP_BASE_DN', '')
         self.bind_user = config.get('ldap.bind_user') or os.environ.get('LDAP_BIND_USER', '')
 
-        # ========== РЕАЛЬНОЕ ШИФРОВАНИЕ ПАРОЛЯ ==========
         self._cipher = None
         self._bind_password_encrypted = None
 
@@ -4352,18 +4111,14 @@ class LDAPContextProvider(BaseModule):
                 self._bind_password_encrypted = self._cipher.encrypt(raw_password.encode())
                 self.logger.info("LDAP пароль зашифрован с Fernet")
             except ImportError:
-                # Fallback - base64 (только для совместимости, небезопасно!)
                 import base64
                 self._bind_password_encrypted = base64.b64encode(raw_password.encode()).decode()
                 self.logger.warning("cryptography не установлен, пароль в base64 (НЕБЕЗОПАСНО!)")
             finally:
-                # Очищаем raw_password из памяти
                 raw_password = None
 
-        # Удаляем пароль из переменных окружения если он там был
         if 'LDAP_BIND_PASSWORD' in os.environ:
             del os.environ['LDAP_BIND_PASSWORD']
-        # ===============================================
 
         self.use_ssl = config.get('ldap.use_ssl', True)
         self.port = config.get('ldap.port', 636 if self.use_ssl else 389)
@@ -4375,7 +4130,6 @@ class LDAPContextProvider(BaseModule):
         self.ldap_connection = None
         self.ldap_available = False
 
-        # Привилегированные группы
         self.privileged_groups = {
             'Domain Admins', 'Enterprise Admins', 'Schema Admins',
             'Administrators', 'Backup Operators', 'Account Operators',
@@ -4383,7 +4137,6 @@ class LDAPContextProvider(BaseModule):
             'DNS Admins', 'DHCP Administrators', 'Hyper-V Administrators'
         }
 
-        # SID известных групп
         self.privileged_sids = {
             'S-1-5-21domain-512': 'Domain Admins',
             'S-1-5-21domain-519': 'Enterprise Admins',
@@ -4416,7 +4169,6 @@ class LDAPContextProvider(BaseModule):
             key = Fernet.generate_key()
             with open(key_path, 'wb') as f:
                 f.write(key)
-            # Устанавливаем права только для владельца
             os.chmod(key_path, 0o600)
             return key
 
@@ -4426,10 +4178,8 @@ class LDAPContextProvider(BaseModule):
             return ""
         try:
             if self._cipher:
-                # Fernet шифрование
                 return self._cipher.decrypt(self._bind_password_encrypted).decode()
             else:
-                # Fallback base64
                 import base64
                 return base64.b64decode(self._bind_password_encrypted).decode()
         except Exception as e:
@@ -4502,7 +4252,6 @@ class LDAPContextProvider(BaseModule):
                     self.ldap_connection = conn
                     return conn
                 finally:
-                    # Стираем пароль из памяти
                     password = '\x00' * len(password)
                     del password
 
@@ -5083,9 +4832,6 @@ class LDAPContextProvider(BaseModule):
         self.logger.info("Кэш LDAP очищен")
 
 
-# ============================================================
-# 8️⃣ EMAIL УГРОЗЫ
-# ============================================================
 
 class EmailThreatAnalyzer(BaseModule):
     """Анализ email угроз (фишинг, подозрительные вложения)"""
@@ -5155,7 +4901,6 @@ class EmailThreatAnalyzer(BaseModule):
         subject_lower = subject.lower()
         body_lower = body.lower()
 
-        # 1. Фишинговые ключевые слова в теме
         keyword_count = 0
         for kw in self.phishing_keywords:
             if kw in subject_lower:
@@ -5169,7 +4914,6 @@ class EmailThreatAnalyzer(BaseModule):
         elif keyword_count >= 1:
             result['score'] += 0.1
 
-        # 2. Ключевые слова в теле
         body_keywords = 0
         urgency_words = {'urgent', 'immediately', 'action required', 'limited time'}
         for kw in urgency_words:
@@ -5178,21 +4922,17 @@ class EmailThreatAnalyzer(BaseModule):
                 result['reasons'].append(f"urgency:{kw}")
                 result['score'] += 0.15
 
-        # 3. Подозрительный отправитель
         sender_lower = sender.lower()
         sender_domain = sender_lower.split('@')[-1] if '@' in sender_lower else ''
 
-        # Проверка на спуфинг
         for domain in self.spoofed_domains:
             if domain in sender_domain and not sender_domain.endswith(f".{domain}"):
-                # Проверяем, не является ли это подделкой
                 if domain not in sender_domain.split('.')[-2:]:
                     result['is_suspicious'] = True
                     result['reasons'].append(f"spoofed_sender:{domain}")
                     result['score'] += 0.35
                     result['attack_type'] = AttackType.PHISHING.value
 
-        # Подозрительные TLD
         suspicious_tlds = {'.ru', '.cn', '.xyz', '.top', '.club', '.work', '.date'}
         for tld in suspicious_tlds:
             if sender_domain.endswith(tld):
@@ -5200,13 +4940,11 @@ class EmailThreatAnalyzer(BaseModule):
                 result['reasons'].append(f"suspicious_tld:{tld}")
                 result['score'] += 0.2
 
-        # Проверка известных подозрительных отправителей
         if sender_lower in self.suspicious_senders:
             result['is_suspicious'] = True
             result['reasons'].append("known_suspicious_sender")
             result['score'] += 0.4
 
-        # 4. Опасные вложения
         dangerous_attachments = []
         for att in attachments:
             att_lower = att.lower()
@@ -5223,7 +4961,6 @@ class EmailThreatAnalyzer(BaseModule):
         if dangerous_attachments:
             result['attack_type'] = AttackType.MALWARE.value
 
-        # 5. Ссылки в теле письма
         urls = self._extract_urls(body)
         suspicious_urls = []
         for url in urls:
@@ -5234,21 +4971,16 @@ class EmailThreatAnalyzer(BaseModule):
                 result['score'] += 0.25
                 result['attack_type'] = AttackType.PHISHING.value
 
-        # 6. Проверка заголовков
         if headers:
-            # Проверка SPF/DKIM/DMARC
             auth_results = headers.get('Authentication-Results', '')
             if 'spf=fail' in auth_results.lower() or 'dkim=fail' in auth_results.lower():
                 result['is_suspicious'] = True
                 result['reasons'].append("auth_failure")
                 result['score'] += 0.3
 
-        # 7. Необычное время отправки
-        # (можно добавить анализ временных меток)
 
         result['score'] = min(1.0, result['score'])
 
-        # Определение серьёзности
         if result['score'] > 0.7:
             result['severity'] = AlertSeverity.CRITICAL.value
         elif result['score'] > 0.5:
@@ -5264,7 +4996,6 @@ class EmailThreatAnalyzer(BaseModule):
             'suspicious_urls': suspicious_urls
         }
 
-        # Добавляем отправителя в список подозрительных при высоком score
         if result['score'] > 0.6:
             with self._lock:
                 self.suspicious_senders.add(sender_lower)
@@ -5281,25 +5012,20 @@ class EmailThreatAnalyzer(BaseModule):
         """Проверка URL на подозрительность (исправлена логика спуфинга)"""
         url_lower = url.lower()
 
-        # Короткие ссылки
         shorteners = {'bit.ly', 'tinyurl.com', 'goo.gl', 'ow.ly', 'is.gd', 'buff.ly', 'adf.ly', 'shorte.st', 'rb.gy',
                       'cutt.ly'}
         for short in shorteners:
             if short in url_lower:
                 return True
 
-        # IP адреса вместо доменов
         if re.search(r'https?://\d+\.\d+\.\d+\.\d+', url_lower):
             return True
 
-        # Необычные TLD
         suspicious_tlds = {'.tk', '.ml', '.ga', '.cf', '.gq', '.xyz', '.top', '.club', '.work', '.date'}
         for tld in suspicious_tlds:
             if url_lower.endswith(tld) or f'.{tld}/' in url_lower:
                 return True
 
-        # ИСПРАВЛЕННАЯ ПРОВЕРКА СПУФИНГА ДОМЕНОВ
-        # Извлекаем домен из URL
         domain_match = re.search(r'https?://([^/:\s]+)', url_lower)
         if not domain_match:
             domain_match = re.search(r'([^/:\s]+\.[^/:\s]+)$', url_lower.split('/')[0])
@@ -5307,7 +5033,6 @@ class EmailThreatAnalyzer(BaseModule):
         if domain_match:
             domain = domain_match.group(1)
 
-            # Проверяем легитимные домены на спуфинг
             legitimate_domains = {
                 'paypal.com': 'paypal',
                 'microsoft.com': 'microsoft',
@@ -5323,20 +5048,13 @@ class EmailThreatAnalyzer(BaseModule):
             }
 
             for legit_domain, brand in legitimate_domains.items():
-                # Проверяем точное совпадение или поддомен
                 if domain == legit_domain or domain.endswith('.' + legit_domain):
-                    # Это легитимный домен
                     continue
 
-                # Проверяем наличие бренда в домене (спуфинг)
                 if brand in domain:
-                    # Проверяем, не является ли это частью другого слова
-                    # Например: "paypal" в "paypal-secure.evil.com" - спуфинг
-                    # Но "paypal" в "some-paypal.com" - тоже спуфинг
                     if legit_domain not in domain:
                         return True
 
-        # Подозрительные ключевые слова в URL
         suspicious_keywords = {'login', 'signin', 'verify', 'account', 'secure', 'update', 'confirm',
                                'password', 'banking', 'webscr', 'cgi-bin', 'auth'}
 
@@ -5344,17 +5062,14 @@ class EmailThreatAnalyzer(BaseModule):
         if keyword_count >= 3:
             return True
 
-        # Проверка на использование @ в URL (может скрывать реальный домен)
         if '@' in url and '://' in url:
             parts = url.split('@')
             if len(parts) > 1 and '://' in parts[0]:
                 return True
 
-        # Проверка на необычные порты
         if re.search(r':\d{4,5}/', url_lower):
             return True
 
-        # Проверка на множественные поддомены (более 4)
         if domain_match:
             domain = domain_match.group(1)
             subdomain_count = domain.count('.')
@@ -5372,9 +5087,6 @@ class EmailThreatAnalyzer(BaseModule):
             }
 
 
-# ============================================================
-# 9️⃣ EDR ИНТЕГРАЦИЯ (WINDOWS EVENT LOGS)
-# ============================================================
 
 class EDRIntegration(BaseModule):
     """Интеграция с EDR/антивирусами через Windows Event Logs / Sysmon / WMI (полная реальная версия)"""
@@ -5382,7 +5094,6 @@ class EDRIntegration(BaseModule):
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("EDR", config, event_bus, logger)
 
-        # Буферы событий
         self.process_events: deque = deque(maxlen=5000)
         self.file_events: deque = deque(maxlen=2000)
         self.registry_events: deque = deque(maxlen=2000)
@@ -5390,7 +5101,6 @@ class EDRIntegration(BaseModule):
         self.dns_events: deque = deque(maxlen=1000)
         self.image_load_events: deque = deque(maxlen=1000)
 
-        # Подозрительные процессы и паттерны
         self.suspicious_processes = {
             'powershell.exe', 'cmd.exe', 'wscript.exe', 'cscript.exe',
             'rundll32.exe', 'mshta.exe', 'regsvr32.exe', 'schtasks.exe',
@@ -5466,7 +5176,6 @@ class EDRIntegration(BaseModule):
             'ncrypt.dll', 'cryptdll.dll', 'dpapi.dll'
         ]
 
-        # Настройки Windows Event Log
         self.win_event_logs = config.get('edr.windows_event_logs', [
             'Security',
             'System',
@@ -5484,22 +5193,17 @@ class EDRIntegration(BaseModule):
         self.last_event_ids = {}
         self.last_event_times = {}
 
-        # WMI мониторинг
         self.use_wmi = False
         self.wmi_connection = None
         self.wmi_watchers = []
 
-        # ETW мониторинг (если доступно)
         self.use_etw = False
 
-        # Блокировка
         self._lock = threading.RLock()
 
-        # Инициализация
         self._init_windows_event_log()
         self._init_wmi()
 
-        # Подписки на события
         self.event_bus.subscribe('edr.event', self.on_edr_event)
         self.event_bus.subscribe('sysmon.event', self.on_sysmon_event)
         self.event_bus.subscribe('wmi.event', self.on_wmi_event)
@@ -5548,7 +5252,6 @@ class EDRIntegration(BaseModule):
     def start(self) -> None:
         self.running = True
 
-        # Проверяем платформу перед запуском Windows-специфичных потоков
         if self.use_win32evtlog and sys.platform == 'win32':
             threading.Thread(target=self._windows_event_loop, daemon=True, name="EDR-EventLog").start()
         elif self.use_win32evtlog:
@@ -5559,7 +5262,6 @@ class EDRIntegration(BaseModule):
         elif self.use_wmi:
             self.logger.debug("WMI мониторинг доступен только на Windows")
 
-        # Запуск потока анализа (кроссплатформенный)
         threading.Thread(target=self._analysis_loop, daemon=True, name="EDR-Analysis").start()
 
         self.logger.info("EDR интеграция запущена")
@@ -5568,7 +5270,6 @@ class EDRIntegration(BaseModule):
         """Остановка модуля"""
         self.running = False
 
-        # Закрытие хендлов Event Log
         for log_name, handle in self.event_log_handles.items():
             try:
                 import win32evtlog
@@ -5577,7 +5278,6 @@ class EDRIntegration(BaseModule):
                 pass
         self.event_log_handles.clear()
 
-        # Остановка WMI вотчеров
         for watcher in self.wmi_watchers:
             try:
                 watcher.stop()
@@ -5610,42 +5310,41 @@ class EDRIntegration(BaseModule):
         """Обработка события от Sysmon"""
         event_id = event.get('event_id', 0)
 
-        # Sysmon Event IDs
-        if event_id == 1:  # Process creation
+        if event_id == 1:
             self._process_process_event(event)
-        elif event_id == 2:  # File creation time changed
+        elif event_id == 2:
             self._process_file_time_event(event)
-        elif event_id == 3:  # Network connection
+        elif event_id == 3:
             self._process_network_event(event)
-        elif event_id == 5:  # Process terminated
+        elif event_id == 5:
             self._process_process_terminated(event)
-        elif event_id == 7:  # Image loaded
+        elif event_id == 7:
             self._process_image_load_event(event)
-        elif event_id == 8:  # CreateRemoteThread
+        elif event_id == 8:
             self._process_remote_thread(event)
-        elif event_id == 10:  # ProcessAccess
+        elif event_id == 10:
             self._process_process_access(event)
-        elif event_id == 11:  # FileCreate
+        elif event_id == 11:
             self._process_file_event(event)
-        elif event_id == 12:  # Registry object add/delete
+        elif event_id == 12:
             self._process_registry_event(event)
-        elif event_id == 13:  # Registry value set
+        elif event_id == 13:
             self._process_registry_event(event)
-        elif event_id == 14:  # Registry object renamed
+        elif event_id == 14:
             self._process_registry_event(event)
-        elif event_id == 15:  # FileCreateStreamHash
+        elif event_id == 15:
             self._process_alternate_data_stream(event)
-        elif event_id == 17:  # PipeEvent (Pipe Created)
+        elif event_id == 17:
             self._process_pipe_event(event)
-        elif event_id == 18:  # PipeEvent (Pipe Connected)
+        elif event_id == 18:
             self._process_pipe_event(event)
-        elif event_id == 22:  # DNS query
+        elif event_id == 22:
             self._process_dns_event(event)
-        elif event_id == 23:  # FileDelete
+        elif event_id == 23:
             self._process_file_delete(event)
-        elif event_id == 24:  # ClipboardChange
+        elif event_id == 24:
             self._process_clipboard_event(event)
-        elif event_id == 25:  # ProcessTampering
+        elif event_id == 25:
             self._process_tampering_event(event)
 
     def on_wmi_event(self, event: Dict) -> None:
@@ -5667,7 +5366,6 @@ class EDRIntegration(BaseModule):
         import win32evtlogutil
         import pywintypes
 
-        # Открываем все настроенные логи
         for log_name in self.win_event_logs:
             try:
                 handle = win32evtlog.OpenEventLog(None, log_name)
@@ -5681,11 +5379,10 @@ class EDRIntegration(BaseModule):
             except Exception as e:
                 self.logger.debug(f"Не удалось открыть журнал {log_name}: {e}")
 
-        # Буфер для пакетной обработки
         event_buffer = []
         buffer_size = 100
         last_flush = time.time()
-        flush_interval = 1  # секунда
+        flush_interval = 1
 
         while self.running:
             for log_name, handle in list(self.event_log_handles.items()):
@@ -5695,7 +5392,6 @@ class EDRIntegration(BaseModule):
                     if events_read:
                         event_buffer.extend(events_read)
 
-                        # Пакетная публикация
                         if len(event_buffer) >= buffer_size or time.time() - last_flush > flush_interval:
                             for event in event_buffer:
                                 if 'sysmon' in event.get('log_name', '').lower():
@@ -5718,7 +5414,7 @@ class EDRIntegration(BaseModule):
                 except Exception as e:
                     self.logger.debug(f"Ошибка чтения журнала {log_name}: {e}")
 
-            time.sleep(0.1)  # Небольшая пауза чтобы не нагружать CPU
+            time.sleep(0.1)
 
     def _read_new_events_batch(self, log_name: str, handle, max_events: int = 50) -> List[Dict]:
         """Пакетное чтение новых событий"""
@@ -5752,7 +5448,6 @@ class EDRIntegration(BaseModule):
         import win32evtlogutil
 
         try:
-            # Извлекаем основную информацию
             event_id = event.EventID & 0xFFFF
             event_category = event.EventCategory
             time_generated = event.TimeGenerated
@@ -5761,13 +5456,11 @@ class EDRIntegration(BaseModule):
             source_name = event.SourceName
             record_number = event.RecordNumber
 
-            # Пытаемся получить сообщение
             try:
                 message = win32evtlogutil.SafeFormatMessage(event, log_name)
             except:
                 message = ''
 
-            # Базовый результат
             result = {
                 'event_id': event_id,
                 'log_name': log_name,
@@ -5782,7 +5475,6 @@ class EDRIntegration(BaseModule):
                 'raw_inserts': list(event.StringInserts) if event.StringInserts else []
             }
 
-            # Парсинг специфичных событий
             if log_name == 'Security':
                 self._parse_security_event(event_id, result)
             elif 'Sysmon' in log_name:
@@ -5807,7 +5499,6 @@ class EDRIntegration(BaseModule):
         message = result.get('message', '')
         inserts = result.get('raw_inserts', [])
 
-        # 4624 - Успешный вход
         if event_id == 4624:
             result['event_type'] = 'login'
             result['username'] = self._extract_from_message(message, r'Account Name:\s+([^\r\n]+)')
@@ -5818,7 +5509,6 @@ class EDRIntegration(BaseModule):
             result['process_name'] = self._extract_from_message(message, r'Process Name:\s+([^\r\n]+)')
             result['logon_id'] = self._extract_from_message(message, r'Logon ID:\s+([^\r\n]+)')
 
-            # Тип входа
             logon_types = {
                 '2': 'Interactive',
                 '3': 'Network',
@@ -5832,13 +5522,11 @@ class EDRIntegration(BaseModule):
             }
             result['logon_type_name'] = logon_types.get(result.get('logon_type', ''), 'Unknown')
 
-            # Специальные проверки
-            if result.get('logon_type') == '10':  # RDP
+            if result.get('logon_type') == '10':
                 result['is_remote'] = True
             if result.get('logon_type') == '3' and not result.get('src_ip'):
                 result['is_local_network'] = True
 
-        # 4625 - Неудачный вход
         elif event_id == 4625:
             result['event_type'] = 'failed_login'
             result['username'] = self._extract_from_message(message, r'Account Name:\s+([^\r\n]+)')
@@ -5848,7 +5536,6 @@ class EDRIntegration(BaseModule):
             result['status'] = self._extract_from_message(message, r'Status:\s+([^\r\n]+)')
             result['sub_status'] = self._extract_from_message(message, r'Sub Status:\s+([^\r\n]+)')
 
-            # Расшифровка статуса
             status_codes = {
                 '0xC0000064': 'User does not exist',
                 '0xC000006A': 'Wrong password',
@@ -5864,7 +5551,6 @@ class EDRIntegration(BaseModule):
             status = result.get('status', '').upper()
             result['status_description'] = status_codes.get(status, status)
 
-        # 4688 - Создание процесса
         elif event_id == 4688:
             result['event_type'] = 'process'
             result['process_name'] = self._extract_from_message(message, r'New Process Name:\s+([^\r\n]+)')
@@ -5875,19 +5561,16 @@ class EDRIntegration(BaseModule):
             result['token_elevation'] = self._extract_from_message(message, r'Token Elevation Type:\s+([^\r\n]+)')
             result['mandatory_label'] = self._extract_from_message(message, r'Mandatory Label:\s+([^\r\n]+)')
 
-            # Извлекаем username из строки Subject
             subject_match = re.search(r'Subject:.*?Account Name:\s+([^\r\n]+)', message, re.DOTALL)
             if subject_match:
                 result['username'] = subject_match.group(1).strip()
 
-        # 4689 - Завершение процесса
         elif event_id == 4689:
             result['event_type'] = 'process_terminated'
             result['process_name'] = self._extract_from_message(message, r'Process Name:\s+([^\r\n]+)')
             result['process_id'] = self._extract_from_message(message, r'Process ID:\s+([^\r\n]+)')
             result['exit_status'] = self._extract_from_message(message, r'Exit Status:\s+([^\r\n]+)')
 
-        # 5140 - Доступ к сетевой папке
         elif event_id == 5140:
             result['event_type'] = 'file_share'
             result['share_name'] = self._extract_from_message(message, r'Share Name:\s*([^\r\n]+)')
@@ -5896,7 +5579,6 @@ class EDRIntegration(BaseModule):
             result['username'] = self._extract_from_message(message, r'Account Name:\s*([^\r\n]+)')
             result['accesses'] = self._extract_from_message(message, r'Accesses:\s*([^\r\n]+)')
 
-        # 5145 - Доступ к файлу по сети
         elif event_id == 5145:
             result['event_type'] = 'file_access'
             result['file_name'] = self._extract_from_message(message, r'Relative Target Name:\s*([^\r\n]+)')
@@ -5905,7 +5587,6 @@ class EDRIntegration(BaseModule):
             result['username'] = self._extract_from_message(message, r'Account Name:\s*([^\r\n]+)')
             result['access_mask'] = self._extract_from_message(message, r'Access Mask:\s*([^\r\n]+)')
 
-        # 5156 - Фильтрация платформы Windows (сетевое соединение)
         elif event_id == 5156:
             result['event_type'] = 'network'
             result['process_name'] = self._extract_from_message(message, r'Application Name:\s*([^\r\n]+)')
@@ -5916,32 +5597,27 @@ class EDRIntegration(BaseModule):
             result['protocol'] = self._extract_from_message(message, r'Protocol:\s*(\d+)')
             result['direction'] = self._extract_from_message(message, r'Direction:\s*([^\r\n]+)')
 
-        # 5158 - Bind to local port
         elif event_id == 5158:
             result['event_type'] = 'network_bind'
             result['process_name'] = self._extract_from_message(message, r'Application Name:\s*([^\r\n]+)')
             result['local_port'] = self._extract_from_message(message, r'Local Port:\s*(\d+)')
             result['protocol'] = self._extract_from_message(message, r'Protocol:\s*(\d+)')
 
-        # 1102 - Очистка журнала аудита
         elif event_id == 1102:
             result['event_type'] = 'audit_log_cleared'
             result['username'] = self._extract_from_message(message, r'Account Name:\s+([^\r\n]+)')
             result['domain'] = self._extract_from_message(message, r'Domain Name:\s+([^\r\n]+)')
 
-        # 4672 - Назначение специальных привилегий
         elif event_id == 4672:
             result['event_type'] = 'special_privileges'
             result['username'] = self._extract_from_message(message, r'Account Name:\s+([^\r\n]+)')
             result['privileges'] = self._extract_from_message(message, r'Privileges:\s+([^\r\n]+)')
 
-        # 4720 - Создание пользователя
         elif event_id == 4720:
             result['event_type'] = 'user_created'
             result['new_username'] = self._extract_from_message(message, r'SAM Account Name:\s+([^\r\n]+)')
             result['creator'] = self._extract_from_message(message, r'Account Name:\s+([^\r\n]+)')
 
-        # 4732 - Добавление в группу
         elif event_id == 4732:
             result['event_type'] = 'group_member_added'
             result['username'] = self._extract_from_message(message, r'Member Name:\s+([^\r\n]+)')
@@ -5951,7 +5627,6 @@ class EDRIntegration(BaseModule):
         """Парсинг Sysmon событий"""
         message = result.get('message', '')
 
-        # Event ID 1 - Process Creation
         if event_id == 1:
             result['event_type'] = 'process'
             result['process_name'] = self._extract_from_message(message, r'Image:\s*([^\r\n]+)')
@@ -5965,7 +5640,6 @@ class EDRIntegration(BaseModule):
             result['current_directory'] = self._extract_from_message(message, r'CurrentDirectory:\s*([^\r\n]+)')
             result['integrity_level'] = self._extract_from_message(message, r'IntegrityLevel:\s*([^\r\n]+)')
 
-        # Event ID 3 - Network Connection
         elif event_id == 3:
             result['event_type'] = 'network'
             result['process_name'] = self._extract_from_message(message, r'Image:\s*([^\r\n]+)')
@@ -5978,7 +5652,6 @@ class EDRIntegration(BaseModule):
             result['protocol'] = self._extract_from_message(message, r'Protocol:\s*([^\r\n]+)')
             result['initiated'] = self._extract_from_message(message, r'Initiated:\s*([^\r\n]+)')
 
-        # Event ID 7 - Image Loaded
         elif event_id == 7:
             result['event_type'] = 'image_load'
             result['process_name'] = self._extract_from_message(message, r'Image:\s*([^\r\n]+)')
@@ -5988,7 +5661,6 @@ class EDRIntegration(BaseModule):
             result['signed'] = self._extract_from_message(message, r'Signed:\s*([^\r\n]+)')
             result['signature'] = self._extract_from_message(message, r'Signature:\s*([^\r\n]+)')
 
-        # Event ID 8 - CreateRemoteThread
         elif event_id == 8:
             result['event_type'] = 'remote_thread'
             result['source_process'] = self._extract_from_message(message, r'SourceImage:\s*([^\r\n]+)')
@@ -5998,7 +5670,6 @@ class EDRIntegration(BaseModule):
             result['start_address'] = self._extract_from_message(message, r'StartAddress:\s*([^\r\n]+)')
             result['start_function'] = self._extract_from_message(message, r'StartFunction:\s*([^\r\n]+)')
 
-        # Event ID 10 - ProcessAccess
         elif event_id == 10:
             result['event_type'] = 'process_access'
             result['source_process'] = self._extract_from_message(message, r'SourceImage:\s*([^\r\n]+)')
@@ -6006,7 +5677,6 @@ class EDRIntegration(BaseModule):
             result['granted_access'] = self._extract_from_message(message, r'GrantedAccess:\s*([^\r\n]+)')
             result['call_trace'] = self._extract_from_message(message, r'CallTrace:\s*([^\r\n]+)')
 
-            # Проверка опасных доступов
             dangerous_access = ['0x1FFFFF', '0x1F0FFF', 'PROCESS_ALL_ACCESS', 'PROCESS_CREATE_THREAD',
                                 'PROCESS_VM_WRITE', 'PROCESS_VM_OPERATION']
             for da in dangerous_access:
@@ -6014,7 +5684,6 @@ class EDRIntegration(BaseModule):
                     result['dangerous_access'] = True
                     break
 
-        # Event ID 11 - FileCreate
         elif event_id == 11:
             result['event_type'] = 'file'
             result['process_name'] = self._extract_from_message(message, r'Image:\s*([^\r\n]+)')
@@ -6022,7 +5691,6 @@ class EDRIntegration(BaseModule):
             result['filename'] = self._extract_from_message(message, r'TargetFilename:\s*([^\r\n]+)')
             result['creation_time'] = self._extract_from_message(message, r'CreationUtcTime:\s*([^\r\n]+)')
 
-        # Event ID 12/13/14 - Registry
         elif event_id in [12, 13, 14]:
             result['event_type'] = 'registry'
             result['event_subtype'] = {12: 'create_delete', 13: 'set', 14: 'rename'}.get(event_id, 'unknown')
@@ -6030,7 +5698,6 @@ class EDRIntegration(BaseModule):
             result['key_path'] = self._extract_from_message(message, r'TargetObject:\s*([^\r\n]+)')
             result['value_name'] = self._extract_from_message(message, r'Details:\s*([^\r\n]+)')
 
-        # Event ID 22 - DNS Query
         elif event_id == 22:
             result['event_type'] = 'dns'
             result['process_name'] = self._extract_from_message(message, r'Image:\s*([^\r\n]+)')
@@ -6039,7 +5706,6 @@ class EDRIntegration(BaseModule):
             result['query_status'] = self._extract_from_message(message, r'QueryStatus:\s*([^\r\n]+)')
             result['query_results'] = self._extract_from_message(message, r'QueryResults:\s*([^\r\n]+)')
 
-        # Event ID 25 - ProcessTampering
         elif event_id == 25:
             result['event_type'] = 'process_tampering'
             result['process_name'] = self._extract_from_message(message, r'ProcessName:\s*([^\r\n]+)')
@@ -6051,7 +5717,6 @@ class EDRIntegration(BaseModule):
 
         result['event_type'] = 'powershell'
 
-        # Event ID 4103 - Module Logging
         if event_id == 4103:
             result['subtype'] = 'module'
             result['user'] = self._extract_from_message(message, r'UserId=([^\r\n]+)')
@@ -6059,17 +5724,14 @@ class EDRIntegration(BaseModule):
             result['command'] = self._extract_from_message(message, r'CommandInvocation\([^\)]*\):\s*([^\r\n]+)')
             result['parameter_binding'] = self._extract_from_message(message, r'ParameterBinding\([^\)]*\):\s*([^\r\n]+)')
 
-        # Event ID 4104 - Script Block Logging
         elif event_id == 4104:
             result['subtype'] = 'script_block'
             result['script_block_id'] = self._extract_from_message(message, r'ScriptBlock ID:\s*([^\r\n]+)')
 
-            # Извлекаем сам скрипт
             script_match = re.search(r'ScriptBlock text:\s*\n(.*?)(?:\n\s*\n|$)', message, re.DOTALL)
             if script_match:
                 result['script_block'] = script_match.group(1).strip()[:5000]
 
-        # Event ID 800 - Pipeline Execution Details
         elif event_id == 800:
             result['subtype'] = 'pipeline'
             result['user'] = self._extract_from_message(message, r'UserId=([^\r\n]+)')
@@ -6082,14 +5744,12 @@ class EDRIntegration(BaseModule):
 
         result['event_type'] = 'wmi'
 
-        # Event ID 5858 - WMI Activity
         if event_id == 5858:
             result['operation'] = self._extract_from_message(message, r'Operation:\s*([^\r\n]+)')
             result['namespace'] = self._extract_from_message(message, r'Namespace:\s*([^\r\n]+)')
             result['user'] = self._extract_from_message(message, r'User:\s*([^\r\n]+)')
             result['query'] = self._extract_from_message(message, r'Query:\s*([^\r\n]+)')
 
-        # Event ID 5861 - WMI Permanent Event Registration
         elif event_id == 5861:
             result['subtype'] = 'permanent_event'
             result['filter'] = self._extract_from_message(message, r'Filter:\s*([^\r\n]+)')
@@ -6102,18 +5762,15 @@ class EDRIntegration(BaseModule):
 
         result['event_type'] = 'task_scheduler'
 
-        # Event ID 106 - Task Registered
         if event_id == 106:
             result['subtype'] = 'task_registered'
             result['task_name'] = self._extract_from_message(message, r'Task Name:\s*([^\r\n]+)')
             result['user'] = self._extract_from_message(message, r'User Name:\s*([^\r\n]+)')
 
-        # Event ID 141 - Task Updated
         elif event_id == 141:
             result['subtype'] = 'task_updated'
             result['task_name'] = self._extract_from_message(message, r'Task Name:\s*([^\r\n]+)')
 
-        # Event ID 200/201 - Task Executed
         elif event_id in [200, 201]:
             result['subtype'] = 'task_executed'
             result['task_name'] = self._extract_from_message(message, r'Task Name:\s*([^\r\n]+)')
@@ -6126,13 +5783,11 @@ class EDRIntegration(BaseModule):
 
         result['event_type'] = 'rdp'
 
-        # Event ID 21 - RDP Session Start
         if event_id == 21:
             result['subtype'] = 'session_start'
             result['user'] = self._extract_from_message(message, r'User:\s*([^\r\n]+)')
             result['src_ip'] = self._extract_from_message(message, r'Source Network Address:\s*([^\r\n]+)')
 
-        # Event ID 24 - RDP Session Disconnect
         elif event_id == 24:
             result['subtype'] = 'session_disconnect'
             result['user'] = self._extract_from_message(message, r'User:\s*([^\r\n]+)')
@@ -6156,7 +5811,6 @@ class EDRIntegration(BaseModule):
 
             pythoncom.CoInitialize()
 
-            # Мониторинг создания процессов
             process_watcher = self._create_wmi_watcher(
                 "SELECT * FROM Win32_ProcessStartTrace",
                 self._handle_wmi_process_start
@@ -6164,7 +5818,6 @@ class EDRIntegration(BaseModule):
             if process_watcher:
                 self.wmi_watchers.append(process_watcher)
 
-            # Мониторинг завершения процессов
             process_stop_watcher = self._create_wmi_watcher(
                 "SELECT * FROM Win32_ProcessStopTrace",
                 self._handle_wmi_process_stop
@@ -6172,7 +5825,6 @@ class EDRIntegration(BaseModule):
             if process_stop_watcher:
                 self.wmi_watchers.append(process_stop_watcher)
 
-            # Мониторинг изменений сервисов
             service_watcher = self._create_wmi_watcher(
                 "SELECT * FROM __InstanceModificationEvent WITHIN 5 WHERE TargetInstance ISA 'Win32_Service'",
                 self._handle_wmi_service_change
@@ -6180,7 +5832,6 @@ class EDRIntegration(BaseModule):
             if service_watcher:
                 self.wmi_watchers.append(service_watcher)
 
-            # Мониторинг изменений реестра
             registry_watcher = self._create_wmi_watcher(
                 "SELECT * FROM RegistryTreeChangeEvent WHERE Hive='HKEY_LOCAL_MACHINE' AND RootPath='Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run'",
                 self._handle_wmi_registry_change
@@ -6188,7 +5839,6 @@ class EDRIntegration(BaseModule):
             if service_watcher:
                 self.wmi_watchers.append(registry_watcher)
 
-            # Основной цикл ожидания
             while self.running:
                 time.sleep(1)
 
@@ -6307,14 +5957,12 @@ class EDRIntegration(BaseModule):
         user = event.get('user', '').lower()
         pid = event.get('pid', event.get('process_id', 0))
 
-        # 1. Подозрительный процесс
         for sus_proc in self.suspicious_processes:
             if sus_proc in process_name:
                 result['is_suspicious'] = True
                 result['reasons'].append(f"suspicious_process:{sus_proc}")
                 result['score'] += 0.25
 
-                # Особо опасные процессы
                 if sus_proc in ['mimikatz.exe', 'procdump.exe', 'psexec.exe']:
                     result['score'] += 0.3
                     result['attack_type'] = 'Credential Dumping'
@@ -6322,7 +5970,6 @@ class EDRIntegration(BaseModule):
                     result['score'] += 0.1
                 break
 
-        # 2. Подозрительные аргументы командной строки
         for pattern in self.suspicious_cmdline:
             if pattern in cmdline:
                 result['is_suspicious'] = True
@@ -6340,7 +5987,6 @@ class EDRIntegration(BaseModule):
                     result['score'] += 0.2
                 break
 
-        # 3. Процесс запущен из подозрительной папки
         for sus_path in self.suspicious_paths:
             if sus_path in path:
                 result['is_suspicious'] = True
@@ -6348,7 +5994,6 @@ class EDRIntegration(BaseModule):
                 result['score'] += 0.25
                 break
 
-        # 4. Необычный родительский процесс
         suspicious_parents = {
             'powershell.exe': ['winword.exe', 'excel.exe', 'outlook.exe', 'chrome.exe', 'firefox.exe', 'iexplore.exe', 'mshta.exe'],
             'cmd.exe': ['winword.exe', 'excel.exe', 'outlook.exe', 'java.exe', 'javaw.exe', 'mshta.exe'],
@@ -6369,7 +6014,6 @@ class EDRIntegration(BaseModule):
                         break
                 break
 
-        # 5. PowerShell с подозрительными флагами
         if 'powershell' in process_name:
             dangerous_flags = [
                 ('-windowstyle hidden', 0.3),
@@ -6397,7 +6041,6 @@ class EDRIntegration(BaseModule):
                     if score_add >= 0.3:
                         break
 
-        # 6. WMI с подозрительными командами
         if 'wmic' in process_name or 'wmi' in cmdline:
             dangerous_wmi = ['process call create', 'service call create', 'shadowcopy delete',
                              '/node:', 'useraccount', 'startup', 'os get']
@@ -6408,26 +6051,22 @@ class EDRIntegration(BaseModule):
                     result['score'] += 0.3
                     break
 
-        # 7. Доступ к LSASS
         if 'lsass' in cmdline:
             result['is_suspicious'] = True
             result['reasons'].append("lsass_access")
             result['score'] += 0.4
             result['attack_type'] = 'Credential Dumping'
 
-        # 8. Запуск из ADS (Alternate Data Stream)
         if ':Zone.Identifier' in path or ':$DATA' in path:
             result['is_suspicious'] = True
             result['reasons'].append("ads_execution")
             result['score'] += 0.35
 
-        # 9. Неподписанный процесс из системной папки
         if 'system32' in path and event.get('signed') == 'false':
             result['is_suspicious'] = True
             result['reasons'].append("unsigned_system32_binary")
             result['score'] += 0.25
 
-        # 10. Подозрительный пользователь
         suspicious_users = ['system', 'local service', 'network service']
         if user.lower() in suspicious_users and 'cmd.exe' in process_name:
             result['is_suspicious'] = True
@@ -6436,7 +6075,6 @@ class EDRIntegration(BaseModule):
 
         result['score'] = min(1.0, result['score'])
 
-        # Определение серьёзности
         if result['score'] > 0.7:
             result['severity'] = AlertSeverity.CRITICAL.value
         elif result['score'] > 0.5:
@@ -6474,7 +6112,6 @@ class EDRIntegration(BaseModule):
             'event_type': 'file'
         }
 
-        # 1. Создание файлов в чувствительных директориях
         sensitive_dirs = [
             '\\system32\\', '\\syswow64\\', '\\windows\\',
             '\\program files\\', '\\program files (x86)\\',
@@ -6490,7 +6127,6 @@ class EDRIntegration(BaseModule):
                     result['score'] += 0.35
                     break
 
-        # 2. Подозрительные расширения в темповых папках
         dangerous_extensions = ['.exe', '.dll', '.sys', '.ps1', '.vbs', '.js', '.hta', '.bat', '.scr']
         is_temp_path = any(temp in path for temp in ['\\temp\\', '\\tmp\\', '\\cache\\', '\\downloads\\'])
 
@@ -6502,7 +6138,6 @@ class EDRIntegration(BaseModule):
                     result['score'] += 0.4
                     break
 
-        # 3. Создание скриптов офисными приложениями
         office_processes = ['winword.exe', 'excel.exe', 'powerpnt.exe', 'outlook.exe']
         script_extensions = ['.ps1', '.vbs', '.js', '.bat', '.hta']
 
@@ -6515,7 +6150,6 @@ class EDRIntegration(BaseModule):
                     result['attack_type'] = 'Office Macro'
                     break
 
-        # 4. Файлы с двойным расширением
         if filename.count('.') >= 2:
             parts = filename.split('.')
             if parts[-1] in dangerous_extensions and parts[-2] in ['doc', 'xls', 'pdf', 'txt', 'jpg']:
@@ -6523,7 +6157,6 @@ class EDRIntegration(BaseModule):
                 result['reasons'].append(f"double_extension:{filename}")
                 result['score'] += 0.45
 
-        # 5. Подозрительные имена файлов
         suspicious_names = ['mimikatz', 'procdump', 'psexec', 'nc.exe', 'netcat', 'plink.exe',
                             'socat', 'chisel', 'frpc', 'nps', 'beacon', 'payload', 'shell']
         for sus_name in suspicious_names:
@@ -6533,7 +6166,6 @@ class EDRIntegration(BaseModule):
                 result['score'] += 0.35
                 break
 
-        # 6. Изменение системных файлов
         system_files = ['hosts', 'services', 'lmhosts', 'protocol', 'networks']
         for sys_file in system_files:
             if f'\\etc\\{sys_file}' in path or f'\\drivers\\etc\\{sys_file}' in path:
@@ -6577,7 +6209,6 @@ class EDRIntegration(BaseModule):
             'event_type': 'registry'
         }
 
-        # 1. Чувствительные ключи реестра
         for sens_key in self.suspicious_registry_keys:
             if sens_key in key_path:
                 if operation in ('set', 'create', 'modify', 'write'):
@@ -6585,7 +6216,6 @@ class EDRIntegration(BaseModule):
                     result['reasons'].append(f"sensitive_registry:{sens_key}")
                     result['score'] += 0.35
 
-                    # Persistence механизмы
                     if 'run' in sens_key or 'runonce' in sens_key:
                         result['attack_type'] = 'Persistence'
                         result['score'] += 0.1
@@ -6594,7 +6224,6 @@ class EDRIntegration(BaseModule):
                         result['score'] += 0.15
                     break
 
-        # 2. Отключение защитных механизмов
         security_disable_patterns = [
             ('disableantispyware', 0.4),
             ('disableantivirus', 0.4),
@@ -6615,31 +6244,26 @@ class EDRIntegration(BaseModule):
                 result['score'] += score_add
                 break
 
-        # 3. Модификация Image File Execution Options (IFEO)
         if 'image file execution options' in key_path:
             result['is_suspicious'] = True
             result['reasons'].append("ifeo_modification")
             result['score'] += 0.5
             result['attack_type'] = 'Persistence'
 
-            # Проверка на Debugger
             if 'debugger' in value_name:
                 result['score'] += 0.2
 
-        # 4. Изменение Shell Extensions
         if 'shell extensions\\approved' in key_path:
             result['is_suspicious'] = True
             result['reasons'].append("shell_extension_approved")
             result['score'] += 0.4
             result['attack_type'] = 'Persistence'
 
-        # 5. Подозрительный процесс изменяет реестр
         if process_name in self.suspicious_processes:
             result['is_suspicious'] = True
             result['reasons'].append(f"suspicious_process_registry:{process_name}")
             result['score'] += 0.25
 
-        # 6. Удаление ключей безопасности
         security_keys = ['policies', 'audit', 'firewall', 'defender', 'antivirus']
         for sec_key in security_keys:
             if sec_key in key_path and operation in ('delete', 'remove'):
@@ -6684,7 +6308,6 @@ class EDRIntegration(BaseModule):
             'event_type': 'network'
         }
 
-        # 1. Подозрительные порты
         suspicious_ports = {
             4444, 5555, 6666, 7777, 8888, 9999, 1337, 31337,
             3389, 5900, 5800,
@@ -6703,19 +6326,16 @@ class EDRIntegration(BaseModule):
                 result['attack_type'] = 'C2 Communication'
                 result['score'] += 0.15
 
-        # 2. Подозрительный процесс устанавливает соединение
         if process_name in self.suspicious_processes:
             result['is_suspicious'] = True
             result['reasons'].append(f"suspicious_process_network:{process_name}")
             result['score'] += 0.25
 
-            # Особо подозрительные комбинации
             if process_name == 'powershell.exe' and dst_port not in [80, 443, 53]:
                 result['score'] += 0.15
             if process_name == 'rundll32.exe' and dst_port not in [53, 80, 443]:
                 result['score'] += 0.2
 
-        # 3. Исходящие соединения на нестандартные порты
         standard_ports = {80, 443, 53, 123, 25, 587, 993, 995, 143, 110}
         if dst_port not in standard_ports and dst_port > 1024:
             if process_name in ['svchost.exe', 'lsass.exe', 'winlogon.exe']:
@@ -6723,7 +6343,6 @@ class EDRIntegration(BaseModule):
                 result['reasons'].append(f"system_process_unusual_port:{process_name}:{dst_port}")
                 result['score'] += 0.3
 
-        # 4. Соединения с внутренними IP от необычных процессов
         if self._is_private_ip(dst_ip):
             unusual_internal = ['powershell.exe', 'cmd.exe', 'wscript.exe', 'cscript.exe', 'mshta.exe']
             for unusual_proc in unusual_internal:
@@ -6734,14 +6353,11 @@ class EDRIntegration(BaseModule):
                     result['attack_type'] = 'Lateral Movement'
                     break
 
-        # 5. Raw socket или необычный протокол
         if protocol and protocol.lower() not in ['tcp', 'udp', 'icmp']:
             result['is_suspicious'] = True
             result['reasons'].append(f"unusual_protocol:{protocol}")
             result['score'] += 0.3
 
-        # 6. Beaconing детекция (на основе таймингов)
-        # Реализуется через анализ временных интервалов в _analysis_loop
 
         result['score'] = min(1.0, result['score'])
 
@@ -6792,13 +6408,11 @@ class EDRIntegration(BaseModule):
             'event_type': 'dns'
         }
 
-        # 1. Подозрительный процесс делает DNS запрос
         if process_name in self.suspicious_processes:
             result['is_suspicious'] = True
             result['reasons'].append(f"suspicious_process_dns:{process_name}")
             result['score'] += 0.2
 
-        # 2. Длинные DNS запросы (туннелирование)
         if len(query) > 50:
             result['is_suspicious'] = True
             result['reasons'].append(f"long_dns_query:{len(query)}")
@@ -6808,7 +6422,6 @@ class EDRIntegration(BaseModule):
             if len(query) > 100:
                 result['score'] += 0.2
 
-        # 3. Подозрительные TLD
         suspicious_tlds = ['.tk', '.ml', '.ga', '.cf', '.gq', '.xyz', '.top', '.club', '.work', '.date']
         for tld in suspicious_tlds:
             if query.endswith(tld):
@@ -6817,7 +6430,6 @@ class EDRIntegration(BaseModule):
                 result['score'] += 0.25
                 break
 
-        # 4. DNS over HTTPS признаки
         doh_servers = ['cloudflare-dns.com', 'dns.google', 'dns.quad9.net', 'doh.opendns.com']
         for doh in doh_servers:
             if doh in query:
@@ -6838,7 +6450,6 @@ class EDRIntegration(BaseModule):
                 result['severity'] = AlertSeverity.MEDIUM.value
 
             self.event_bus.publish('edr.dns_threat', result)
-            # Также публикуем для DNS анализатора
             self.event_bus.publish('dpi.dns', {
                 'src_ip': event.get('src_ip', ''),
                 'query': query,
@@ -6861,7 +6472,6 @@ class EDRIntegration(BaseModule):
         result['source_process'] = event.get('source_process')
         result['target_process'] = event.get('target_process')
 
-        # Проверка целевого процесса
         target = event.get('target_process', '').lower()
         sensitive_targets = ['lsass.exe', 'csrss.exe', 'winlogon.exe', 'explorer.exe', 'svchost.exe']
 
@@ -6884,7 +6494,6 @@ class EDRIntegration(BaseModule):
         source_process = event.get('source_process', '').lower()
         granted_access = event.get('granted_access', '')
 
-        # Доступ к LSASS
         if 'lsass' in target_process:
             result = {
                 'is_suspicious': True,
@@ -6899,7 +6508,6 @@ class EDRIntegration(BaseModule):
             result['target_process'] = target_process
             result['granted_access'] = granted_access
 
-            # Проверка опасных прав доступа
             dangerous_rights = ['0x1FFFFF', 'PROCESS_ALL_ACCESS', 'PROCESS_VM_READ', 'PROCESS_QUERY_INFORMATION']
             for right in dangerous_rights:
                 if right in granted_access:
@@ -6927,7 +6535,6 @@ class EDRIntegration(BaseModule):
             'event_type': 'image_load'
         }
 
-        # 1. Загрузка неподписанной DLL в системный процесс
         system_processes = ['lsass.exe', 'csrss.exe', 'winlogon.exe', 'svchost.exe', 'services.exe']
         if any(proc in process_name for proc in system_processes):
             if signed == 'false':
@@ -6936,7 +6543,6 @@ class EDRIntegration(BaseModule):
                 result['score'] += 0.4
                 result['attack_type'] = 'DLL Hijacking'
 
-        # 2. Загрузка из подозрительных путей
         for sus_path in self.suspicious_paths:
             if sus_path in image_loaded:
                 result['is_suspicious'] = True
@@ -6944,10 +6550,8 @@ class EDRIntegration(BaseModule):
                 result['score'] += 0.3
                 break
 
-        # 3. Подозрительные DLL
         for sus_dll in self.suspicious_dlls:
             if sus_dll in image_loaded:
-                # Проверяем контекст
                 if 'system32' not in image_loaded:
                     result['is_suspicious'] = True
                     result['reasons'].append(f"suspicious_dll_location:{sus_dll}")
@@ -6968,7 +6572,6 @@ class EDRIntegration(BaseModule):
 
     def _process_process_terminated(self, event: Dict) -> None:
         """Обработка завершения процесса"""
-        # Проверка на необычное завершение защитных процессов
         process_name = event.get('process_name', '').lower()
         security_processes = ['msmpeng.exe', 'windefend.exe', 'msseces.exe', 'avp.exe']
 
@@ -7042,7 +6645,6 @@ class EDRIntegration(BaseModule):
         """Обработка удаления файла"""
         filename = event.get('filename', '').lower()
 
-        # Удаление важных системных файлов или логов
         important_files = ['.evtx', '.log', 'ntuser.dat', 'sam', 'system', 'security']
 
         for imp_file in important_files:
@@ -7115,11 +6717,9 @@ class EDRIntegration(BaseModule):
         state = event.get('state', '').lower()
         start_mode = event.get('start_mode', '').lower()
 
-        # Создание сервиса с подозрительным именем
         suspicious_service_names = ['update', 'helper', 'support', 'service', 'driver', 'microsoft']
         for sus_name in suspicious_service_names:
             if sus_name in service_name:
-                # Проверяем путь
                 path_name = event.get('path_name', '').lower()
                 for sus_path in self.suspicious_paths:
                     if sus_path in path_name:
@@ -7130,7 +6730,6 @@ class EDRIntegration(BaseModule):
                         break
                 break
 
-        # Остановка защитных сервисов
         security_services = ['windefend', 'msmpeng', 'sense', 'wdnisdrv', 'wdfilter']
         for sec_svc in security_services:
             if sec_svc in service_name and state == 'stopped':
@@ -7156,16 +6755,12 @@ class EDRIntegration(BaseModule):
 
     def _process_login_event(self, event: Dict) -> None:
         """Обработка события входа"""
-        # Передаём в UBA
         self.event_bus.publish('auth.login', event)
 
-        # Проверка на аномалии
         logon_type = event.get('logon_type', '')
         src_ip = event.get('src_ip', '')
 
-        # RDP вход с необычного IP
         if logon_type == '10' and src_ip:
-            # Проверка геолокации через ThreatIntel
             self.event_bus.publish('threat_intel.check_ip', {
                 'ip': src_ip,
                 'context': 'rdp_login',
@@ -7174,27 +6769,22 @@ class EDRIntegration(BaseModule):
 
     def _process_failed_login_event(self, event: Dict) -> None:
         """Обработка неудачного входа"""
-        # Передаём в UBA
         self.event_bus.publish('auth.failed', event)
 
     def _analysis_loop(self) -> None:
         """Фоновый анализ событий"""
         while self.running:
-            time.sleep(60)  # Каждую минуту
+            time.sleep(60)
 
-            # Анализ beaconing
             self._detect_beaconing()
 
-            # Анализ цепочек событий
             self._analyze_event_chains()
 
-            # Очистка старых событий
             self._cleanup_old_events()
 
     def _detect_beaconing(self) -> None:
         """Обнаружение C2 beaconing по сетевым соединениям (делегировано в EncryptedTrafficAnalyzer)"""
 
-        # Собираем уникальные пары src_ip:dst_ip:dst_port
         unique_connections = set()
         cutoff = time.time() - 3600
 
@@ -7209,9 +6799,7 @@ class EDRIntegration(BaseModule):
                     key = f"{src_ip}:{dst_ip}:{dst_port}"
                     unique_connections.add((key, process_name, event))
 
-        # Для каждой уникальной пары проверяем beaconing через общий анализатор
         for key, process_name, event in unique_connections:
-            # Публикуем событие для EncryptedTrafficAnalyzer вместо дублирования логики
             self.event_bus.publish('encrypted.traffic.check_beaconing', {
                 'src_ip': event.get('src_ip'),
                 'dst_ip': event.get('dst_ip'),
@@ -7221,7 +6809,6 @@ class EDRIntegration(BaseModule):
                 'packet_size': event.get('packet_size', 0)
             })
 
-        # Оставляем только EDR-специфичную логику - анализ beaconing по процессам
         process_connections: Dict[str, List[float]] = defaultdict(list)
 
         for event in self.network_events:
@@ -7230,7 +6817,6 @@ class EDRIntegration(BaseModule):
                 if process_name:
                     process_connections[process_name].append(event.get('timestamp', 0))
 
-        # Проверяем процессы с подозрительной периодичностью
         for process_name, timestamps in process_connections.items():
             if len(timestamps) < 10:
                 continue
@@ -7244,7 +6830,6 @@ class EDRIntegration(BaseModule):
                     variance = sum((i - mean_interval) ** 2 for i in intervals) / len(intervals)
                     cv = (variance ** 0.5) / mean_interval
 
-                    # Низкая вариация + процесс из списка подозрительных
                     if cv < 0.15 and process_name.lower() in self.suspicious_processes:
                         result = {
                             'is_suspicious': True,
@@ -7266,14 +6851,12 @@ class EDRIntegration(BaseModule):
 
     def _analyze_event_chains(self) -> None:
         """Анализ цепочек событий для обнаружения сложных атак (оптимизированный)"""
-        cutoff = time.time() - 600  # За последние 10 минут
+        cutoff = time.time() - 600
 
-        # Строим индексы для быстрого поиска
         processes_by_pid: Dict[int, Dict] = {}
         office_pids: Set[int] = set()
 
         with self._lock:
-            # Индексируем процессы
             for event in self.process_events:
                 if event.get('timestamp', 0) > cutoff:
                     pid = event.get('pid')
@@ -7284,14 +6867,12 @@ class EDRIntegration(BaseModule):
                         if any(p in process_name for p in ['winword.exe', 'excel.exe', 'powerpnt.exe', 'outlook.exe']):
                             office_pids.add(pid)
 
-            # Проверяем только office процессы
             for office_pid in office_pids:
                 if office_pid not in processes_by_pid:
                     continue
 
                 office_event = processes_by_pid[office_pid]
 
-                # Находим дочерние процессы через parent_pid (O(n) вместо O(n²))
                 child_scripts = []
                 for pid, event in processes_by_pid.items():
                     if event.get('parent_pid') == office_pid:
@@ -7299,9 +6880,7 @@ class EDRIntegration(BaseModule):
                         if any(s in process_name for s in ['powershell.exe', 'cmd.exe', 'wscript.exe', 'cscript.exe']):
                             child_scripts.append((pid, event))
 
-                # Проверяем сетевые соединения от дочерних процессов
                 for script_pid, script_event in child_scripts:
-                    # Используем индекс для быстрого поиска сетевых событий
                     network_events = [
                         e for e in self.network_events
                         if e.get('timestamp', 0) > script_event.get('timestamp', 0)
@@ -7325,7 +6904,6 @@ class EDRIntegration(BaseModule):
                         }
                         self.event_bus.publish('edr.threat', result)
 
-                        # Используем централизованное логирование через LoggingService
                         if hasattr(self.logger, 'security_alert'):
                             self.logger.security_alert(
                                 module=self.name,
@@ -7334,7 +6912,6 @@ class EDRIntegration(BaseModule):
                                 data=result.get('details', {})
                             )
                         else:
-                            # Fallback если LoggingService не обновлён
                             self.logger.critical(
                                 f"Обнаружена цепочка Office Macro: {office_event.get('process_name')} -> "
                                 f"{script_event.get('process_name')} -> Network"
@@ -7344,7 +6921,7 @@ class EDRIntegration(BaseModule):
 
     def _cleanup_old_events(self) -> None:
         """Очистка старых событий"""
-        cutoff = time.time() - 7200  # Старше 2 часов
+        cutoff = time.time() - 7200
 
         with self._lock:
             for buffer in [self.process_events, self.file_events, self.registry_events,
@@ -7366,9 +6943,6 @@ class EDRIntegration(BaseModule):
                 'wmi_active': len(self.wmi_watchers) > 0
             }
 
-# ============================================================
-# PROMETHEUS METRICS
-# ============================================================
 
 class PrometheusMetrics(BaseModule):
     """Экспорт метрик в Prometheus"""
@@ -7431,9 +7005,6 @@ class PrometheusMetrics(BaseModule):
             self.dns_threats_counter.inc()
 
 
-# ============================================================
-# TELEGRAM NOTIFIER
-# ============================================================
 
 class TelegramNotifier(BaseModule):
     """Уведомления в Telegram"""
@@ -7547,9 +7118,6 @@ class TelegramNotifier(BaseModule):
             self.logger.error(f"Telegram error: {type(e).__name__}")
 
 
-# ============================================================
-# BASELINE PROFILER
-# ============================================================
 
 class BaselineProfiler:
     """Построение базового профиля поведения (оптимизированная версия)"""
@@ -7573,15 +7141,13 @@ class BaselineProfiler:
             'packet_intervals': deque(maxlen=100)
         })
 
-        # Отдельные блокировки для разных операций
         self._profile_lock = threading.RLock()
         self._stats_lock = threading.RLock()
         self._last_packet_time: Dict[str, float] = {}
         self._time_lock = threading.RLock()
 
-        # Кэшированные значения для быстрого доступа
         self._cached_stats: Dict[str, Dict] = {}
-        self._cache_ttl = 60  # секунд
+        self._cache_ttl = 60
         self._last_cache_update: Dict[str, float] = {}
 
     def update(self, device: str, size: int, port: int, entropy: float,
@@ -7591,7 +7157,6 @@ class BaselineProfiler:
         now = datetime.now()
         current_time = time.time()
 
-        # ВСЕ операции под одной блокировкой
         with self._profile_lock:
             if device not in self.profiles:
                 self.profiles[device] = {
@@ -7612,13 +7177,11 @@ class BaselineProfiler:
                     'packet_intervals': deque(maxlen=100)
                 }
 
-                # Инициализация времени последнего пакета
                 with self._time_lock:
                     self._last_packet_time[device] = current_time
 
             p = self.profiles[device]
 
-            # Интервал между пакетами
             with self._time_lock:
                 if device in self._last_packet_time:
                     interval = current_time - self._last_packet_time[device]
@@ -7626,7 +7189,6 @@ class BaselineProfiler:
                     interval = 0
                 self._last_packet_time[device] = current_time
 
-            # Обновление статистики
             p['packet_sizes'].append(size)
             p['entropy'].append(entropy)
             p['last_seen'] = current_time
@@ -7649,24 +7211,18 @@ class BaselineProfiler:
             if interval > 0 and interval < 60:
                 p['packet_intervals'].append(interval)
 
-            # Периодическая очистка старых данных
             if p['total_packets'] % 1000 == 0:
                 self._cleanup_old_data(device, p, current_time)
 
-            # Инвалидация кэша
             self._last_cache_update.pop(device, None)
             self._cached_stats.pop(f"{device}_score", None)
 
     def _cleanup_old_data(self, device: str, profile: Dict, current_time: float) -> None:
         """Очистка устаревших данных в профиле"""
-        # Оставляем данные за последние 24 часа
-        cutoff_time = current_time - 86400  # 24 часа
+        cutoff_time = current_time - 86400
 
-        # Очистка временных рядов (для deque используем создание нового)
         if 'packet_sizes' in profile:
-            # Сохраняем только последние 10000 значений чтобы ограничить память
             if len(profile['packet_sizes']) > 10000:
-                # Преобразуем в список, обрезаем, создаём новый deque
                 old_sizes = list(profile['packet_sizes'])
                 profile['packet_sizes'] = deque(old_sizes[-5000:], maxlen=10000)
 
@@ -7678,9 +7234,7 @@ class BaselineProfiler:
             old_intervals = list(profile['packet_intervals'])
             profile['packet_intervals'] = deque(old_intervals[-2500:], maxlen=5000)
 
-        # Очистка set'ов уникальных адресов (оставляем последние 10000)
         if 'unique_destinations' in profile and len(profile['unique_destinations']) > 10000:
-            # Конвертируем в список, берём последние 5000
             dest_list = list(profile['unique_destinations'])
             profile['unique_destinations'] = set(dest_list[-5000:])
 
@@ -7688,9 +7242,7 @@ class BaselineProfiler:
             src_list = list(profile['unique_sources'])
             profile['unique_sources'] = set(src_list[-5000:])
 
-        # Ограничиваем размер словарей счётчиков
         if 'ports' in profile and len(profile['ports']) > 1000:
-            # Оставляем топ-500 портов по частоте
             sorted_ports = sorted(profile['ports'].items(), key=lambda x: x[1], reverse=True)
             profile['ports'] = defaultdict(int, dict(sorted_ports[:500]))
 
@@ -7702,22 +7254,19 @@ class BaselineProfiler:
                   dst_ip: str = '', protocol: int = 0, tcp_flags: int = 0) -> float:
         """Получение оценки аномальности (исправлено - безопасный кэш)"""
 
-        # Проверка кэша с безопасным доступом
         cache_key = f"{device}_score"
-        cached = self._cached_stats.get(cache_key)  # ← ИСПОЛЬЗУЕМ .get()
+        cached = self._cached_stats.get(cache_key)
 
         if cached is not None:
             last_update = self._last_cache_update.get(device, 0)
             if time.time() - last_update < self._cache_ttl:
                 return self._calculate_score_fast(device, size, port, entropy, dst_ip, cached)
 
-        # Полное вычисление
         with self._profile_lock:
             p = self.profiles.get(device)
             if not p or p['total_packets'] < 10:
                 return 0.3
 
-            # Копируем только необходимые данные
             profile_snapshot = {
                 'packet_sizes': list(p['packet_sizes']),
                 'ports': dict(p['ports']),
@@ -7729,11 +7278,9 @@ class BaselineProfiler:
                 'daily_activity': dict(p['daily_activity'])
             }
 
-        # Вычисление вне блокировки
         score = self._calculate_score_full(device, size, port, entropy, dst_ip,
                                            protocol, profile_snapshot)
 
-        # Кэширование снапшота
         self._cached_stats[cache_key] = profile_snapshot
         self._last_cache_update[device] = time.time()
 
@@ -7745,16 +7292,14 @@ class BaselineProfiler:
         scores = []
         weights = []
 
-        # Размер пакета
         if cached.get('packet_sizes'):
             packet_sizes = cached['packet_sizes']
             if packet_sizes:
                 mean = sum(packet_sizes) / len(packet_sizes)
                 if mean > 0:
-                    # Используем стандартное отклонение если возможно
                     if len(packet_sizes) > 1:
                         variance = sum((s - mean) ** 2 for s in packet_sizes) / len(packet_sizes)
-                        std = max(mean * 0.1, math.sqrt(variance))  # минимум 10% от среднего
+                        std = max(mean * 0.1, math.sqrt(variance))
                     else:
                         std = mean * 0.5
 
@@ -7762,7 +7307,6 @@ class BaselineProfiler:
                     scores.append(min(1.0, z_score))
                     weights.append(0.15)
 
-        # Энтропия
         if cached.get('entropy'):
             entropies = cached['entropy']
             if entropies:
@@ -7778,18 +7322,15 @@ class BaselineProfiler:
                     scores.append(min(1.0, z_ent))
                     weights.append(0.15)
 
-        # Новые направления
         if dst_ip and cached.get('unique_destinations'):
             unique_dests = cached['unique_destinations']
             is_new = dst_ip not in unique_dests
             scores.append(0.7 if is_new else 0.0)
             weights.append(0.15)
 
-        # Защита от пустых списков
         if not scores or not weights:
             return 0.3
 
-        # Безопасное вычисление взвешенного среднего
         total_weight = sum(weights)
         if total_weight > 0:
             return sum(s * w for s, w in zip(scores, weights)) / total_weight
@@ -7804,7 +7345,6 @@ class BaselineProfiler:
         weights = []
         now = datetime.now()
 
-        # 1. Размер пакета (вес 0.12)
         if profile['packet_sizes']:
             sizes = profile['packet_sizes']
             mean = sum(sizes) / len(sizes)
@@ -7814,14 +7354,12 @@ class BaselineProfiler:
             scores.append(min(1.0, z_score))
             weights.append(0.12)
 
-        # 2. Порт назначения (вес 0.12)
         if profile['ports']:
             total = sum(profile['ports'].values())
             freq = profile['ports'].get(port, 0) / total if total > 0 else 0
             scores.append(1.0 - min(1.0, freq * 5))
             weights.append(0.12)
 
-        # 3. Энтропия (вес 0.12)
         if profile['entropy']:
             entropies = profile['entropy']
             mean_e = sum(entropies) / len(entropies)
@@ -7831,7 +7369,6 @@ class BaselineProfiler:
             scores.append(min(1.0, z_ent))
             weights.append(0.12)
 
-        # 4. Время суток (вес 0.20)
         current_hour_activity = profile['hourly_activity'].get(now.hour, 0)
         if profile['hourly_activity']:
             avg_hourly = sum(profile['hourly_activity'].values()) / len(profile['hourly_activity'])
@@ -7842,20 +7379,17 @@ class BaselineProfiler:
                 scores.append(0.0)
             weights.append(0.20)
 
-        # 5. Новые направления (вес 0.15)
         if dst_ip and profile['unique_destinations']:
             is_new = dst_ip not in profile['unique_destinations']
             scores.append(0.7 if is_new else 0.0)
             weights.append(0.15)
 
-        # 6. Необычный протокол (вес 0.10)
         if protocol and profile['protocols']:
             total_proto = sum(profile['protocols'].values())
             proto_freq = profile['protocols'].get(protocol, 0) / total_proto if total_proto > 0 else 0
             scores.append(1.0 - min(1.0, proto_freq * 10))
             weights.append(0.10)
 
-        # 7. Интервалы между пакетами (вес 0.10)
         if profile['packet_intervals']:
             intervals = profile['packet_intervals']
             if intervals:
@@ -7868,7 +7402,6 @@ class BaselineProfiler:
                     scores.append(0.1)
                 weights.append(0.10)
 
-        # 8. День недели (вес 0.09)
         if len(profile['daily_activity']) > 2:
             current_day_activity = profile['daily_activity'].get(now.weekday(), 0)
             avg_daily = sum(profile['daily_activity'].values()) / len(profile['daily_activity'])
@@ -7890,7 +7423,6 @@ class BaselineProfiler:
             if device in self.profiles:
                 p = self.profiles[device]
 
-                # Создаём копию для безопасного доступа извне
                 return {
                     'total_packets': p['total_packets'],
                     'total_bytes': p['total_bytes'],
@@ -7936,9 +7468,6 @@ class BaselineProfiler:
                 'total_bytes_mb': round(total_bytes / (1024 * 1024), 2)
             }
 
-# ============================================================
-# ATTACK CHAIN TRACKER
-# ============================================================
 
 class AttackChainTracker:
     """Отслеживание цепочек атак (Kill Chain) с автоматической очисткой и учётом хронологии"""
@@ -7976,7 +7505,6 @@ class AttackChainTracker:
             'Malware': 'execution'
         }
 
-        # Прогрессия стадий (для определения максимальной достигнутой)
         self.stage_progression = {
             'reconnaissance': 1,
             'weaponization': 2,
@@ -8009,8 +7537,8 @@ class AttackChainTracker:
     def _cleanup_loop(self) -> None:
         """Фоновый цикл очистки устаревших цепочек"""
         while self._running:
-            time.sleep(300)  # Каждые 5 минут
-            cleaned = self.cleanup(max_age=3600)  # Удаляем старше 1 часа
+            time.sleep(300)
+            cleaned = self.cleanup(max_age=3600)
             if cleaned > 0:
                 logging.getLogger('SHARD').debug(f"Очищено {cleaned} устаревших цепочек атак")
 
@@ -8048,12 +7576,10 @@ class AttackChainTracker:
             chain['targeted_ports'].add(dst_port)
             chain['total_score'] += score
 
-            # Определение стадии с учётом хронологии
             chain['stage'] = self._determine_stage(chain)
 
             event_count = len(chain['events'])
 
-            # Определение серьёзности и уверенности
             if event_count >= 10:
                 chain['severity'] = 'CRITICAL'
                 chain['confidence'] = 0.95
@@ -8070,7 +7596,6 @@ class AttackChainTracker:
                 chain['severity'] = 'INFO'
                 chain['confidence'] = 0.30
 
-            # Учёт score
             avg_score = chain['total_score'] / event_count
             if avg_score > 0.7:
                 chain['severity'] = 'CRITICAL'
@@ -8092,10 +7617,8 @@ class AttackChainTracker:
         if not chain.get('events'):
             return 'unknown'
 
-        # Сортируем события по времени
         sorted_events = sorted(chain['events'], key=lambda x: x.get('timestamp', 0))
 
-        # Определяем максимальную достигнутую стадию
         max_stage_level = 0
         current_stage = 'reconnaissance'
 
@@ -8108,7 +7631,6 @@ class AttackChainTracker:
                 max_stage_level = stage_level
                 current_stage = stage
 
-        # Приоритетная логика для финальных стадий
         attack_types_in_chain = set(e.get('type', '') for e in sorted_events)
 
         if 'Data Exfiltration' in attack_types_in_chain:
@@ -8155,7 +7677,7 @@ class AttackChainTracker:
         with self._lock:
             now = time.time()
             for ip, chain in self.chains.items():
-                if now - chain['last_seen'] < 3600:  # Активные за последний час
+                if now - chain['last_seen'] < 3600:
                     if severity_order.get(chain['severity'], 0) >= min_level:
                         active.append(self.get_chain(ip))
 
@@ -8195,9 +7717,6 @@ class AttackChainTracker:
             return count
 
 
-# ============================================================
-# LATERAL MOVEMENT DETECTOR
-# ============================================================
 
 class LateralMovementDetector:
     """Обнаружение горизонтального перемещения в сети (оптимизированный)"""
@@ -8206,9 +7725,8 @@ class LateralMovementDetector:
         self.local_networks = local_networks or ['192.168.', '10.', '172.16.', '127.']
         self.internal_connections: Dict[str, Set[str]] = defaultdict(set)
 
-        # Оптимизированное хранение истории
         self.connection_history: deque = deque(maxlen=10000)
-        self._src_index: Dict[str, List[Dict]] = defaultdict(list)  # Индекс по src_ip
+        self._src_index: Dict[str, List[Dict]] = defaultdict(list)
         self._cleanup_counter = 0
         self._cleanup_threshold = 1000
 
@@ -8224,10 +7742,8 @@ class LateralMovementDetector:
         with self._lock:
             now = time.time()
 
-            # Проверка ДО добавления
             is_new_destination = dst_ip not in self.internal_connections[src_ip]
 
-            # Добавление
             self.internal_connections[src_ip].add(dst_ip)
             self.internal_connections[dst_ip].add(src_ip)
 
@@ -8243,16 +7759,14 @@ class LateralMovementDetector:
             self.connection_history.append(conn_data)
             self._src_index[src_ip].append(conn_data)
 
-            # Периодическая очистка индекса
             self._cleanup_counter += 1
             if self._cleanup_counter >= self._cleanup_threshold:
-                self._cleanup_index(now - 3600)  # Удаляем старше часа
+                self._cleanup_index(now - 3600)
                 self._cleanup_counter = 0
 
             if username:
                 self.credential_usage[username][src_ip].add(dst_ip)
 
-            # Быстрый подсчёт недавних соединений через индекс
             recent_count = sum(1 for c in self._src_index[src_ip]
                                if now - c['timestamp'] < 60)
 
@@ -8265,7 +7779,6 @@ class LateralMovementDetector:
                 reasons.append("new_internal_connection")
                 score += 0.25
 
-            # Подозрительные порты
             lateral_ports = {445: 'SMB', 135: 'RPC', 139: 'NetBIOS', 3389: 'RDP',
                              5985: 'WinRM', 5986: 'WinRM_HTTPS', 22: 'SSH'}
 
@@ -8312,15 +7825,12 @@ class LateralMovementDetector:
 
     def _cleanup_index(self, cutoff: float) -> None:
         """Очистка индекса с ограничением размера"""
-        max_index_size = 10000  # Максимальный размер индекса на один IP
+        max_index_size = 10000
 
         for src_ip in list(self._src_index.keys()):
-            # Очистка по времени
             self._src_index[src_ip] = [c for c in self._src_index[src_ip] if c['timestamp'] > cutoff]
 
-            # Ограничение по размеру
             if len(self._src_index[src_ip]) > max_index_size:
-                # Оставляем только последние записи
                 self._src_index[src_ip] = sorted(
                     self._src_index[src_ip],
                     key=lambda x: x['timestamp'],
@@ -8331,9 +7841,6 @@ class LateralMovementDetector:
                 del self._src_index[src_ip]
 
 
-# ============================================================
-# SMART FIREWALL
-# ============================================================
 
 class SmartFirewall(BaseModule):
     """Умный файрвол с градацией ответа"""
@@ -8359,7 +7866,6 @@ class SmartFirewall(BaseModule):
             4: 'block_ip_perm'
         }
 
-        # Отдельные блокировки для избежания deadlock
         self._lock = threading.RLock()
         self._history_lock = threading.RLock()
         self._cleanup_lock = threading.RLock()
@@ -8395,7 +7901,6 @@ class SmartFirewall(BaseModule):
             entry = self.rate_limits[src_ip][dst_port]
             cutoff = now - self.rate_window
 
-            # Очистка старых записей
             while entry and entry[0] < cutoff:
                 entry.popleft()
 
@@ -8435,7 +7940,6 @@ class SmartFirewall(BaseModule):
             return
 
         with self._lock:
-            # Увеличиваем уровень в зависимости от score и severity
             increment = 1
             if severity == 'CRITICAL':
                 increment = 4
@@ -8454,7 +7958,6 @@ class SmartFirewall(BaseModule):
 
             self.action_history[src_ip].append((time.time(), action))
 
-            # Очистка старых записей
             cutoff = time.time() - 3600
             self.action_history[src_ip] = [(t, a) for t, a in self.action_history[src_ip] if t > cutoff]
 
@@ -8467,7 +7970,6 @@ class SmartFirewall(BaseModule):
 
         src_ip = data.get('src_ip', '')
         if src_ip and src_ip not in self.whitelist:
-            # Немедленная блокировка при утечке данных
             self._apply_action(src_ip, 0, 'block_ip_temp', data)
             self.logger.critical(f"🚨 НЕМЕДЛЕННАЯ БЛОКИРОВКА из-за утечки данных: {src_ip}")
 
@@ -8478,7 +7980,6 @@ class SmartFirewall(BaseModule):
 
         if action == 'throttle':
             self.logger.info(f"🐢 Замедление {src_ip}:{dst_port}")
-            # Здесь можно добавить реальное замедление через iptables/Windows Firewall
 
         elif action == 'block_port':
             with self._lock:
@@ -8487,7 +7988,7 @@ class SmartFirewall(BaseModule):
             self.event_bus.publish('firewall.port_blocked', {'ip': src_ip, 'port': dst_port})
 
         elif action == 'block_ip_temp':
-            self.block_ip(src_ip, 1800)  # 30 минут
+            self.block_ip(src_ip, 1800)
             self.event_bus.publish('firewall.blocked', {
                 'ip': src_ip,
                 'duration': 1800,
@@ -8495,7 +7996,7 @@ class SmartFirewall(BaseModule):
             })
 
         elif action == 'block_ip_perm':
-            self.block_ip(src_ip, 86400)  # 24 часа
+            self.block_ip(src_ip, 86400)
             self.event_bus.publish('firewall.blocked', {
                 'ip': src_ip,
                 'duration': 86400,
@@ -8508,18 +8009,15 @@ class SmartFirewall(BaseModule):
         if not ip:
             return False
 
-        # Проверка формата IPv4
         pattern = r'^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$'
         match = re.match(pattern, ip)
         if not match:
             return False
 
-        # Проверка значений октетов
         for octet in match.groups():
             if int(octet) > 255:
                 return False
 
-        # Запрет опасных символов
         dangerous_chars = [';', '&', '|', '$', '`', '(', ')', '<', '>', '\'', '"', '\\', '\n', '\r']
         for char in dangerous_chars:
             if char in ip:
@@ -8536,11 +8034,9 @@ class SmartFirewall(BaseModule):
         if not ip:
             return False
 
-        # Проверка формата
         if not re.match(r'^(\d{1,3}\.){3}\d{1,3}$', ip):
             return False
 
-        # Проверка октетов
         try:
             octets = [int(x) for x in ip.split('.')]
             if any(o > 255 or o < 0 for o in octets):
@@ -8548,7 +8044,6 @@ class SmartFirewall(BaseModule):
         except ValueError:
             return False
 
-        # Запрет опасных символов
         dangerous_chars = [';', '&', '|', '$', '`', '(', ')', '<', '>', '\'', '"', '\\', '\n', '\r', ' ']
         for char in dangerous_chars:
             if char in ip:
@@ -8563,22 +8058,18 @@ class SmartFirewall(BaseModule):
             return False
 
         with self._lock:
-            # Проверка whitelist
             if ip in self.whitelist:
                 self.logger.debug(f"IP {ip} в белом списке, блокировка отменена")
                 return False
 
-            # Проверка существующей блокировки
             if ip in self.blocked_ips:
                 existing_expiry = self.blocked_ips[ip]
                 if time.time() < existing_expiry:
                     self.logger.debug(f"IP {ip} уже заблокирован до {datetime.fromtimestamp(existing_expiry)}")
                     return False
 
-            # Устанавливаем блокировку
             self.blocked_ips[ip] = time.time() + duration
 
-        # Проверяем существование правила в iptables
         if os.name != 'nt':
             check_result = subprocess.run(
                 ['iptables', '-C', 'SHARD_BLOCK', '-s', ip, '-j', 'DROP'],
@@ -8590,7 +8081,6 @@ class SmartFirewall(BaseModule):
                 self.logger.debug(f"Правило iptables для {ip} уже существует")
                 return True
 
-        # Добавляем правило
         try:
             if os.name == 'nt':
                 rule_name = f"SHARD_Block_{ip.replace('.', '_')}"
@@ -8621,7 +8111,6 @@ class SmartFirewall(BaseModule):
         except Exception as e:
             self.logger.error(f"Ошибка блокировки IP {ip}: {e}")
 
-        # Откат при ошибке
         with self._lock:
             if ip in self.blocked_ips:
                 del self.blocked_ips[ip]
@@ -8649,7 +8138,6 @@ class SmartFirewall(BaseModule):
                     check=False
                 )
             else:
-                # Удаляем все правила для этого IP
                 while True:
                     result = subprocess.run(
                         ['iptables', '-D', 'INPUT', '-s', ip, '-j', 'DROP'],
@@ -8718,25 +8206,21 @@ class SmartFirewall(BaseModule):
         if os.name == 'nt':
             return True
 
-        # Проверяем кэш создания цепочки
         if hasattr(self, '_chain_created') and self._chain_created:
             return True
 
         try:
-            # Проверяем существование цепочки
             check = subprocess.run(
                 ['iptables', '-L', 'SHARD_BLOCK'],
                 capture_output=True, timeout=5
             )
 
             if check.returncode != 0:
-                # Создаём цепочку
                 subprocess.run(
                     ['iptables', '-N', 'SHARD_BLOCK'],
                     capture_output=True, timeout=5, check=False
                 )
 
-            # Проверяем правило перехода
             check_jump = subprocess.run(
                 ['iptables', '-C', 'INPUT', '-j', 'SHARD_BLOCK'],
                 capture_output=True, timeout=5
@@ -8762,15 +8246,12 @@ class SmartFirewall(BaseModule):
             time.sleep(60)
             now = time.time()
 
-            # Сначала собираем IP для разблокировки ВНЕ блокировки
             ips_to_unblock = []
 
             with self._lock:
-                # Разблокировка истёкших IP
                 expired = [ip for ip, exp in list(self.blocked_ips.items()) if exp <= now]
                 ips_to_unblock.extend(expired)
 
-                # Снижение уровней угрозы со временем
                 for ip in list(self.action_levels.keys()):
                     if ip in self.action_history:
                         history = self.action_history[ip]
@@ -8778,23 +8259,19 @@ class SmartFirewall(BaseModule):
                             last_action_time = max(t for t, _ in history)
                             time_since_last = now - last_action_time
 
-                            # Снижаем уровень каждые 30 минут бездействия
                             if time_since_last > 1800:
                                 self.action_levels[ip] = max(0, self.action_levels[ip] - 1)
 
-                                # Если уровень стал 0 - удаляем из истории
                                 if self.action_levels[ip] == 0:
                                     del self.action_levels[ip]
                                     if ip in self.action_history:
                                         del self.action_history[ip]
 
-                        # Очистка старых записей в истории
-                        cutoff = now - 7200  # 2 часа
+                        cutoff = now - 7200
                         self.action_history[ip] = [(t, a) for t, a in history if t > cutoff]
                         if not self.action_history[ip]:
                             del self.action_history[ip]
 
-            # Разблокируем IP ВНЕ блокировки
             for ip in ips_to_unblock:
                 self._unblock_ip_internal(ip)
                 try:
@@ -8833,7 +8310,6 @@ class SmartFirewall(BaseModule):
 
         try:
             if os.name == 'nt':
-                # Удаление всех правил SHARD
                 result = subprocess.run(
                     ['netsh', 'advfirewall', 'firewall', 'show', 'rule', 'name=all'],
                     capture_output=True,
@@ -8851,15 +8327,13 @@ class SmartFirewall(BaseModule):
                         )
                         count += 1
             else:
-                # Очистка цепочки SHARD
                 subprocess.run(
                     ['iptables', '-F', 'SHARD_BLOCK'],
                     capture_output=True,
                     timeout=10
                 )
-                count = -1  # Неизвестно точное количество
+                count = -1
 
-            # Очистка внутренних структур
             with self._lock:
                 self.blocked_ips.clear()
                 self.blocked_ports.clear()
@@ -8874,9 +8348,6 @@ class SmartFirewall(BaseModule):
             return 0
 
 
-# ============================================================
-# ALERT EXPLAINER
-# ============================================================
 
 class AlertExplainer:
     """Объяснение алертов на естественном языке"""
@@ -8930,7 +8401,6 @@ class AlertExplainer:
 
         reasons = []
 
-        # Объяснения по типу атаки
         if attack_type == 'Brute Force':
             reasons.append(self.reason_templates['multiple_failures'])
             reasons.append(self.reason_templates['high_frequency'].format(count='10+', seconds='60'))
@@ -8946,7 +8416,6 @@ class AlertExplainer:
             reasons.append(self.reason_templates['dns_tunnel'].format(
                 query_length=alert.get('query_length', 'неизвестно')))
 
-        # Добавление контекстных причин
         if context:
             if context.get('is_night_time'):
                 reasons.append(self.reason_templates['night_time'].format(hour=datetime.now().hour))
@@ -8958,17 +8427,14 @@ class AlertExplainer:
             if context.get('packet_size', 0) > 1400:
                 reasons.append(self.reason_templates['large_packet'].format(size=context['packet_size']))
 
-        # Threat Intelligence
         if alert.get('threat_intel'):
             ti = alert['threat_intel']
             reasons.append(self.reason_templates['threat_intel'].format(
                 sources=', '.join(ti.get('sources', []))))
 
-        # Привилегированная учётка
         if alert.get('is_privileged_account'):
             reasons.append(self.reason_templates['privileged_account'])
 
-        # MITRE ATT&CK
         mitre_id = self.mitre_techniques.get(attack_type, '')
         if mitre_id:
             reasons.append(f"MITRE ATT&CK: {mitre_id}")
@@ -8976,13 +8442,11 @@ class AlertExplainer:
         if not reasons:
             reasons.append(f"Аномальное поведение (score={score:.3f})")
 
-        # Формирование полного объяснения
         explanation = f"🚨 {attack_type} с {src_ip}"
         if dst_port:
             explanation += f":{dst_port}"
         explanation += f".\nПричины: " + "; ".join(reasons)
 
-        # Рекомендация
         explanation += f"\n\nРекомендация: {self._get_recommendation(attack_type, score)}"
 
         return explanation
@@ -9011,9 +8475,6 @@ class AlertExplainer:
         return recommendations.get(attack_type, "Провести дополнительный анализ.")
 
 
-# ============================================================
-# ENCRYPTED TRAFFIC ANALYZER
-# ============================================================
 
 class EncryptedTrafficAnalyzer(BaseModule):
     """Анализ зашифрованного трафика (TLS/JA3/Beaconing) с очисткой сессий"""
@@ -9040,12 +8501,11 @@ class EncryptedTrafficAnalyzer(BaseModule):
         self.beacon_threshold = 0.7
         self._lock = threading.RLock()
 
-        # Параметры очистки сессий
-        self._session_ttl = 3600  # 1 час
+        self._session_ttl = 3600
         self._max_sessions = 10000
         self._cleanup_thread = None
         self._last_cleanup = time.time()
-        self._cleanup_interval = 300  # 5 минут
+        self._cleanup_interval = 300
 
         self.event_bus.subscribe('packet.received', self.on_packet)
 
@@ -9078,7 +8538,6 @@ class EncryptedTrafficAnalyzer(BaseModule):
             now = time.time()
             expired = []
 
-            # Удаляем по TTL
             for session_key, session in self.tls_sessions.items():
                 last_seen = session.get('last_seen', session.get('first_seen', 0))
                 if now - last_seen > self._session_ttl:
@@ -9087,7 +8546,6 @@ class EncryptedTrafficAnalyzer(BaseModule):
             for key in expired:
                 del self.tls_sessions[key]
 
-            # Если всё ещё слишком много - удаляем самые старые (LRU)
             if len(self.tls_sessions) > self._max_sessions:
                 sorted_sessions = sorted(
                     self.tls_sessions.items(),
@@ -9115,7 +8573,6 @@ class EncryptedTrafficAnalyzer(BaseModule):
                 result['timestamp'] = time.time()
                 self.event_bus.publish('encrypted.threat', result)
 
-                # Также публикуем как алерт
                 self.event_bus.publish('alert.detected', {
                     'timestamp': result['timestamp'],
                     'src_ip': result['src_ip'],
@@ -9146,19 +8603,16 @@ class EncryptedTrafficAnalyzer(BaseModule):
             return result
 
         payload = bytes(packet[Raw].load)
-        if len(payload) < 6 or payload[0] != 0x16:  # TLS handshake
+        if len(payload) < 6 or payload[0] != 0x16:
             return result
 
-        # Версия TLS
         result['tls_version'] = f"{payload[1]:02x}{payload[2]:02x}"
 
-        # Устаревшие версии TLS
-        if payload[1] == 0x03 and payload[2] < 0x03:  # TLS < 1.2
+        if payload[1] == 0x03 and payload[2] < 0x03:
             result['is_suspicious'] = True
             result['reasons'].append(f"old_tls_version:{result['tls_version']}")
             result['score'] += 0.2
 
-        # Client Hello (JA3)
         if payload[5] == 0x01:
             ja3 = self._compute_ja3(payload)
             result['ja3'] = ja3
@@ -9171,7 +8625,6 @@ class EncryptedTrafficAnalyzer(BaseModule):
                 result['malware_family'] = name
                 result['severity'] = severity
 
-        # Server Hello (JA3S)
         elif payload[5] == 0x02:
             ja3s = self._compute_ja3s(payload)
             result['ja3s'] = ja3s
@@ -9182,7 +8635,6 @@ class EncryptedTrafficAnalyzer(BaseModule):
                 result['reasons'].append(f"malicious_ja3s:{name}")
                 result['score'] += 0.5
 
-        # Анализ энтропии
         entropy = self._calculate_entropy(payload)
         result['entropy'] = entropy
 
@@ -9191,7 +8643,6 @@ class EncryptedTrafficAnalyzer(BaseModule):
             result['reasons'].append(f"high_entropy:{entropy:.2f}")
             result['score'] += 0.3
 
-        # Обнаружение Beaconing
         beacon_score = self._detect_beaconing(packet)
         if beacon_score > self.beacon_threshold:
             result['is_suspicious'] = True
@@ -9199,11 +8650,9 @@ class EncryptedTrafficAnalyzer(BaseModule):
             result['score'] += 0.4
             result['beacon_score'] = beacon_score
 
-        # Извлечение SNI
         sni = self._extract_sni(payload)
         if sni:
             result['sni'] = sni
-            # Проверка на подозрительный SNI
             if self._is_suspicious_sni(sni):
                 result['is_suspicious'] = True
                 result['reasons'].append(f"suspicious_sni:{sni[:50]}")
@@ -9211,7 +8660,6 @@ class EncryptedTrafficAnalyzer(BaseModule):
 
         result['score'] = min(1.0, result['score'])
 
-        # Определение серьёзности
         if result['score'] > 0.7:
             result['severity'] = 'CRITICAL'
         elif result['score'] > 0.5:
@@ -9285,13 +8733,12 @@ class EncryptedTrafficAnalyzer(BaseModule):
         for b in data:
             freq[b] = freq.get(b, 0) + 1
         entropy = -sum((c / len(data)) * math.log2(c / len(data)) for c in freq.values())
-        return entropy / 8.0  # Нормализация
+        return entropy / 8.0
 
     def _detect_beaconing(self, packet) -> float:
         """Обнаружение C2 beaconing (безопасная проверка слоёв)"""
         from scapy.all import IP
 
-        # Безопасное извлечение IP адресов
         if not packet.haslayer(IP):
             return 0.0
 
@@ -9321,7 +8768,6 @@ class EncryptedTrafficAnalyzer(BaseModule):
             if len(session['timestamps']) < 5:
                 return 0.0
 
-            # Анализ интервалов
             intervals = []
             stamps = list(session['timestamps'])
             for i in range(1, len(stamps)):
@@ -9334,17 +8780,14 @@ class EncryptedTrafficAnalyzer(BaseModule):
 
             mean_interval = sum(intervals) / len(intervals)
 
-            # Защита от деления на ноль
             if mean_interval <= 0:
                 return 0.0
 
             variance = sum((i - mean_interval) ** 2 for i in intervals) / len(intervals)
             cv = (variance ** 0.5) / mean_interval
 
-            # Beaconing характерен низкой вариацией интервалов
             beacon_score = max(0.0, 1.0 - cv)
 
-            # Анализ размеров пакетов
             sizes = list(session['sizes'])
             if len(sizes) > 5:
                 mean_size = sum(sizes) / len(sizes)
@@ -9391,9 +8834,6 @@ class EncryptedTrafficAnalyzer(BaseModule):
         return self._cleanup_old_sessions()
 
 
-# ============================================================
-# WAF (Web Application Firewall)
-# ============================================================
 
 class WebApplicationFirewall(BaseModule):
     """Веб-файрвол для защиты от веб-атак (исправлен - персистентность, безопасные счётчики, увеличен maxlen)"""
@@ -9403,12 +8843,10 @@ class WebApplicationFirewall(BaseModule):
         self.enabled = config.get('waf.enabled', True)
         self.rules = self._load_rules()
 
-        # Персистентное хранение заблокированных IP
         self.blocked_patterns: Set[str] = set()
         self.blocked_file = Path('data/waf_blocked.json')
         self._load_blocked_ips()
 
-        # Увеличиваем maxlen до 200 чтобы не обрезать историю раньше срабатывания лимита 100/60
         self.request_history: Dict[str, deque] = defaultdict(lambda: deque(maxlen=200))
         self._rate_counters: Dict[str, Dict] = {}
         self._lock = threading.RLock()
@@ -9467,7 +8905,6 @@ class WebApplicationFirewall(BaseModule):
     def _check_rate_limit(self, src_ip: str) -> bool:
         """Проверка rate limit (исправлен TOCTOU)"""
         with self._lock:
-            # АТОМАРНАЯ проверка - если уже заблокирован, сразу отказ
             if src_ip in self.blocked_patterns:
                 return False
 
@@ -9475,11 +8912,9 @@ class WebApplicationFirewall(BaseModule):
             now = time.time()
             cutoff = now - WAFThresholds.RATE_LIMIT_WINDOW
 
-            # Точный подсчёт
             exact_count = sum(1 for t in history if t > cutoff)
 
             if exact_count > WAFThresholds.RATE_LIMIT_REQUESTS:
-                # АТОМАРНО добавляем в заблокированные
                 self.blocked_patterns.add(src_ip)
                 alert_to_publish = True
                 alert = {
@@ -9496,7 +8931,6 @@ class WebApplicationFirewall(BaseModule):
 
             history.append(now)
 
-            # Очистка старых записей
             if len(history) > WAFThresholds.MAX_BUFFER_SIZE:
                 self.request_history[src_ip] = deque([t for t in history if t > cutoff],
                                                      maxlen=WAFThresholds.MAX_BUFFER_SIZE)
@@ -9626,9 +9060,6 @@ class WebApplicationFirewall(BaseModule):
             }
 
 
-# ============================================================
-# JA3 FINGERPRINTER
-# ============================================================
 
 class JA3Fingerprinter(BaseModule):
     """JA3 фингерпринтинг для обнаружения вредоносного ПО"""
@@ -9673,7 +9104,6 @@ class JA3Fingerprinter(BaseModule):
 
                 ja3_hash = self._fingerprint(bytes(packet[Raw].load))
                 if ja3_hash:
-                    # Сохраняем в кэш
                     with self._lock:
                         self.ja3_cache[f"{src_ip}:{dst_ip}"] = {
                             'ja3': ja3_hash,
@@ -9681,7 +9111,6 @@ class JA3Fingerprinter(BaseModule):
                             'port': dst_port
                         }
 
-                    # Проверяем на вредоносность
                     is_mal, name, severity = self._is_malicious(ja3_hash)
                     if is_mal:
                         alert = {
@@ -9757,7 +9186,6 @@ class JA3Fingerprinter(BaseModule):
 
                 extensions.append(f"{ext_type:04x}")
 
-                # Извлечение Elliptic Curves (type 0x000a)
                 if ext_type == 0x000a and ext_len >= 2:
                     curves_len = (payload[ext_offset + 4] << 8) + payload[ext_offset + 5]
                     curves = []
@@ -9767,7 +9195,6 @@ class JA3Fingerprinter(BaseModule):
                             curves.append(f"{curve:04x}")
                     elliptic_curves = ','.join(curves)
 
-                # Извлечение EC Point Formats (type 0x000b)
                 if ext_type == 0x000b and ext_len >= 1:
                     formats_len = payload[ext_offset + 4]
                     formats = []
@@ -9813,9 +9240,6 @@ class JA3Fingerprinter(BaseModule):
         self.logger.info(f"Добавлен вредоносный JA3: {name}")
 
 
-# ============================================================
-# DPI (Deep Packet Inspection)
-# ============================================================
 
 class DeepPacketInspector(BaseModule):
     """Глубокий анализ пакетов (HTTP/DNS) с пакетной обработкой"""
@@ -9825,13 +9249,12 @@ class DeepPacketInspector(BaseModule):
         self.http_methods = {'GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS', 'PATCH'}
         self._lock = threading.RLock()
 
-        # Буферы для пакетной обработки
         self._http_buffer: List[Dict] = []
         self._dns_buffer: List[Dict] = []
         self._suspicious_buffer: List[Dict] = []
         self._buffer_lock = threading.RLock()
         self._batch_size = 50
-        self._flush_interval = 1  # секунда
+        self._flush_interval = 1
         self._flush_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="DPI-Flush")
         self._flush_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="DPI-Flush")
         self._last_flush = time.time()
@@ -9847,7 +9270,7 @@ class DeepPacketInspector(BaseModule):
 
     def stop(self) -> None:
         self.running = False
-        self._flush_buffers()  # Сброс при остановке
+        self._flush_buffers()
         if self._flush_thread and self._flush_thread.is_alive():
             self._flush_thread.join(timeout=2)
         self.logger.info("DPI остановлен")
@@ -9872,7 +9295,6 @@ class DeepPacketInspector(BaseModule):
             self._dns_buffer.clear()
             self._suspicious_buffer.clear()
 
-        # Публикация вне блокировки
         for event in http_events:
             self.event_bus.publish('dpi.http', event)
 
@@ -9898,12 +9320,10 @@ class DeepPacketInspector(BaseModule):
             src_ip = data.get('src_ip', 'unknown')
             dst_ip = data.get('dst_ip', 'unknown')
 
-            # HTTP анализ
             if packet.haslayer(TCP) and packet.haslayer(Raw):
                 dport = packet[TCP].dport
                 sport = packet[TCP].sport
 
-                # Проверяем только HTTP порты
                 if dport in [80, 8080, 8000, 8888] or sport in [80, 8080, 8000, 8888]:
                     http_info = self._parse_http(bytes(packet[Raw].load))
                     if http_info:
@@ -9915,13 +9335,11 @@ class DeepPacketInspector(BaseModule):
                         with self._buffer_lock:
                             self._http_buffer.append(http_info)
 
-                        # Проверка на подозрительные HTTP запросы
                         suspicious = self._check_suspicious_http_fast(http_info)
                         if suspicious:
                             with self._buffer_lock:
                                 self._suspicious_buffer.append(suspicious)
 
-            # DNS анализ
             elif packet.haslayer(UDP) and packet.haslayer(Raw):
                 sport = packet[UDP].sport
                 dport = packet[UDP].dport
@@ -9936,11 +9354,9 @@ class DeepPacketInspector(BaseModule):
                         with self._buffer_lock:
                             self._dns_buffer.append(dns_info)
 
-            # Проверка необходимости сброса
             with self._buffer_lock:
                 total_buffered = len(self._http_buffer) + len(self._dns_buffer)
                 if total_buffered >= self._batch_size:
-                    # Запускаем сброс в отдельном потоке чтобы не блокировать
                     self._flush_executor.submit(self._flush_buffers)
 
         except Exception as e:
@@ -9955,7 +9371,6 @@ class DeepPacketInspector(BaseModule):
         suspicious = False
         reasons = []
 
-        # Подозрительные URI (быстрая проверка)
         suspicious_uris = [
             '/wp-admin', '/administrator', '/phpmyadmin', '/.env',
             '/config.php', '/wp-config.php', '/.git/', '/.svn/',
@@ -9967,9 +9382,8 @@ class DeepPacketInspector(BaseModule):
             if sus_uri in uri_lower:
                 suspicious = True
                 reasons.append(f"suspicious_uri:{sus_uri}")
-                break  # Достаточно одного совпадения
+                break
 
-        # Подозрительные User-Agent
         if not suspicious:
             suspicious_uas = ['sqlmap', 'nmap', 'nikto', 'burp', 'wpscan', 'gobuster',
                               'dirbuster', 'hydra', 'masscan', 'zgrab']
@@ -9980,7 +9394,6 @@ class DeepPacketInspector(BaseModule):
                     reasons.append(f"suspicious_user_agent:{sus_ua}")
                     break
 
-        # Подозрительные методы
         if not suspicious and method in ['PUT', 'DELETE', 'OPTIONS', 'TRACE', 'CONNECT']:
             suspicious = True
             reasons.append(f"suspicious_method:{method}")
@@ -10006,11 +9419,9 @@ class DeepPacketInspector(BaseModule):
 
             result = {}
 
-            # Первая строка (запрос или ответ)
             if lines and lines[0]:
                 first_line = lines[0]
 
-                # HTTP Request
                 if any(first_line.startswith(m) for m in self.http_methods):
                     parts = first_line.split(' ')
                     result['type'] = 'request'
@@ -10018,7 +9429,6 @@ class DeepPacketInspector(BaseModule):
                     result['uri'] = parts[1] if len(parts) > 1 else '/'
                     result['version'] = parts[2] if len(parts) > 2 else 'HTTP/1.1'
 
-                # HTTP Response
                 elif first_line.startswith('HTTP/'):
                     parts = first_line.split(' ')
                     result['type'] = 'response'
@@ -10026,7 +9436,6 @@ class DeepPacketInspector(BaseModule):
                     result['status_code'] = int(parts[1]) if len(parts) > 1 else 0
                     result['status_text'] = ' '.join(parts[2:]) if len(parts) > 2 else ''
 
-            # Заголовки
             headers = {}
             for line in lines[1:]:
                 if ': ' in line:
@@ -10037,7 +9446,6 @@ class DeepPacketInspector(BaseModule):
 
             result['headers'] = headers
 
-            # Извлечение важных заголовков
             result['host'] = headers.get('host', '')
             result['user_agent'] = headers.get('user-agent', '')
             result['content_type'] = headers.get('content-type', '')
@@ -10048,10 +9456,9 @@ class DeepPacketInspector(BaseModule):
             except ValueError:
                 result['content_length'] = 0
 
-            # Тело запроса (если есть)
             body_start = text.find('\r\n\r\n')
             if body_start > 0:
-                result['body'] = text[body_start + 4:][:1000]  # Ограничиваем размер
+                result['body'] = text[body_start + 4:][:1000]
 
             return result
 
@@ -10064,7 +9471,6 @@ class DeepPacketInspector(BaseModule):
             return None
 
         try:
-            # Заголовок DNS
             transaction_id = (payload[0] << 8) + payload[1]
             flags = (payload[2] << 8) + payload[3]
             qdcount = (payload[4] << 8) + payload[5]
@@ -10080,7 +9486,6 @@ class DeepPacketInspector(BaseModule):
                 'ancount': ancount
             }
 
-            # Извлечение запроса (упрощённо)
             if qdcount > 0 and len(payload) > 12:
                 try:
                     idx = 12
@@ -10097,7 +9502,6 @@ class DeepPacketInspector(BaseModule):
                     if query_parts:
                         result['query'] = '.'.join(query_parts)
 
-                        # Тип запроса
                         if idx + 2 <= len(payload):
                             qtype = (payload[idx] << 8) + payload[idx + 1]
                             qtype_map = {1: 'A', 2: 'NS', 5: 'CNAME', 15: 'MX', 16: 'TXT', 28: 'AAAA'}
@@ -10126,9 +9530,6 @@ class DeepPacketInspector(BaseModule):
         """Принудительный сброс буферов"""
         self._flush_buffers()
 
-# ============================================================
-# OT/IoT SECURITY
-# ============================================================
 
 class OTIoTSecurity(BaseModule):
     """Безопасность OT/IoT устройств"""
@@ -10266,9 +9667,6 @@ class OTIoTSecurity(BaseModule):
             }
 
 
-# ============================================================
-# GNN С БЕЗОПАСНЫМ ИМПОРТОМ
-# ============================================================
 
 class ThreatGNN:
     """Графовая нейронная сеть для анализа угроз"""
@@ -10342,7 +9740,6 @@ class ThreatGNN:
         if num_nodes == 0:
             return {}
 
-        # Построение НАПРАВЛЕННОГО графа
         out_edges = {i: set() for i in range(num_nodes)}
         in_edges = {i: set() for i in range(num_nodes)}
 
@@ -10351,7 +9748,6 @@ class ThreatGNN:
                 out_edges[src].add(dst)
                 in_edges[dst].add(src)
 
-        # PageRank с правильной направленностью
         scores = {i: 1.0 / num_nodes for i in range(num_nodes)}
         damping = 0.85
         epsilon = 1e-8
@@ -10363,48 +9759,37 @@ class ThreatGNN:
             total_score = 0.0
 
             for node in range(num_nodes):
-                # Базовая вероятность (телепортация)
                 rank = (1 - damping) / num_nodes
 
-                # Вклад от ВХОДЯЩИХ рёбер (правильно для PageRank)
                 for in_node in in_edges[node]:
                     out_degree = len(out_edges[in_node])
                     if out_degree > 0:
                         rank += damping * scores[in_node] / out_degree
                     else:
-                        # Висячие узлы - равномерно распределяем по всем
                         rank += damping * scores[in_node] / num_nodes
 
                 new_scores[node] = rank
                 total_score += rank
                 max_diff = max(max_diff, abs(new_scores[node] - scores[node]))
 
-            # Нормализация для избежания дрейфа
             if total_score > 0:
                 for node in new_scores:
                     new_scores[node] /= total_score
 
             scores = new_scores
 
-            # Ранний выход при сходимости
             if max_diff < epsilon:
                 break
 
-        # Усиление score для узлов с атаками (используем node_features если есть)
         for i in range(num_nodes):
-            # Если узел имеет признаки атаки (высокий score в features)
             if i < len(node_features) and isinstance(node_features[i], (list, tuple)):
-                # Предполагаем что последний элемент - признак атаки
                 attack_score = float(node_features[i][-1]) if node_features[i] else 0.0
                 if attack_score > 0.5:
-                    scores[i] = min(1.0, scores[i] * 1.5)  # Усиливаем на 50%
+                    scores[i] = min(1.0, scores[i] * 1.5)
 
         return {str(k): v for k, v in scores.items()}
 
 
-# ============================================================
-# SELF-SUPERVISED ENCODER
-# ============================================================
 
 class SelfSupervisedEncoder:
     """Самообучающийся энкодер для обнаружения аномалий (исправлен - Welford, проверки None)"""
@@ -10418,7 +9803,6 @@ class SelfSupervisedEncoder:
         self.use_torch = False
         self.training_buffer: deque = deque(maxlen=1000)
 
-        # Инкрементальная статистика (алгоритм Welford)
         self._loss_count = 0
         self._loss_mean = 0.0
         self._loss_m2 = 0.0
@@ -10436,7 +9820,6 @@ class SelfSupervisedEncoder:
             class _Encoder(torch_nn.Module):
                 def __init__(self, in_dim, hid_dim, lat_dim):
                     super().__init__()
-                    # Энкодер
                     self.encoder = torch_nn.Sequential(
                         torch_nn.Linear(in_dim, hid_dim),
                         torch_nn.BatchNorm1d(hid_dim),
@@ -10448,7 +9831,6 @@ class SelfSupervisedEncoder:
                         torch_nn.ReLU(),
                         torch_nn.Linear(hid_dim // 2, lat_dim),
                     )
-                    # Декодер
                     self.decoder = torch_nn.Sequential(
                         torch_nn.Linear(lat_dim, hid_dim // 2),
                         torch_nn.ReLU(),
@@ -10459,7 +9841,6 @@ class SelfSupervisedEncoder:
                         torch_nn.ReLU(),
                         torch_nn.Linear(hid_dim, in_dim),
                     )
-                    # Проектор для contrastive learning
                     self.projector = torch_nn.Sequential(
                         torch_nn.Linear(lat_dim, lat_dim // 2),
                         torch_nn.ReLU(),
@@ -10494,26 +9875,20 @@ class SelfSupervisedEncoder:
 
             X = torch.tensor(batch, dtype=torch.float32)
 
-            # ========== ИСПРАВЛЕНО: ПРОВЕРКА РАЗМЕРА БАТЧА ==========
-            # Если батч размера 1, временно переводим модель в eval mode для BatchNorm
             batch_size = X.shape[0]
             if batch_size == 1:
                 self.model.eval()
-            # =====================================================
 
-            # Добавляем шум для denoising autoencoder
             noise = torch.randn_like(X) * 0.1
             X_noisy = X + noise
 
             latent, reconstructed, projection = self.model(X_noisy)
 
-            # Reconstruction loss
             if hasattr(F, 'mse_loss'):
                 recon_loss = F.mse_loss(reconstructed, X)
             else:
                 recon_loss = ((reconstructed - X) ** 2).mean()
 
-            # Дополнительный loss для латентного пространства
             if batch_size > 1:
                 if hasattr(F, 'normalize'):
                     proj_norm = F.normalize(projection, dim=1)
@@ -10531,7 +9906,6 @@ class SelfSupervisedEncoder:
             total_loss.backward()
             self.optimizer.step()
 
-            # Возвращаем модель в training mode
             if batch_size == 1:
                 self.model.train()
 
@@ -10570,7 +9944,6 @@ class SelfSupervisedEncoder:
                 else:
                     recon_error = ((reconstructed - X) ** 2).mean().item()
 
-                # Используем инкрементальную статистику
                 with self._loss_lock:
                     if self._loss_count > 10:
                         mean_loss = self._loss_mean
@@ -10579,7 +9952,6 @@ class SelfSupervisedEncoder:
 
                         if std_loss > 1e-8:
                             z_score = (recon_error - mean_loss) / std_loss
-                            # Сигмоидная нормализация
                             score = 1.0 / (1.0 + math.exp(-z_score))
                         else:
                             score = min(1.0, recon_error / max(0.001, mean_loss))
@@ -10626,9 +9998,6 @@ class SelfSupervisedEncoder:
             self._loss_m2 = 0.0
             self.training_buffer.clear()
 
-# ============================================================
-# MACHINE LEARNING ENGINE
-# ============================================================
 class MachineLearningEngine(BaseModule):
     """ML движок с дообучением и Deep Learning моделями (LSTM + VAE + Transformer)"""
 
@@ -10656,7 +10025,6 @@ class MachineLearningEngine(BaseModule):
         self.ssl_model = SelfSupervisedEncoder(input_dim=156)
         self.gnn_model = ThreatGNN()
 
-        # Deep Learning Engine
         self.dl_engine = None
         if self.use_deep_learning:
             try:
@@ -10667,7 +10035,6 @@ class MachineLearningEngine(BaseModule):
                 self.logger.warning("shard_dl_models не найден, Deep Learning отключен")
                 self.use_deep_learning = False
 
-        # Автосохранение (ТОЛЬКО ОДИН РАЗ)
         self._autosave_interval = 300
         self._last_save = time.time()
         self._save_thread = None
@@ -10676,15 +10043,12 @@ class MachineLearningEngine(BaseModule):
         self._samples_since_init = 0
         self._save_lock = threading.RLock()
 
-        # Буфер для последовательностей (ТОЛЬКО ОДИН РАЗ)
         self.sequence_buffer: Dict[str, deque] = defaultdict(lambda: deque(maxlen=100))
 
-        # Счётчик для GNN
         self._gnn_packet_counter = 0
         self._last_dst_ip = "0.0.0.0"
         self._last_dst_port = 0
 
-        # Ссылки на улучшения
         self.temporal_gnn = None
         self.contrastive_vae = None
         self.rl_defense = None
@@ -11041,21 +10405,17 @@ class MachineLearningEngine(BaseModule):
         if features:
             src_ip = data.get('src_ip', 'unknown')
 
-            # ========== ВЫЗОВ ADAPTIVE LEARNING ==========
             if hasattr(self, 'adaptive_engine') and self.adaptive_engine:
                 adaptive_result = self.adaptive_engine.process_packet(src_ip, features)
 
-                # Отладка — каждый 50-й пакет
                 updates = self.adaptive_engine.baseline_profiler.stats['total_updates']
                 if updates % 50 == 0:
                     print(f"📊 [Adaptive] {src_ip}: score={adaptive_result['overall_score']:.3f}, "
                           f"anomaly={adaptive_result['is_anomaly']}, samples={updates}")
 
-                # Если Adaptive Learning обнаружил аномалию
                 if adaptive_result['is_anomaly']:
                     self.logger.info(
                         f"🔔 Adaptive Learning detected anomaly: score={adaptive_result['overall_score']:.3f}")
-            # =============================================
 
             prediction = self._predict(features, src_ip)
 
@@ -11069,7 +10429,6 @@ class MachineLearningEngine(BaseModule):
                     prediction['score'] = max(prediction['score'], ssl_score)
                     prediction['ssl_anomaly'] = True
 
-                # Если Adaptive Learning тоже обнаружил аномалию — повышаем score
                 if hasattr(self, 'adaptive_engine') and self.adaptive_engine:
                     if adaptive_result.get('is_anomaly', False):
                         prediction['score'] = max(prediction['score'], adaptive_result['overall_score'])
@@ -11105,7 +10464,6 @@ class MachineLearningEngine(BaseModule):
             if self.scaler and self._is_scaler_fitted():
                 X = self.scaler.transform(X)
 
-            # Isolation Forest
             if 'if' in self.models:
                 if_score = float(self.models['if'].score_samples(X)[0])
                 normalized_score = 1.0 - (if_score + 0.5)
@@ -11124,25 +10482,20 @@ class MachineLearningEngine(BaseModule):
                 if not self._model_reliable:
                     result['confidence'] *= 0.5
 
-            # ========== ИНТЕГРАЦИЯ С УЛУЧШЕНИЯМИ ==========
 
-            # Temporal GNN - анализ графа угроз
             if hasattr(self, 'temporal_gnn') and self.temporal_gnn is not None:
                 try:
-                    # Обновляем граф каждые 50 пакетов для производительности
                     self._gnn_packet_counter = getattr(self, '_gnn_packet_counter', 0) + 1
 
                     if self._gnn_packet_counter % 50 == 0:
-                        # Получаем данные о соединении из контекста (если доступны)
                         src_ip = device
                         dst_ip = getattr(self, '_last_dst_ip', '0.0.0.0')
                         dst_port = getattr(self, '_last_dst_port', 0)
-                        protocol = 6  # TCP по умолчанию
+                        protocol = 6
                         bytes_count = int(features[151]) if len(features) > 151 else 1000
 
                         self.temporal_gnn.add_connection(src_ip, dst_ip, 0, dst_port, protocol, bytes_count, 1)
 
-                        # Анализируем граф каждые 500 пакетов
                         if self._gnn_packet_counter % 500 == 0:
                             gnn_result = self.temporal_gnn.process_time_window()
                             if gnn_result and gnn_result.get('is_graph_anomaly'):
@@ -11161,7 +10514,6 @@ class MachineLearningEngine(BaseModule):
                 except Exception as e:
                     self.logger.debug(f"GNN prediction error: {e}")
 
-            # Contrastive VAE - анализ вектора признаков
             if hasattr(self, 'contrastive_vae') and self.contrastive_vae is not None:
                 try:
                     vae_result = self.contrastive_vae.predict_anomaly(features)
@@ -11180,7 +10532,6 @@ class MachineLearningEngine(BaseModule):
                 except Exception as e:
                     self.logger.debug(f"VAE prediction error: {e}")
 
-            # Определение типа атаки
             if result['is_attack']:
                 if 'xgb' in self.models and self.use_xgboost:
                     try:
@@ -11200,7 +10551,6 @@ class MachineLearningEngine(BaseModule):
                 else:
                     result['attack_type'] = 'Anomaly'
 
-                # Если обнаружено через GNN или VAE, уточняем тип атаки
                 if result.get('gnn_detected') and not result.get('vae_detected'):
                     if result['attack_type'] == 'Anomaly':
                         result['attack_type'] = 'Lateral Movement'
@@ -11208,7 +10558,6 @@ class MachineLearningEngine(BaseModule):
                     if result['attack_type'] == 'Anomaly':
                         result['attack_type'] = 'Data Exfiltration'
 
-                # SHAP объяснение
                 if self.explain_with_shap and self.shap_explainer:
                     try:
                         shap_values = self.shap_explainer.shap_values(X)
@@ -11227,7 +10576,6 @@ class MachineLearningEngine(BaseModule):
                     except Exception as e:
                         self.logger.debug(f"SHAP error: {e}")
 
-            # ========== RL DEFENSE - РЕКОМЕНДАЦИЯ ПО ЗАЩИТЕ ==========
             if hasattr(self, 'rl_defense') and self.rl_defense is not None and result['is_attack']:
                 try:
                     alert_state = {
@@ -11281,7 +10629,6 @@ class MachineLearningEngine(BaseModule):
             import numpy as np
             scaler_fitted = self._is_scaler_fitted()
 
-            # Isolation Forest
             if 'if' in self.models and len(normal) >= 50:
                 X_normal = np.array(normal)
 
@@ -11300,11 +10647,9 @@ class MachineLearningEngine(BaseModule):
                     self.models['if'].fit(X_normal)
                     self.logger.info(f"   IF: инициализирован на {len(normal)} сэмплах")
 
-            # SSL модель
             for features in normal[:100]:
                 self.ssl_model.train_step([features])
 
-            # XGBoost
             if 'xgb' in self.models and len(attacks) >= 10:
                 X_attacks = np.array([a[0] for a in attacks])
                 y_attacks = np.array([self._attack_to_id(a[1]) for a in attacks])
@@ -11337,7 +10682,6 @@ class MachineLearningEngine(BaseModule):
                     self.models['xgb'].fit(X_attacks, y_attacks)
                     self.logger.info(f"   XGBoost: инициализирован и обучен на {len(attacks)} сэмплах")
 
-            # Отметка о надёжности
             if len(normal) >= 500:
                 self._model_reliable = True
                 self.logger.info("Модель помечена как надёжная")
@@ -11396,11 +10740,7 @@ class MachineLearningEngine(BaseModule):
             self.attack_buffer.clear()
         self.logger.info("Буферы обучения очищены")
 
-# ============================================================
 
-# ============================================================
-# THREAT GRAPH NETWORK
-# ============================================================
 
 class ThreatGraphNetwork:
     """Графовая модель угроз для анализа связей (исправлен - правильный PageRank, инкрементальное обновление)"""
@@ -11410,14 +10750,13 @@ class ThreatGraphNetwork:
         self.risk_scores: Dict[str, float] = {}
         self.communities: Dict[str, int] = {}
         self._lock = threading.RLock()
-        self._dirty_nodes: Set[str] = set()  # Изменённые узлы для инкрементального обновления
+        self._dirty_nodes: Set[str] = set()
         self._last_full_propagation = 0
-        self._full_propagation_interval = 300  # 5 минут
+        self._full_propagation_interval = 300
 
     def add_edge(self, src: str, dst: str, weight: float = 1.0) -> None:
         """Добавление направленной связи между узлами"""
         with self._lock:
-            # Инициализация узлов
             for ip in (src, dst):
                 if ip not in self.graph:
                     self.graph[ip] = {
@@ -11431,7 +10770,6 @@ class ThreatGraphNetwork:
                         'connections': 0
                     }
 
-            # Добавление направленных рёбер
             if dst not in self.graph[src]['out_edges']:
                 self.graph[src]['out_edges'][dst] = weight
             else:
@@ -11447,7 +10785,6 @@ class ThreatGraphNetwork:
             self.graph[src]['connections'] += 1
             self.graph[dst]['connections'] += 1
 
-            # Помечаем узлы как изменённые
             self._dirty_nodes.add(src)
             self._dirty_nodes.add(dst)
 
@@ -11464,7 +10801,6 @@ class ThreatGraphNetwork:
                         self.graph[ip]['attack_types'] = defaultdict(int)
                     self.graph[ip]['attack_types'][attack_type] += 1
 
-                # Помечаем узел и его соседей как "грязные"
                 self._dirty_nodes.add(ip)
                 for neighbor in self.graph[ip]['out_edges']:
                     self._dirty_nodes.add(neighbor)
@@ -11476,7 +10812,6 @@ class ThreatGraphNetwork:
         with self._lock:
             now = time.time()
 
-            # Инкрементальное обновление только изменённых узлов
             if not force_full and self._dirty_nodes and len(self._dirty_nodes) < len(self.graph) * 0.3:
                 self._propagate_incremental(iterations)
             else:
@@ -11500,7 +10835,6 @@ class ThreatGraphNetwork:
                 data = self.graph[ip]
                 new_scores[ip] = data['risk'] * (1 - damping)
 
-                # Вклад от входящих рёбер
                 if data['in_edges']:
                     total_weight = sum(data['in_edges'].values())
                     if total_weight > 0:
@@ -11509,13 +10843,11 @@ class ThreatGraphNetwork:
                             neighbor_risk += self.risk_scores.get(neighbor, 0) * weight
                         new_scores[ip] += damping * (neighbor_risk / total_weight)
 
-            # Обновляем только изменённые узлы
             for ip, score in new_scores.items():
                 self.risk_scores[ip] = score
 
     def _propagate_full(self, iterations: int) -> None:
         """Полное распространение риска (PageRank)"""
-        # Инициализация
         for ip, data in self.graph.items():
             self.risk_scores[ip] = data['risk']
 
@@ -11525,10 +10857,8 @@ class ThreatGraphNetwork:
             new_scores = {}
 
             for ip, data in self.graph.items():
-                # Базовый риск
                 new_scores[ip] = data['risk'] * (1 - damping)
 
-                # Вклад от входящих рёбер
                 if data['in_edges']:
                     total_weight = sum(data['in_edges'].values())
                     if total_weight > 0:
@@ -11545,7 +10875,6 @@ class ThreatGraphNetwork:
         if num_nodes == 0:
             return {}
 
-        # Построение НАПРАВЛЕННОГО графа
         out_edges = {i: set() for i in range(num_nodes)}
         in_edges = {i: set() for i in range(num_nodes)}
 
@@ -11554,7 +10883,6 @@ class ThreatGraphNetwork:
                 out_edges[src].add(dst)
                 in_edges[dst].add(src)
 
-        # PageRank с правильной направленностью
         scores = {i: 1.0 / num_nodes for i in range(num_nodes)}
         damping = 0.85
         epsilon = 1e-8
@@ -11566,10 +10894,8 @@ class ThreatGraphNetwork:
             total_score = 0.0
 
             for node in range(num_nodes):
-                # Базовая вероятность (телепортация)
                 rank = (1 - damping) / num_nodes
 
-                # Вклад от ВХОДЯЩИХ рёбер
                 for in_node in in_edges[node]:
                     out_degree = len(out_edges[in_node])
                     if out_degree > 0:
@@ -11581,7 +10907,6 @@ class ThreatGraphNetwork:
                 total_score += rank
                 max_diff = max(max_diff, abs(new_scores[node] - scores[node]))
 
-            # Нормализация
             if total_score > 0:
                 for node in new_scores:
                     new_scores[node] /= total_score
@@ -11600,7 +10925,6 @@ class ThreatGraphNetwork:
             if not nodes:
                 return {}
 
-            # Инициализация - каждый узел в своём сообществе
             for i, node in enumerate(nodes):
                 self.communities[node] = i
 
@@ -11615,7 +10939,6 @@ class ThreatGraphNetwork:
                     community_weights = defaultdict(float)
                     current_community = self.communities[node]
 
-                    # Учитываем и входящие и исходящие рёбра
                     for neighbor, weight in self.graph[node]['out_edges'].items():
                         neighbor_comm = self.communities.get(neighbor)
                         if neighbor_comm is not None:
@@ -11697,9 +11020,6 @@ class ThreatGraphNetwork:
 
             return len(expired)
 
-# ============================================================
-# ADVANCED LEARNER
-# ============================================================
 
 class AdvancedLearner(BaseModule):
     """Продвинутое обучение (Baseline + ThreatGraph)"""
@@ -11712,7 +11032,7 @@ class AdvancedLearner(BaseModule):
         self._lock = threading.RLock()
 
         self._packet_counter = 0
-        self._sample_rate = 10  # Анализировать каждый 10-й пакет
+        self._sample_rate = 10
 
         self.event_bus.subscribe('packet.received', self.on_packet)
         self.event_bus.subscribe('alert.detected', self.on_alert)
@@ -11730,7 +11050,7 @@ class AdvancedLearner(BaseModule):
         """Обработка пакета (с сэмплированием для производительности)"""
         self._packet_counter += 1
         if self._packet_counter % self._sample_rate != 0:
-            return  # Пропускаем для производительности
+            return
 
         src_ip = data.get('src_ip', '')
         dst_ip = data.get('dst_ip', '')
@@ -11743,7 +11063,6 @@ class AdvancedLearner(BaseModule):
                 size = len(packet)
                 entropy = self._calculate_packet_entropy(packet)
 
-                # Обновление baseline
                 self.baseline.update(
                     device=src_ip,
                     size=size,
@@ -11753,11 +11072,9 @@ class AdvancedLearner(BaseModule):
                     src_ip=src_ip
                 )
 
-                # Обновление графа угроз
                 if dst_ip:
                     self.threat_graph.add_edge(src_ip, dst_ip)
 
-                # Проверка аномалий baseline
                 score = self.baseline.get_score(src_ip, size, dst_port, entropy, dst_ip)
 
                 if score > self.anomaly_threshold:
@@ -11817,15 +11134,12 @@ class AdvancedLearner(BaseModule):
     def _graph_analysis_loop(self) -> None:
         """Периодический анализ графа"""
         while self.running:
-            time.sleep(300)  # Каждые 5 минут
+            time.sleep(300)
 
-            # Распространение риска
             risk_scores = self.threat_graph.propagate_risk()
 
-            # Обнаружение сообществ
             communities = self.threat_graph.detect_communities()
 
-            # Поиск подозрительных кластеров
             high_risk = self.threat_graph.get_high_risk_subgraph(threshold=0.6)
 
             if high_risk['nodes']:
@@ -11838,9 +11152,6 @@ class AdvancedLearner(BaseModule):
         return self.threat_graph.risk_scores.get(ip, 0.0)
 
 
-# ============================================================
-# HONEYPOT SERVICE
-# ============================================================
 
 class HoneypotService(BaseModule):
     """Сервис-ловушка для обнаружения атак"""
@@ -11872,9 +11183,7 @@ class HoneypotService(BaseModule):
     def _on_connection(self, src_ip: str, port: int, data: bytes = None) -> None:
         """Обработка подключения к ловушке"""
 
-        # ========== СЮДА ВСТАВИТЬ ==========
         print(f"🔥🔥🔥 HONEYPOT CONNECTION: {src_ip}:{port} 🔥🔥🔥")
-        # ========== AI MODEL DETECTION ==========
         try:
             import joblib
             import os
@@ -11884,7 +11193,6 @@ class HoneypotService(BaseModule):
                     self._ai_model = joblib.load(model_path)
                     self.logger.info("✅ AI модель загружена в honeypot хук")
             if hasattr(self, '_ai_model') and self._ai_model:
-                # Игнорируем соединения от localhost
                 if src_ip == "127.0.0.1" or src_ip == "::1":
                     return
                 alert_msg = f"WARNING:SHARD.SHARD:🍯 Honeypot triggered by {src_ip}"
@@ -11893,13 +11201,8 @@ class HoneypotService(BaseModule):
                 self.logger.warning(f"🎯 AI Model detected: {pred} from {src_ip}")
         except Exception as e:
             self.logger.error(f"❌ AI Hook error: {e}")
-        # ======================================
         self.logger.warning(f"🍯 Honeypot: подключение от {src_ip} на порт {port}")
-        # ===================================
 
-        # Игнорируем localhost (если нужно)
-        # if src_ip == '127.0.0.1':
-        #     return
 
         self.connections[src_ip].append({
             'timestamp': time.time(),
@@ -11907,7 +11210,6 @@ class HoneypotService(BaseModule):
             'data': data[:100].hex() if data else None
         })
 
-        # Создание алерта
         alert = {
             'timestamp': time.time(),
             'src_ip': src_ip,
@@ -11920,11 +11222,9 @@ class HoneypotService(BaseModule):
             'explanation': f"Обнаружено взаимодействие с honeypot на порту {port}"
         }
 
-        # ========== УБЕДИТЕСЬ ЧТО ЭТИ СТРОКИ ЕСТЬ ==========
         self.event_bus.publish('honeypot.connection', alert)
         self.event_bus.publish('alert.detected', alert)
         self.logger.warning(f"🍯 Honeypot: подключение от {src_ip} на порт {port}")
-        # ==================================================
 
 
 _GLOBAL_HONEYPOT_SEMAPHORE = threading.Semaphore(100)
@@ -11941,7 +11241,6 @@ class _HoneypotServer:
         self.socket: Optional[socket.socket] = None
         self.thread: Optional[threading.Thread] = None
 
-        # Ограничение одновременных подключений
         self._max_connections = 50
         self._connection_semaphore = _GLOBAL_HONEYPOT_SEMAPHORE
         self._active_connections = 0
@@ -11972,14 +11271,11 @@ class _HoneypotServer:
                 try:
                     conn, addr = self.socket.accept()
 
-                    # Проверяем лимит подключений
                     if not self._connection_semaphore.acquire(blocking=False):
-                        # Слишком много подключений - отклоняем
                         conn.close()
                         self.logger.debug(f"Honeypot порт {self.port}: превышен лимит подключений от {addr[0]}")
                         continue
 
-                    # Запускаем обработку в отдельном потоке
                     threading.Thread(
                         target=self._handle_connection,
                         args=(conn, addr),
@@ -11997,7 +11293,7 @@ class _HoneypotServer:
             if self.running:
                 self.logger.error(f"Honeypot ошибка на порту {self.port}: {e}")
         finally:
-            pass  # FIXED: don't null semaphore
+            pass
 
     def _handle_connection(self, conn: socket.socket, addr: Tuple[str, int]) -> None:
         """Обработка одного подключения"""
@@ -12007,7 +11303,6 @@ class _HoneypotServer:
 
             src_ip = addr[0]
 
-            # Получаем данные с таймаутом
             conn.settimeout(2.0)
             data = b''
             try:
@@ -12017,7 +11312,6 @@ class _HoneypotServer:
             except Exception:
                 pass
 
-            # Отправляем приманку
             banner = self._get_banner()
             if banner:
                 try:
@@ -12025,7 +11319,6 @@ class _HoneypotServer:
                 except:
                     pass
 
-            # Уведомляем о подключении
             self.callback(src_ip, self.port, data if data else None)
 
         except Exception as e:
@@ -12066,9 +11359,6 @@ class _HoneypotServer:
                 'max_connections': self._max_connections
             }
 
-# ============================================================
-# AGENTIC AI ANALYST
-# ============================================================
 
 class AgenticAIAnalyst(BaseModule):
     """Агентный ИИ для расследования инцидентов (исправлен - защита от race condition, дедупликация)"""
@@ -12079,7 +11369,6 @@ class AgenticAIAnalyst(BaseModule):
         self.knowledge_base: Dict[str, List[str]] = defaultdict(list)
         self._lock = threading.RLock()
 
-        # Дедупликация расследований
         self._recent_investigations: Dict[str, float] = {}
         self._investigation_cooldown = 60
         self._global_cooldown = 10
@@ -12089,22 +11378,16 @@ class AgenticAIAnalyst(BaseModule):
         self._counter_reset = time.time()
         self._inv_lock = threading.RLock()
 
-        # Игнорируемые типы для авто-расследований
         self._auto_investigate_types = {'Honeypot Interaction', 'Port Scan'}
 
-        # Игнорируемые IP
         self._ignored_ips = {'127.0.0.1', '::1', 'localhost', '0.0.0.0'}
 
-        # Кэш уже расследованных алертов
         self._investigated_alerts: Dict[str, float] = {}
         self._alert_ttl = 300
 
-        # ========== ЗАЩИТА ОТ ЦИКЛОВ (ИСПРАВЛЕНО) ==========
         self._processing_alerts = self._create_ttl_set(max_size=500)
         self._processing_lock = threading.RLock()
-        # ===================================================
 
-        # Статистика
         self._stats = {
             'total_investigations': 0,
             'auto_investigations': 0,
@@ -12194,7 +11477,6 @@ class AgenticAIAnalyst(BaseModule):
                 for k in expired_inv:
                     del self.investigations[k]
 
-            # Периодическая очистка TTL set
             self._processing_alerts.cleanup_expired(ttl=600)
 
     def _should_auto_investigate(self, alert: Dict) -> bool:
@@ -12249,7 +11531,6 @@ class AgenticAIAnalyst(BaseModule):
             return True
 
     def on_alert(self, alert: Dict) -> None:
-        # Группировка алертов по 10-секундным окнам
         alert_signature = f"{alert.get('src_ip', 'unknown')}_{alert.get('attack_type', 'Unknown')}"
         alert_id = f"{alert_signature}_{int(alert.get('timestamp', time.time()) // 10)}"
 
@@ -12270,7 +11551,7 @@ class AgenticAIAnalyst(BaseModule):
             self.event_bus.publish('investigation.completed', investigation)
 
             conclusion_short = investigation.get('conclusion', '')[:80]
-            self.logger.info(f"🔍 Расследование #{investigation['id']}: {conclusion_short}...")
+            self.logger.info(f"🔍 Расследование
 
         except Exception as e:
             self.logger.error(f"Ошибка расследования: {e}")
@@ -12298,7 +11579,7 @@ class AgenticAIAnalyst(BaseModule):
             investigation = self._investigate(alert)
             self._stats['total_investigations'] += 1
             self.event_bus.publish('investigation.completed', investigation)
-            self.logger.info(f"📋 Ручное расследование #{investigation['id']} завершено")
+            self.logger.info(f"📋 Ручное расследование
         except Exception as e:
             self.logger.error(f"Ошибка ручного расследования: {e}")
 
@@ -12388,10 +11669,6 @@ class AgenticAIAnalyst(BaseModule):
                     response_container['data'] = data.get('result', {})
                 response_received.set()
 
-        # FIXED: use direct callback instead of subscribe to avoid thread leak
-        # # FIXED: use direct callback instead of subscribe to avoid thread leak
-        # # FIXED: use direct callback instead of subscribe to avoid thread leak
-        # self.event_bus.subscribe('threat_intel.check_ip.response', on_threat_response)
 
         try:
             self.event_bus.publish('threat_intel.check_ip', {
@@ -12586,9 +11863,6 @@ class AgenticAIAnalyst(BaseModule):
         self.logger.info("Статистика Agentic AI сброшена")
 
 
-# ============================================================
-# TRAFFIC CAPTURE
-# ============================================================
 
 class TrafficCapture(BaseModule):
     """Захват сетевого трафика"""
@@ -12602,20 +11876,16 @@ class TrafficCapture(BaseModule):
         self.num_workers = 4
         self.features_extractor = None
 
-        # Счётчики пакетов и байт
         self.packet_count = 0
         self.bytes_count = 0
-        self._stats_lock = threading.RLock()  # Блокировка для счётчиков
+        self._stats_lock = threading.RLock()
 
-        # Статистика по протоколам
         self.protocol_stats: Dict[str, int] = defaultdict(int)
         self._proto_lock = threading.RLock()
 
-        # Отслеживание активных соединений (потоков)
         self.active_flows: Dict[str, Dict] = {}
         self._flows_lock = threading.RLock()
 
-        # Время последнего сброса статистики
         self.stats_reset_time = time.time()
 
     def set_features_extractor(self, extractor: Callable) -> None:
@@ -12667,7 +11937,6 @@ class TrafficCapture(BaseModule):
             dst_ip = packet[IP].dst
             packet_size = len(packet)
 
-            # Определение порта и протокола
             if packet.haslayer(TCP):
                 dst_port = packet[TCP].dport
                 src_port = packet[TCP].sport
@@ -12684,23 +11953,18 @@ class TrafficCapture(BaseModule):
                 protocol = 'OTHER'
                 proto_num = packet[IP].proto
 
-            # Проверка локальности
             is_local = self._is_local_ip(str(src_ip)) and self._is_local_ip(str(dst_ip))
 
-            # Атомарное обновление счётчиков - ИСПОЛЬЗУЕМ ПРАВИЛЬНЫЙ ЛОК
-            with self._stats_lock:  # ← ИСПРАВЛЕНО: было self._count_lock
+            with self._stats_lock:
                 self.packet_count += 1
                 self.bytes_count += packet_size
 
-            # Обновление статистики по протоколам
             with self._proto_lock:
                 self.protocol_stats[protocol] = self.protocol_stats.get(protocol, 0) + 1
 
-            # Обновление информации о потоках
             flow_key = f"{src_ip}:{src_port}-{dst_ip}:{dst_port}-{proto_num}"
             self._update_flow_stats(flow_key, packet_size)
 
-            # Публикация события
             packet_data = {
                 'packet': packet,
                 'src_ip': src_ip,
@@ -12716,7 +11980,6 @@ class TrafficCapture(BaseModule):
 
             self.event_bus.publish('packet.received', packet_data)
 
-            # Извлечение признаков для ML
             if self.features_extractor:
                 features = self.features_extractor(packet)
                 if features:
@@ -12727,7 +11990,6 @@ class TrafficCapture(BaseModule):
                         'dst_port': dst_port
                     })
 
-            # Счётчик обработанных пакетов
             self.event_bus.publish('packet.processed', {'count': 1})
 
         except Exception as e:
@@ -12756,14 +12018,13 @@ class TrafficCapture(BaseModule):
                 flow['bytes'] += packet_size
                 flow['last_seen'] = time.time()
 
-            # Очистка старых потоков (каждые 1000 обновлений)
             if len(self.active_flows) > 10000:
                 self._cleanup_old_flows()
 
     def _cleanup_old_flows(self) -> None:
         """Очистка устаревших потоков"""
         now = time.time()
-        timeout = 300  # 5 минут
+        timeout = 300
 
         expired = [
             key for key, flow in self.active_flows.items()
@@ -12783,8 +12044,8 @@ class TrafficCapture(BaseModule):
 
         retry_count = 0
         max_retries = 10
-        retry_delay = 5  # секунд
-        max_delay = 60  # максимальная задержка
+        retry_delay = 5
+        max_delay = 60
 
         while self.running:
             try:
@@ -12797,7 +12058,6 @@ class TrafficCapture(BaseModule):
                     filter=self.capture_filter
                 )
 
-                # Если sniff завершился без ошибки, сбрасываем счётчик
                 retry_count = 0
 
             except KeyboardInterrupt:
@@ -12806,7 +12066,7 @@ class TrafficCapture(BaseModule):
 
             except PermissionError:
                 self.logger.error("Недостаточно прав для захвата трафика. Запустите от root/Administrator.")
-                break  # Нет смысла повторять без прав
+                break
 
             except OSError as e:
                 retry_count += 1
@@ -12814,7 +12074,6 @@ class TrafficCapture(BaseModule):
                     self.logger.error(f"Превышено максимальное количество попыток ({max_retries}). Остановка захвата.")
                     break
 
-                # Экспоненциальная задержка с ограничением
                 delay = min(retry_delay * (2 ** (retry_count - 1)), max_delay)
                 self.logger.warning(
                     f"Ошибка захвата: {e}. Повторная попытка {retry_count}/{max_retries} через {delay} сек...")
@@ -12824,7 +12083,6 @@ class TrafficCapture(BaseModule):
 
                 time.sleep(delay)
 
-                # Пробуем обновить интерфейс если он изменился
                 if self.interface == 'auto':
                     try:
                         from scapy.all import conf
@@ -12847,7 +12105,6 @@ class TrafficCapture(BaseModule):
                 time.sleep(delay)
     def get_stats(self) -> Dict:
         """Статистика захвата"""
-        # Безопасное чтение счётчиков
         with self._stats_lock:
             packets = self.packet_count
             bytes_count = self.bytes_count
@@ -12880,7 +12137,7 @@ class TrafficCapture(BaseModule):
 
     def reset_stats(self) -> None:
         """Сброс статистики (исправлено - используем правильные блокировки)"""
-        with self._stats_lock:  # ← ИСПРАВЛЕНО: используем существующий лок
+        with self._stats_lock:
             self.packet_count = 0
             self.bytes_count = 0
 
@@ -12893,9 +12150,6 @@ class TrafficCapture(BaseModule):
         self.stats_reset_time = time.time()
         self.logger.info("Статистика захвата сброшена")
 
-# ============================================================
-# ATTACK SIMULATOR (для тестирования)
-# ============================================================
 
 class AttackSimulator(BaseModule):
     """Симулятор атак для тестирования"""
@@ -12948,7 +12202,6 @@ class AttackSimulator(BaseModule):
 
             self.event_bus.publish('alert.detected', alert)
 
-            # Иногда симулируем утечку данных
             if random.random() < 0.1:
                 exfil_alert = {
                     'is_exfiltration': True,
@@ -12964,9 +12217,6 @@ class AttackSimulator(BaseModule):
                 self.event_bus.publish('exfiltration.detected', exfil_alert)
 
 
-# ============================================================
-# SIEM STORAGE
-# ============================================================
 
 class SIEMStorage(BaseModule):
     """Хранилище SIEM (исправлено - WAL checkpoint, пул соединений, ограничения)"""
@@ -12979,41 +12229,34 @@ class SIEMStorage(BaseModule):
         self.es_client = None
         self.pg_pool = None
         self.pg_conn = None
-        # Буферы для пакетной записи
         self.es_buffer: List[Dict] = []
         self.pg_buffer: List[Dict] = []
         self.buffer_lock = threading.RLock()
         self.batch_size = 100
         self.flush_interval = 5
 
-        # Пул соединений SQLite
         self._sqlite_pool = queue.Queue(maxsize=10)
         self._sqlite_pool_lock = threading.RLock()
         self._active_connections = set()
 
-        # Буфер для пакетной записи алертов
         self._alert_buffer: List[Dict] = []
         self._alert_buffer_lock = threading.RLock()
         self._alert_batch_size = 100
         self._alert_flush_interval = 5
 
-        # WAL checkpoint
         self._last_checkpoint = time.time()
-        self._checkpoint_interval = 3600  # 1 час
-        self._wal_size_threshold = 10 * 1024 * 1024  # 10 MB
+        self._checkpoint_interval = 3600
+        self._wal_size_threshold = 10 * 1024 * 1024
 
-        # Ограничение размера JSON
-        self._max_features_json_size = 10240  # 10KB
+        self._max_features_json_size = 10240
         self._max_explanation_length = 500
         self._flush_in_progress = False
         self._flush_lock = threading.RLock()
 
-        # Инициализация хранилищ
         self._init_sqlite()
         self._init_timescale()
         self._init_elasticsearch()
 
-        # Подписки на события
         self.event_bus.subscribe('alert.detected', self.on_alert)
         self.event_bus.subscribe('packet.processed', self.on_packet)
         self.event_bus.subscribe('siem.query.request', self.on_query_request)
@@ -13027,7 +12270,6 @@ class SIEMStorage(BaseModule):
             if db_dir and str(db_dir) != '' and not db_dir.exists():
                 db_dir.mkdir(parents=True, exist_ok=True)
 
-            # Создаём пул соединений
             for _ in range(5):
                 conn = sqlite3.connect(self.sqlite_path, check_same_thread=False, timeout=10)
                 conn.execute('PRAGMA journal_mode=WAL')
@@ -13036,9 +12278,6 @@ class SIEMStorage(BaseModule):
                 conn.execute('PRAGMA temp_store=MEMORY')
                 conn.execute('PRAGMA busy_timeout=5000')
 
-                # ============================================================
-                # ИСПРАВЛЕНИЕ: Таблица с партициями по датам
-                # ============================================================
                 conn.execute('''
                     CREATE TABLE IF NOT EXISTS alerts (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -13057,14 +12296,12 @@ class SIEMStorage(BaseModule):
                     )
                 ''')
 
-                # Индексы для быстрых запросов
                 conn.execute('CREATE INDEX IF NOT EXISTS idx_alerts_timestamp ON alerts(timestamp)')
                 conn.execute('CREATE INDEX IF NOT EXISTS idx_alerts_date ON alerts(date)')
                 conn.execute('CREATE INDEX IF NOT EXISTS idx_alerts_src_ip ON alerts(src_ip)')
                 conn.execute('CREATE INDEX IF NOT EXISTS idx_alerts_attack_type ON alerts(attack_type)')
                 conn.execute('CREATE INDEX IF NOT EXISTS idx_alerts_severity ON alerts(severity)')
 
-                # Автоматическая ротация: удаление алертов старше 30 дней
                 conn.execute('''
                     CREATE TRIGGER IF NOT EXISTS cleanup_old_alerts
                     AFTER INSERT ON alerts
@@ -13137,7 +12374,7 @@ class SIEMStorage(BaseModule):
         self.running = True
         threading.Thread(target=self._stats_loop, daemon=True).start()
         threading.Thread(target=self._flush_loop, daemon=True).start()
-        threading.Thread(target=self._checkpoint_loop, daemon=True).start()  # ← WAL checkpoint
+        threading.Thread(target=self._checkpoint_loop, daemon=True).start()
         self.logger.info(f"SIEM запущен (SQLite: {self.sqlite_path})")
 
     def stop(self) -> None:
@@ -13145,7 +12382,6 @@ class SIEMStorage(BaseModule):
         self.running = False
         self._flush_alerts()
 
-        # Закрываем все соединения в пуле
         closed = 0
         while not self._sqlite_pool.empty():
             try:
@@ -13155,7 +12391,6 @@ class SIEMStorage(BaseModule):
             except:
                 pass
 
-        # Принудительно закрываем активные соединения
         for conn in list(self._active_connections):
             try:
                 conn.close()
@@ -13178,7 +12413,7 @@ class SIEMStorage(BaseModule):
     def _checkpoint_loop(self) -> None:
         """Периодический checkpoint WAL файла"""
         while self.running:
-            time.sleep(300)  # Каждые 5 минут
+            time.sleep(300)
 
             try:
                 wal_path = Path(f"{self.sqlite_path}-wal")
@@ -13221,7 +12456,6 @@ class SIEMStorage(BaseModule):
 
             data = []
             for alert in alerts_to_write:
-                # Ограничиваем features_json
                 features = alert.get('features', {})
                 features_json = None
                 if features:
@@ -13238,7 +12472,6 @@ class SIEMStorage(BaseModule):
                     except:
                         features_json = None
 
-                # Ограничиваем explanation
                 explanation = alert.get('explanation', '')
                 if len(explanation) > self._max_explanation_length:
                     explanation = explanation[:self._max_explanation_length - 3] + '...'
@@ -13277,7 +12510,6 @@ class SIEMStorage(BaseModule):
         with self._alert_buffer_lock:
             alert_copy = alert.copy()
 
-            # Ограничиваем features перед буферизацией
             features = alert_copy.get('features', {})
             if features:
                 try:
@@ -13438,9 +12670,6 @@ class SIEMStorage(BaseModule):
                 self._return_sqlite_connection(conn)
 
 
-# ============================================================
-# ГЛАВНЫЙ КЛАСС SHARD ENTERPRISE
-# ============================================================
 
 class ShardEnterprise:
     """Главный класс SHARD Enterprise SIEM"""
@@ -13456,7 +12685,6 @@ class ShardEnterprise:
         self.capture = None
         self.start_time = time.time()
 
-        # Инициализация компонентов
         self._init_modules()
         self._print_banner()
         self._setup_signal_handlers()
@@ -13464,25 +12692,18 @@ class ShardEnterprise:
     def _init_modules(self) -> None:
         """Инициализация всех модулей"""
 
-        # Базовые модули
         self.modules = [
-            # Мониторинг и метрики
             PrometheusMetrics(self.config, self.event_bus, self.logger_service),
             TelegramNotifier(self.config, self.event_bus, self.logger_service),
             WebDashboard(self.config, self.event_bus, self.logger_service),
 
-            # Защита
             SmartFirewall(self.config, self.event_bus, self.logger_service),
             WebApplicationFirewall(self.config, self.event_bus, self.logger_service),
-            # HoneypotService отключён — используется DeceptionEngine
-            # HoneypotService(self.config, self.event_bus, self.logger_service),
 
-            # Анализ трафика
             JA3Fingerprinter(self.config, self.event_bus, self.logger_service),
             DeepPacketInspector(self.config, self.event_bus, self.logger_service),
             EncryptedTrafficAnalyzer(self.config, self.event_bus, self.logger_service),
 
-            # Новые модули
             DNSAnalyzer(self.config, self.event_bus, self.logger_service),
             ThreatIntelligence(self.config, self.event_bus, self.logger_service),
             DataExfiltrationDetector(self.config, self.event_bus, self.logger_service),
@@ -13492,24 +12713,19 @@ class ShardEnterprise:
             EmailThreatAnalyzer(self.config, self.event_bus, self.logger_service),
             EDRIntegration(self.config, self.event_bus, self.logger_service),
 
-            # Специализированные модули
             OTIoTSecurity(self.config, self.event_bus, self.logger_service),
 
-            # ML и аналитика
             MachineLearningEngine(self.config, self.event_bus, self.logger_service),
             AdvancedLearner(self.config, self.event_bus, self.logger_service),
 
-            # Хранилище и расследование
             SIEMStorage(self.config, self.event_bus, self.logger_service),
             AgenticAIAnalyst(self.config, self.event_bus, self.logger_service),
         ]
 
-        # Добавляем симулятор если нужно
         if self.config.get('simulation.enabled', False):
             self.modules.append(AttackSimulator(self.config, self.event_bus, self.logger_service))
             self.logger.info("🎮 Симулятор атак запущен")
 
-        # Захват трафика - только если не отключен
         if not self.no_capture:
             self.capture = TrafficCapture(self.config, self.event_bus, self.logger_service)
             self.capture.set_features_extractor(self._extract_features)
@@ -13519,7 +12735,6 @@ class ShardEnterprise:
             self.capture = None
             self.logger.info("📡 Захват трафика ОТКЛЮЧЕН (режим только симуляции)")
 
-        # Подписка на алерты для обогащения
         self.event_bus.subscribe('alert.detected', self._enrich_alert)
 
     def _extract_features(self, packet) -> Optional[List[float]]:
@@ -13532,12 +12747,10 @@ class ShardEnterprise:
 
             features = []
 
-            # Payload байты (первые 150)
             payload = bytes(packet[Raw].load)[:150] if packet.haslayer(Raw) else b''
             for i in range(150):
                 features.append(float(payload[i]) if i < len(payload) else 0.0)
 
-            # Энтропия payload
             if payload:
                 freq = {}
                 for b in payload:
@@ -13547,10 +12760,8 @@ class ShardEnterprise:
                 entropy = 0.0
             features.append(entropy)
 
-            # Размер пакета
             features.append(float(len(packet)))
 
-            # Протокол
             if packet.haslayer(TCP):
                 features.append(6.0)
             elif packet.haslayer(UDP):
@@ -13558,10 +12769,8 @@ class ShardEnterprise:
             else:
                 features.append(0.0)
 
-            # TTL
             features.append(float(packet[IP].ttl))
 
-            # Порты
             if packet.haslayer(TCP):
                 features.append(float(packet[TCP].sport))
                 features.append(float(packet[TCP].dport))
@@ -13586,11 +12795,9 @@ class ShardEnterprise:
         dst_ip = alert.get('dst_ip', '')
         dst_port = alert.get('dst_port', 0)
 
-        # Определение или КОРРЕКТИРОВКА серьёзности
         score = alert.get('score', 0)
         current_severity = alert.get('severity', 'LOW')
 
-        # Пересчитываем серьёзность на основе score
         calculated_severity = AlertSeverity.LOW.value
         if score > 0.8:
             calculated_severity = AlertSeverity.CRITICAL.value
@@ -13599,16 +12806,13 @@ class ShardEnterprise:
         elif score > 0.4:
             calculated_severity = AlertSeverity.MEDIUM.value
 
-        # Используем максимальную из существующей и рассчитанной
         severity_order = {'INFO': 0, 'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'CRITICAL': 4}
         if severity_order.get(calculated_severity, 1) > severity_order.get(current_severity, 1):
             alert['severity'] = calculated_severity
 
-        # Добавление временной метки если нет
         if 'timestamp' not in alert:
             alert['timestamp'] = time.time()
 
-        # Добавление контекста локальной сети
         local_networks = self.config.get('network.local_networks', ['192.168.', '10.', '172.16.'])
         alert['is_internal_src'] = any(src_ip.startswith(net) for net in local_networks)
         alert['is_internal_dst'] = any(dst_ip.startswith(net) for net in local_networks) if dst_ip else False
@@ -13673,7 +12877,6 @@ class ShardEnterprise:
         """Запуск всех модулей"""
         self.logger.info("🚀 Запуск SHARD Enterprise...")
 
-        # Запуск модулей
         for module in self.modules:
             if module is None:
                 continue
@@ -13690,7 +12893,6 @@ class ShardEnterprise:
         self.logger.info("=" * 70)
         self.logger.info("Нажмите Ctrl+C для остановки\n")
 
-        # Запуск захвата трафика (блокирующий) только если включен
         if self.capture is not None:
             try:
                 self.capture.capture_loop()
@@ -13701,7 +12903,6 @@ class ShardEnterprise:
             finally:
                 self.stop()
         else:
-            # Если захват отключен, просто ждём в главном потоке
             try:
                 while True:
                     time.sleep(1)
@@ -13757,9 +12958,6 @@ class ShardEnterprise:
         self.logger.info("Конфигурация перезагружена")
 
 
-# ============================================================
-# ТОЧКА ВХОДА
-# ============================================================
 
 def main():
     """Главная функция запуска"""
@@ -13770,10 +12968,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''
 Примеры:
-  python shard_enterprise_complete.py                           # Нормальный режим
-  python shard_enterprise_complete.py --simulation              # Режим симуляции
-  python shard_enterprise_complete.py --config custom.yaml      # Свой конфиг
-  python shard_enterprise_complete.py --simulation --no-capture # Только симуляция
+  python shard_enterprise_complete.py
+  python shard_enterprise_complete.py --simulation
+  python shard_enterprise_complete.py --config custom.yaml
+  python shard_enterprise_complete.py --simulation --no-capture
         '''
     )
 
@@ -13815,7 +13013,6 @@ def main():
 
     args = parser.parse_args()
 
-    # Проверка зависимостей
     print("\n🛡️ SHARD Enterprise SIEM")
     print("=" * 50)
     print("Проверка зависимостей...")
@@ -13834,18 +13031,15 @@ def main():
 
     print("=" * 50)
 
-    # Создание и настройка
     enable_sim = args.simulation or os.environ.get('SHARD_SIMULATION', '').lower() == 'true'
     no_capture = args.no_capture or os.environ.get('SHARD_NO_CAPTURE', '').lower() == 'true'
 
-    # Создаём экземпляр SHARD
     shard = ShardEnterprise(
         config_path=args.config,
         enable_simulation=enable_sim,
         no_capture=no_capture
     )
 
-    # Применение аргументов командной строки
     if args.interface:
         shard.config.set('network.interface', args.interface)
 
@@ -13862,7 +13056,6 @@ def main():
     if no_capture:
         shard.logger.warning("⚠️ Захват трафика ОТКЛЮЧЕН - работа только с симулированными атаками")
 
-    # Запуск
     try:
         shard.start()
     except KeyboardInterrupt:

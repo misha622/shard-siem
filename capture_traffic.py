@@ -4,7 +4,6 @@ import time, json, os
 from collections import defaultdict
 from pathlib import Path
 
-# Запускаем SHARD с захватом трафика
 import subprocess, signal, sys
 
 capture_duration = int(os.environ.get('CAPTURE_HOURS', '1')) * 3600
@@ -14,7 +13,6 @@ print(f"📡 Захват трафика на {capture_duration/3600:.1f} час
 print(f"📁 Сохранение: {output_file}")
 print("⏳ Нажми Ctrl+C для остановки\n")
 
-# Запускаем SHARD
 proc = subprocess.Popen(
     ['python3', 'run_shard.py', '--no-capture'],
     stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -40,7 +38,6 @@ finally:
     proc.terminate()
     proc.wait(timeout=5)
     
-    # Сохраняем
     output_file.parent.mkdir(exist_ok=True)
     with open(output_file, 'w') as f:
         for p in packets:

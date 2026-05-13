@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 SHARD Autonomous Response Engine
@@ -14,55 +13,42 @@ import threading
 import json
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Set, Tuple
-from collections import deque, defaultdict  # ← ДОБАВИТЬ defaultdict
+from collections import deque, defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 import numpy as np
 
 
-# ============================================================
-# КОНФИГУРАЦИЯ
-# ============================================================
 
 @dataclass
 class AutonomousResponseConfig:
     """Конфигурация автономной реакции"""
 
-    # Пороги уверенности для автоматических действий
     confidence_threshold_block_temp: float = 0.85
     confidence_threshold_block_perm: float = 0.95
     confidence_threshold_throttle: float = 0.70
 
-    # Лимиты
     max_auto_blocks_per_hour: int = 10
     max_auto_blocks_per_day: int = 50
 
-    # Cooldown между действиями для одного IP
-    action_cooldown: int = 300  # 5 минут
+    action_cooldown: int = 300
 
-    # Белый список (никогда не блокировать)
     whitelist_ips: Set[str] = field(default_factory=lambda: {
         '127.0.0.1', '::1', 'localhost',
         '192.168.1.1', '10.0.0.1'
     })
 
-    # Белый список подсетей
     whitelist_subnets: List[str] = field(default_factory=lambda: [
         '127.0.0.0/8', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'
     ])
 
-    # Режимы работы
-    autonomous_mode: bool = True  # Полная автоматизация
-    recommend_only: bool = False  # Только рекомендации, без действий
+    autonomous_mode: bool = True
+    recommend_only: bool = False
 
-    # Хранение истории
     history_path: str = './data/autonomous_history.json'
 
 
-# ============================================================
-# ДЕЙСТВИЯ
-# ============================================================
 
 class DefenseAction:
     """Защитные действия"""
@@ -94,9 +80,6 @@ class DefenseAction:
         return 0
 
 
-# ============================================================
-# АВТОНОМНАЯ РЕАКЦИЯ
-# ============================================================
 
 class AutonomousResponseEngine:
     """
@@ -107,15 +90,12 @@ class AutonomousResponseEngine:
     def __init__(self, config: AutonomousResponseConfig = None):
         self.config = config or AutonomousResponseConfig()
 
-        # История действий
         self.action_history: deque = deque(maxlen=10000)
         self.ip_action_history: Dict[str, deque] = defaultdict(lambda: deque(maxlen=100))
 
-        # Счётчики для лимитов
         self.hourly_blocks: deque = deque(maxlen=1000)
         self.daily_blocks: deque = deque(maxlen=10000)
 
-        # Статистика
         self.stats = {
             'total_actions': 0,
             'auto_blocks': 0,
@@ -124,7 +104,6 @@ class AutonomousResponseEngine:
             'prevented_attacks': 0
         }
 
-        # Компоненты (будут установлены)
         self.firewall = None
         self.rl_agent = None
         self.event_bus = None
@@ -133,7 +112,6 @@ class AutonomousResponseEngine:
         self._lock = threading.RLock()
         self._running = False
 
-        # Загружаем историю
         self._load_history()
 
     def set_components(self, firewall, rl_agent, event_bus, logger):
@@ -189,14 +167,12 @@ class AutonomousResponseEngine:
         """Проверка лимитов на действия"""
         now = time.time()
 
-        # Очистка старых записей
         while self.hourly_blocks and now - self.hourly_blocks[0] > 3600:
             self.hourly_blocks.popleft()
         while self.daily_blocks and now - self.daily_blocks[0] > 86400:
             self.daily_blocks.popleft()
 
-        # Проверка лимитов для блокировок
-        if action_id in [4, 5]:  # block_ip_temp, block_ip_perm
+        if action_id in [4, 5]:
             if len(self.hourly_blocks) >= self.config.max_auto_blocks_per_hour:
                 if self.logger:
                     self.logger.warning(f"⚠️ Достигнут лимит блокировок в час ({self.config.max_auto_blocks_per_hour})")
@@ -233,34 +209,27 @@ class AutonomousResponseEngine:
             attack_type = alert.get('attack_type', 'Unknown')
             src_ip = alert.get('src_ip', '')
 
-            # Пропускаем если нет IP
             if not src_ip:
                 return None
 
-            # Проверяем белый список
             if self._is_whitelisted(src_ip):
                 return None
 
-            # Проверяем cooldown
             if not self._check_cooldown(src_ip):
                 return None
 
-            # Определяем действие
             action_id = self._decide_action(alert)
 
-            if action_id == 0:  # Ничего не делать
+            if action_id == 0:
                 return None
 
-            # Проверяем лимиты
             if not self._check_limits(action_id):
-                action_id = 2  # throttle как fallback
+                action_id = 2
 
             action_name = DefenseAction.get_name(action_id)
 
-            # Выполняем действие
             result = self._execute_action(action_id, alert)
 
-            # Записываем в историю
             action_record = {
                 'timestamp': time.time(),
                 'action_id': action_id,
@@ -287,10 +256,8 @@ class AutonomousResponseEngine:
 
             self.stats['total_actions'] += 1
 
-            # Сохраняем историю
             self._save_history()
 
-            # Публикуем событие
             if self.event_bus:
                 self.event_bus.publish('autonomous.action', action_record)
 
@@ -305,30 +272,27 @@ class AutonomousResponseEngine:
         severity = alert.get('severity', 'LOW')
         attack_type = alert.get('attack_type', '')
 
-        # Если есть RL агент - используем его
         if self.rl_agent:
             state = self._alert_to_state(alert)
             action_id, _ = self.rl_agent.act(state, training=False)
             return action_id
 
-        # Иначе - правила на основе confidence и severity
         if confidence >= self.config.confidence_threshold_block_perm:
-            return 5  # block_ip_perm
+            return 5
         elif confidence >= self.config.confidence_threshold_block_temp:
-            return 4  # block_ip_temp
+            return 4
         elif confidence >= self.config.confidence_threshold_throttle:
-            return 2  # throttle
+            return 2
 
-        # Особые случаи
         if attack_type in ['Data Exfiltration', 'C2 Beacon']:
             if confidence > 0.7:
-                return 4  # block_ip_temp
+                return 4
 
         if attack_type == 'Port Scan':
             if confidence > 0.6:
-                return 1  # log_increased
+                return 1
 
-        return 0  # none
+        return 0
 
     def _alert_to_state(self, alert: Dict) -> Dict:
         """Преобразование алерта в состояние для RL"""
@@ -359,19 +323,19 @@ class AutonomousResponseEngine:
             return result
 
         try:
-            if action_id == 1:  # log_increased
+            if action_id == 1:
                 if self.logger:
                     self.logger.info(f"📝 Увеличено логирование для {src_ip}")
                 result['success'] = True
 
-            elif action_id == 2:  # throttle
+            elif action_id == 2:
                 if self.firewall:
                     self.firewall._apply_action(src_ip, 0, 'throttle', alert)
                 result['success'] = True
                 if self.logger:
                     self.logger.warning(f"🐢 Замедление трафика от {src_ip}")
 
-            elif action_id == 3:  # block_port
+            elif action_id == 3:
                 dst_port = alert.get('dst_port', 0)
                 if dst_port and self.firewall:
                     self.firewall.block_port(src_ip, dst_port)
@@ -379,28 +343,28 @@ class AutonomousResponseEngine:
                     if self.logger:
                         self.logger.warning(f"🔒 Заблокирован порт {dst_port} для {src_ip}")
 
-            elif action_id == 4:  # block_ip_temp
+            elif action_id == 4:
                 if self.firewall:
                     self.firewall.block_ip(src_ip, 3600)
                     result['success'] = True
                     if self.logger:
                         self.logger.warning(f"🚫 Временно заблокирован IP {src_ip} (1 час)")
 
-            elif action_id == 5:  # block_ip_perm
+            elif action_id == 5:
                 if self.firewall:
                     self.firewall.block_ip(src_ip, 86400)
                     result['success'] = True
                     if self.logger:
                         self.logger.warning(f"🚫 ПЕРМАНЕНТНО заблокирован IP {src_ip}")
 
-            elif action_id == 6:  # isolate_device
+            elif action_id == 6:
                 if self.firewall:
                     self.firewall.block_ip(src_ip, 86400 * 7)
                     result['success'] = True
                     if self.logger:
                         self.logger.critical(f"🔴 Изолировано устройство {src_ip}")
 
-            elif action_id == 7:  # trigger_honeypot
+            elif action_id == 7:
                 result['success'] = True
                 if self.logger:
                     self.logger.info(f"🍯 Перенаправление {src_ip} на honeypot")
@@ -473,7 +437,7 @@ class AutonomousResponseEngine:
             src_ip = last['src_ip']
             action_id = last['action_id']
 
-            if action_id in [4, 5, 6]:  # Блокировки
+            if action_id in [4, 5, 6]:
                 if self.firewall:
                     self.firewall.unblock_ip(src_ip)
                     if self.logger:
@@ -483,9 +447,6 @@ class AutonomousResponseEngine:
             return False
 
 
-# ============================================================
-# LLM АНАЛИТИК
-# ============================================================
 
 class LLMSecurityAnalyst:
     """
@@ -495,7 +456,7 @@ class LLMSecurityAnalyst:
 
     def __init__(self, model_path: str = None):
         self.model = None
-        self.model_type = 'llama'  # или 'openai', 'ollama'
+        self.model_type = 'llama'
         self.cache: Dict[str, Tuple[float, str]] = {}
         self.cache_ttl = 3600
 
@@ -537,7 +498,6 @@ class LLMSecurityAnalyst:
         """
         context = context or {}
 
-        # Проверяем кэш
         cache_key = f"{alert.get('attack_type')}_{alert.get('severity')}_{alert.get('score', 0):.1f}"
         if cache_key in self.cache:
             cached_time, cached_response = self.cache[cache_key]
@@ -547,10 +507,8 @@ class LLMSecurityAnalyst:
         prompt = self._build_prompt(alert, context)
         response = self._call_model(prompt)
 
-        # Кэшируем
         self.cache[cache_key] = (time.time(), response)
         if len(self.cache) > 100:
-            # Очистка старых
             now = time.time()
             self.cache = {k: v for k, v in self.cache.items() if now - v[0] < self.cache_ttl}
 
@@ -645,9 +603,6 @@ class LLMSecurityAnalyst:
         }
 
 
-# ============================================================
-# ИНТЕГРАЦИЯ
-# ============================================================
 
 class ShardAutonomousIntegration:
     """Интеграция автономной реакции и LLM в SHARD"""
@@ -656,7 +611,6 @@ class ShardAutonomousIntegration:
         self.config = AutonomousResponseConfig()
         self.response_engine = AutonomousResponseEngine(self.config)
 
-        # LLM аналитик
         llm_model = config.get('llm_model_path') if config else None
         self.llm_analyst = LLMSecurityAnalyst(llm_model)
 
@@ -666,10 +620,8 @@ class ShardAutonomousIntegration:
 
     def on_alert(self, alert: Dict) -> Dict:
         """Обработка алерта"""
-        # Автономная реакция
         action_result = self.response_engine.on_alert(alert)
 
-        # LLM анализ
         llm_analysis = self.llm_analyst.analyze_alert(alert, {
             'is_internal': alert.get('is_internal', False),
             'similar_alerts': 0,
@@ -696,9 +648,6 @@ class ShardAutonomousIntegration:
         }
 
 
-# ============================================================
-# ТЕСТИРОВАНИЕ
-# ============================================================
 
 def test_autonomous_response():
     """Тестирование автономной реакции"""
@@ -706,12 +655,10 @@ def test_autonomous_response():
     print("🧪 ТЕСТИРОВАНИЕ АВТОНОМНОЙ РЕАКЦИИ")
     print("=" * 60)
 
-    # Создаём движок
     engine = AutonomousResponseEngine()
-    engine.config.autonomous_mode = False  # Тестовый режим
+    engine.config.autonomous_mode = False
     engine.config.recommend_only = True
 
-    # Тестовый алерт
     alert = {
         'attack_type': 'Brute Force',
         'src_ip': '192.168.1.100',
@@ -720,13 +667,11 @@ def test_autonomous_response():
         'confidence': 0.88
     }
 
-    # Получаем рекомендацию
     rec = engine.get_recommendation(alert)
     print(f"\n📊 Тестовый алерт: {alert['attack_type']} (score={alert['score']})")
     print(f"   Рекомендация: {rec['action_name']}")
     print(f"   Причина: {rec['reason']}")
 
-    # LLM аналитик
     print("\n📊 Тест LLM Analyst...")
     llm = LLMSecurityAnalyst()
     analysis = llm.analyze_alert(alert)

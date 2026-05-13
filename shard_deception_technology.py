@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 SHARD Deception Technology Module
@@ -33,9 +32,6 @@ import requests
 import yaml
 
 
-# ============================================================
-# КОНФИГУРАЦИЯ
-# ============================================================
 
 class DeceptionType(Enum):
     """Типы ловушек"""
@@ -117,9 +113,6 @@ class DeceptionConfig:
     max_session_size_mb: int = 10
 
 
-# ============================================================
-# БАЗОВЫЙ КЛАСС ЛОВУШКИ
-# ============================================================
 
 class BaseHoneypot:
     """Базовый класс для всех ловушек"""
@@ -153,9 +146,6 @@ class BaseHoneypot:
             }
 
 
-# ============================================================
-# СЕТЕВОЙ HONEYPOT
-# ============================================================
 
 class NetworkHoneypot(BaseHoneypot):
     """Сетевой honeypot с реалистичной эмуляцией сервиса"""
@@ -167,7 +157,7 @@ class NetworkHoneypot(BaseHoneypot):
         self.protocol = protocol
         self.banner = banner
         self.callback = callback
-        self.event_bus = None  # EventBus для публикации алертов
+        self.event_bus = None
         self.socket: Optional[socket.socket] = None
         self.thread: Optional[threading.Thread] = None
         self.vulnerabilities = self._load_vulnerabilities()
@@ -230,7 +220,6 @@ class NetworkHoneypot(BaseHoneypot):
         if self.logger:
             self.logger.warning(f"🍯 [{self.name}] Connection from {src_ip}:{src_port}")
         
-        # ПРЯМАЯ ПУБЛИКАЦИЯ АЛЕРТА
         try:
             alert = {
                 'timestamp': time.time(),
@@ -243,7 +232,6 @@ class NetworkHoneypot(BaseHoneypot):
                 'dst_port': self.port,
                 'explanation': f'ПОДКЛЮЧЕНИЕ К HONEYPOT {self.name} от {src_ip}'
             }
-            # КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: публикуем в EventBus
             if self.event_bus:
                 self.event_bus.publish('honeypot.connection', alert)
                 self.event_bus.publish('alert.detected', alert)
@@ -252,7 +240,6 @@ class NetworkHoneypot(BaseHoneypot):
         except Exception as e:
             pass
 
-        # AI DETECTION
         try:
             if self._ai_model is None:
                 model_path = os.path.join(os.path.dirname(__file__), 'models', 'shard_real_alert_model.pkl')
@@ -265,13 +252,11 @@ class NetworkHoneypot(BaseHoneypot):
         except Exception as e:
             pass
 
-        # Отправка баннера
         try:
             conn.send(self.banner.encode() + b'\r\n')
         except:
             pass
 
-        # Получение данных
         data = b''
         try:
             conn.settimeout(5.0)
@@ -339,7 +324,7 @@ class NetworkHoneypot(BaseHoneypot):
             if b'PING' in data:
                 return b'+PONG\r\n'
             elif b'INFO' in data:
-                return b'$1024\r\n# Server\r\nredis_version:6.0.16\r\n'
+                return b'$1024\r\n
             return b'-ERR unknown command\r\n'
         return None
 
@@ -365,9 +350,6 @@ class NetworkHoneypot(BaseHoneypot):
                 self.logger.warning(f"🚨 [{self.name}] Attack detected from {src_ip}: {', '.join(detected)}")
 
 
-# ============================================================
-# HONEYTOKEN (ФАЙЛ-ПРИМАНКА)
-# ============================================================
 
 class HoneyToken(BaseHoneypot):
     """Файл-приманка с отслеживанием доступа"""
@@ -431,9 +413,6 @@ class HoneyToken(BaseHoneypot):
                 self.last_modified = current_mtime
 
 
-# ============================================================
-# CANARY TOKEN (ВЕБ-ТРИГГЕР)
-# ============================================================
 
 class CanaryToken(BaseHoneypot):
     """Canary token - веб-триггер при обращении"""
@@ -467,9 +446,6 @@ class CanaryToken(BaseHoneypot):
         return False
 
 
-# ============================================================
-# DECEPTION ENGINE
-# ============================================================
 
 class DeceptionEngine:
     """Основной движок Deception Technology"""
@@ -477,7 +453,7 @@ class DeceptionEngine:
     def __init__(self, config: DeceptionConfig = None, logger=None, event_bus=None):
         self.config = config or DeceptionConfig()
         self.logger = logger
-        self.event_bus = event_bus  # EventBus для публикации алертов
+        self.event_bus = event_bus
         self.honeypots: Dict[str, NetworkHoneypot] = {}
         self.honeytokens: Dict[str, HoneyToken] = {}
         self.canary_tokens: Dict[str, CanaryToken] = {}
@@ -504,7 +480,7 @@ class DeceptionEngine:
                 logger=self.logger,
                 callback=self._on_trap_triggered
             )
-            hp.event_bus = self.event_bus  # Публикация алертов в EventBus
+            hp.event_bus = self.event_bus
             self.honeypots[hp_config['name']] = hp
 
         for ht_config in self.config.honeytokens:
@@ -556,7 +532,6 @@ class DeceptionEngine:
             service = trap_type
             src_ip = args[0] if len(args) > 0 else 'unknown'
 
-            # Игнорируем localhost
             if src_ip == "127.0.0.1" or src_ip == "::1":
                 return
 
@@ -567,7 +542,6 @@ class DeceptionEngine:
             if self.logger:
                 self.logger.warning(f"🍯 Honeypot {service} triggered by {src_ip}")
 
-            # AI DETECTION
             try:
                 if self._ai_model is None:
                     model_path = os.path.join(os.path.dirname(__file__), 'models', 'shard_real_alert_model.pkl')
@@ -613,7 +587,6 @@ class DeceptionEngine:
         if self.logger:
             self.logger.warning(f"🔔 ALERT: Deception trap {trap_type} triggered!")
 
-            # AI DETECTION
             try:
                 if self._ai_model is None:
                     model_path = os.path.join(os.path.dirname(__file__), 'models', 'shard_real_alert_model.pkl')
@@ -674,9 +647,6 @@ class DeceptionEngine:
         return deployed
 
 
-# ============================================================
-# ИНТЕГРАЦИЯ С SHARD
-# ============================================================
 
 class ShardDeceptionIntegration:
     """Интеграция Deception Technology в SHARD"""
@@ -690,7 +660,7 @@ class ShardDeceptionIntegration:
     def setup(self, event_bus, logger):
         self.event_bus = event_bus
         self.logger = logger
-        self.engine = DeceptionEngine(self.config, logger, event_bus)  # Передаём EventBus в движок
+        self.engine = DeceptionEngine(self.config, logger, event_bus)
 
     def start(self):
         if self.engine:
@@ -713,9 +683,6 @@ class ShardDeceptionIntegration:
         return False
 
 
-# ============================================================
-# ТЕСТИРОВАНИЕ
-# ============================================================
 
 def test_deception():
     """Тестирование Deception Technology"""

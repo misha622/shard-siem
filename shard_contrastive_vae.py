@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 SHARD Contrastive Variational Autoencoder - Production-Ready
@@ -26,26 +25,20 @@ import logging
 
 import numpy as np
 
-# Настройка логирования
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger("SHARD-ContrastiveVAE")
 
-# Подавление предупреждений
 warnings.filterwarnings('ignore')
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-# ============================================================
-# ИМПОРТ БИБЛИОТЕК
-# ============================================================
 
 TF_AVAILABLE = False
 TORCH_AVAILABLE = False
 SKLEARN_AVAILABLE = False
 
-# TensorFlow
 try:
     import tensorflow as tf
     from tensorflow import keras
@@ -57,7 +50,6 @@ try:
 except ImportError:
     logger.warning("⚠️ TensorFlow not installed")
 
-# PyTorch
 try:
     import torch
     import torch.nn as nn
@@ -70,7 +62,6 @@ try:
 except ImportError:
     logger.warning("⚠️ PyTorch not installed")
 
-# Scikit-learn
 try:
     from sklearn.preprocessing import StandardScaler, RobustScaler
     from sklearn.metrics import roc_auc_score, average_precision_score
@@ -81,21 +72,16 @@ except ImportError:
     logger.warning("⚠️ Scikit-learn not installed")
 
 
-# ============================================================
-# КОНФИГУРАЦИЯ
-# ============================================================
 
 @dataclass
 class ContrastiveVAEConfig:
     """Конфигурация Contrastive VAE"""
 
-    # Model architecture
     input_dim: int = 156
     encoder_hidden_dims: List[int] = field(default_factory=lambda: [256, 128, 64])
     decoder_hidden_dims: List[int] = field(default_factory=lambda: [64, 128, 256])
     latent_dim: int = 32
 
-    # Contrastive learning
     temperature: float = 0.1
     contrastive_weight: float = 0.3
     reconstruction_weight: float = 1.0
@@ -104,7 +90,6 @@ class ContrastiveVAEConfig:
     augmentation_noise: float = 0.05
     augmentation_dropout: float = 0.1
 
-    # Training
     learning_rate: float = 0.001
     batch_size: int = 64
     epochs: int = 100
@@ -113,23 +98,19 @@ class ContrastiveVAEConfig:
     gradient_clip_norm: float = 1.0
     weight_decay: float = 0.0001
 
-    # Anomaly detection
     threshold_percentile: float = 95.0
     latent_distance_threshold: float = 2.0
     reconstruction_threshold_multiplier: float = 3.0
 
-    # Online learning
     online_learning_enabled: bool = True
     online_buffer_size: int = 5000
     retrain_interval: int = 300
     min_samples_retrain: int = 100
 
-    # Storage
     model_dir: str = './models/contrastive_vae/'
     checkpoint_dir: str = './models/contrastive_vae/checkpoints/'
     checkpoint_frequency: int = 10
 
-    # Performance
     use_mixed_precision: bool = True
     cache_size: int = 10000
     cache_ttl: int = 60
@@ -149,11 +130,7 @@ class ContrastiveVAEConfig:
         return cls(**data)
 
 
-# ============================================================
-# SAMPLING LAYER (Reparameterization Trick)
-# ============================================================
 
-# Safe import for Docker (no TensorFlow)
 try:
     from tensorflow.keras import layers
 except ImportError:
@@ -186,9 +163,6 @@ else:
         def call(self, inputs, training=None): return inputs[0]
         def get_config(self): return {}
 
-# ============================================================
-# CONTRASTIVE VAE MODEL (PyTorch)
-# ============================================================
 
 if TORCH_AVAILABLE:
 
@@ -208,14 +182,13 @@ if TORCH_AVAILABLE:
             super().__init__()
             self.config = config
 
-            # ===== ENCODER =====
             encoder_layers = []
             input_dim = config.input_dim
 
             for i, h_dim in enumerate(config.encoder_hidden_dims):
                 encoder_layers.extend([
                     nn.Linear(input_dim, h_dim),
-                    nn.LayerNorm(h_dim),  # ← ИСПРАВЛЕНО: BatchNorm1d → LayerNorm
+                    nn.LayerNorm(h_dim),
                     nn.ReLU(),
                     nn.Dropout(0.2)
                 ])
@@ -223,18 +196,16 @@ if TORCH_AVAILABLE:
 
             self.encoder = nn.Sequential(*encoder_layers)
 
-            # Latent space
             self.z_mean = nn.Linear(config.encoder_hidden_dims[-1], config.latent_dim)
             self.z_log_var = nn.Linear(config.encoder_hidden_dims[-1], config.latent_dim)
 
-            # ===== DECODER =====
             decoder_layers = []
             input_dim = config.latent_dim
 
             for i, h_dim in enumerate(config.decoder_hidden_dims):
                 decoder_layers.extend([
                     nn.Linear(input_dim, h_dim),
-                    nn.LayerNorm(h_dim),  # ← ИСПРАВЛЕНО: BatchNorm1d → LayerNorm
+                    nn.LayerNorm(h_dim),
                     nn.ReLU(),
                     nn.Dropout(0.2 if i < len(config.decoder_hidden_dims) - 1 else 0.0)
                 ])
@@ -243,18 +214,16 @@ if TORCH_AVAILABLE:
             decoder_layers.append(nn.Linear(config.decoder_hidden_dims[-1], config.input_dim))
             self.decoder = nn.Sequential(*decoder_layers)
 
-            # ===== PROJECTION HEAD =====
             self.projection_head = nn.Sequential(
                 nn.Linear(config.latent_dim, 128),
-                nn.LayerNorm(128),  # ← ИСПРАВЛЕНО
+                nn.LayerNorm(128),
                 nn.ReLU(),
                 nn.Linear(128, 64),
-                nn.LayerNorm(64),  # ← ИСПРАВЛЕНО
+                nn.LayerNorm(64),
                 nn.ReLU(),
                 nn.Linear(64, 32)
             )
 
-            # ===== MEMORY BANK =====
             self.register_buffer('memory_bank', torch.randn(10000, config.latent_dim))
             self.register_buffer('memory_ptr', torch.zeros(1, dtype=torch.long))
             self.register_buffer('memory_filled', torch.zeros(1, dtype=torch.bool))
@@ -321,15 +290,12 @@ if TORCH_AVAILABLE:
             """
             batch_size = x.size(0)
 
-            # Gaussian noise
             noise = torch.randn_like(x) * self.config.augmentation_noise
             x_noisy = x + noise
 
-            # Dropout augmentation
             mask = torch.rand_like(x) > self.config.augmentation_dropout
             x_dropout = x * mask.float() / (1 - self.config.augmentation_dropout)
 
-            # Feature shuffling (для части признаков)
             if batch_size > 1:
                 shuffle_idx = torch.randperm(batch_size)
                 shuffle_ratio = 0.1
@@ -359,37 +325,27 @@ if TORCH_AVAILABLE:
             if batch_size < 2:
                 return torch.tensor(0.0, device=projections.device)
 
-            # Нормализуем проекции
             projections = F.normalize(projections, dim=1)
 
-            # Матрица схожести
             sim_matrix = torch.matmul(projections, projections.T)
             sim_matrix = sim_matrix / self.config.temperature
 
-            # Маска для positive pairs
             labels = labels.view(-1, 1)
             mask_positive = (labels == labels.T).float()
 
-            # Убираем self-similarity
             mask_positive = mask_positive - torch.eye(batch_size, device=mask_positive.device)
 
-            # Numerical stability
             sim_matrix = sim_matrix - sim_matrix.max(dim=1, keepdim=True)[0]
 
-            # Exp
             exp_sim = torch.exp(sim_matrix)
 
-            # Sum over positives
             pos_sum = (exp_sim * mask_positive).sum(dim=1)
 
-            # Sum over all except self
             mask_all = 1.0 - torch.eye(batch_size, device=sim_matrix.device)
             all_sum = (exp_sim * mask_all).sum(dim=1)
 
-            # Loss
             loss = -torch.log(pos_sum / (all_sum + 1e-8) + 1e-8)
 
-            # Усредняем только по сэмплам с positive pairs
             has_positives = (mask_positive.sum(dim=1) > 0).float()
             if has_positives.sum() > 0:
                 loss = (loss * has_positives).sum() / has_positives.sum()
@@ -415,7 +371,6 @@ if TORCH_AVAILABLE:
             if not self.memory_filled:
                 return None
 
-            # Случайная выборка из memory bank
             mem_size = self.memory_bank.size(0)
             indices = torch.randint(0, mem_size, (batch_size,), device=device)
             return self.memory_bank[indices]
@@ -431,7 +386,6 @@ if TORCH_AVAILABLE:
             """
             batch_size = x.size(0)
 
-            # Forward pass
             outputs = self.forward(x, training)
 
             reconstruction = outputs['reconstruction']
@@ -440,27 +394,21 @@ if TORCH_AVAILABLE:
             z = outputs['z']
             projection = outputs['projection']
 
-            # Reconstruction loss (MSE)
             recon_loss = F.mse_loss(reconstruction, x, reduction='sum') / batch_size
 
-            # KL divergence
             kl_loss = -0.5 * torch.sum(1 + z_log_var - z_mean.pow(2) - z_log_var.exp()) / batch_size
 
             total_loss = (self.config.reconstruction_weight * recon_loss +
                           self.config.kl_weight * kl_loss)
 
-            # Contrastive loss
             contrastive_loss = torch.tensor(0.0, device=x.device)
 
             if labels is not None and self.config.contrastive_weight > 0:
-                # Основной SupCon loss
                 contrastive_loss = self.contrastive_loss(projection, labels)
 
-                # Аугментации для дополнительного contrastive learning
                 if self.config.use_augmentations and batch_size > 1:
                     x_aug1, x_aug2, x_aug3 = self.augment(x)
 
-                    # Получаем проекции для аугментаций
                     with torch.no_grad():
                         z_aug1 = self.reparameterize(*self.encode(x_aug1), training=False)
                         z_aug2 = self.reparameterize(*self.encode(x_aug2), training=False)
@@ -470,7 +418,6 @@ if TORCH_AVAILABLE:
                     proj_aug2 = self.projection_head(z_aug2)
                     proj_aug3 = self.projection_head(z_aug3)
 
-                    # Конкатенируем все проекции
                     all_projections = torch.cat([projection, proj_aug1, proj_aug2, proj_aug3], dim=0)
                     all_labels = torch.cat([labels] * 4, dim=0)
 
@@ -479,7 +426,6 @@ if TORCH_AVAILABLE:
 
                 total_loss = total_loss + self.config.contrastive_weight * contrastive_loss
 
-            # Обновляем memory bank
             if training:
                 self.update_memory_bank(z)
 
@@ -509,17 +455,14 @@ if TORCH_AVAILABLE:
                 reconstruction = outputs['reconstruction']
                 z = outputs['z']
 
-                # Reconstruction error
                 recon_error = F.mse_loss(reconstruction, x, reduction='none').mean(dim=1)
 
-                # Latent space score (расстояние до центроида нормальных данных)
                 if hasattr(self, 'normal_centroid'):
                     latent_dist = torch.norm(z - self.normal_centroid, dim=1)
                     latent_score = latent_dist / (hasattr(self, 'normal_radius') and self.normal_radius or 1.0)
                 else:
                     latent_score = torch.zeros_like(recon_error)
 
-                # Memory bank similarity
                 if self.memory_filled:
                     z_norm = F.normalize(z, dim=1)
                     memory_norm = F.normalize(self.memory_bank, dim=1)
@@ -528,7 +471,6 @@ if TORCH_AVAILABLE:
                 else:
                     memory_score = torch.zeros_like(recon_error)
 
-                # Комбинированный score
                 combined_score = (
                         0.5 * recon_error / (hasattr(self, 'recon_threshold') and self.recon_threshold or 0.1) +
                         0.3 * latent_score +
@@ -538,9 +480,6 @@ if TORCH_AVAILABLE:
                 return combined_score, recon_error, latent_score
 
 
-# ============================================================
-# CONTRASTIVE VAE ENGINE (Production-Ready)
-# ============================================================
 
 class ContrastiveVAEEngine:
     """
@@ -557,10 +496,8 @@ class ContrastiveVAEEngine:
     def __init__(self, config: ContrastiveVAEConfig = None):
         self.config = config or ContrastiveVAEConfig()
 
-        # Определяем устройство
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-        # Создаём модель
         self.model = None
         self.optimizer = None
         self.scheduler = None
@@ -576,25 +513,20 @@ class ContrastiveVAEEngine:
                 self.optimizer, mode='min', factor=0.5, patience=self.config.reduce_lr_patience
             )
 
-        # Пороги
         self.recon_threshold = None
         self.latent_threshold = None
         self.normal_centroid = None
         self.normal_radius = None
 
-        # Состояние
         self.is_trained = False
         self.training_history = []
 
-        # Буферы для онлайн-обучения
         self.normal_buffer: deque = deque(maxlen=self.config.online_buffer_size)
         self.anomaly_buffer: deque = deque(maxlen=self.config.online_buffer_size // 2)
 
-        # Кэш предсказаний
         self._prediction_cache: Dict[str, Tuple[Dict, float]] = {}
         self._cache_lock = threading.RLock()
 
-        # Статистика
         self.stats = {
             'total_predictions': 0,
             'anomalies_detected': 0,
@@ -603,22 +535,17 @@ class ContrastiveVAEEngine:
             'best_loss': float('inf')
         }
 
-        # Блокировки
         self._model_lock = threading.RLock()
         self._training_lock = threading.RLock()
 
-        # Состояние
         self._running = False
         self._retrain_thread = None
 
-        # Пул для асинхронных операций
         self._executor = ThreadPoolExecutor(max_workers=self.config.max_workers)
 
-        # Создаём директории
         Path(self.config.model_dir).mkdir(parents=True, exist_ok=True)
         Path(self.config.checkpoint_dir).mkdir(parents=True, exist_ok=True)
 
-        # Загружаем модель
         self._load_model()
 
         logger.info(f"✅ ContrastiveVAEEngine initialized on {self.device}")
@@ -689,7 +616,6 @@ class ContrastiveVAEEngine:
         """Запуск движка"""
         self._running = True
 
-        # Запускаем фоновое обучение
         self._retrain_thread = threading.Thread(
             target=self._retrain_loop,
             daemon=True,
@@ -734,7 +660,7 @@ class ContrastiveVAEEngine:
         with self._training_lock:
             self.model.train()
 
-            for epoch in range(5):  # Несколько эпох для дообучения
+            for epoch in range(5):
                 epoch_loss = 0.0
 
                 for batch in dataloader:
@@ -753,13 +679,10 @@ class ContrastiveVAEEngine:
                 avg_loss = epoch_loss / len(dataloader)
                 logger.debug(f"Online epoch: loss={avg_loss:.6f}")
 
-        # Калибруем пороги
         self._calibrate_thresholds(normal_data[:1000])
 
-        # Сохраняем модель
         self._save_model()
 
-        # Очищаем буфер
         self.normal_buffer.clear()
 
     def train(self, normal_data: np.ndarray, anomaly_data: Optional[np.ndarray] = None,
@@ -785,7 +708,6 @@ class ContrastiveVAEEngine:
         if len(normal_data) < 100:
             return {'error': f'Insufficient data: {len(normal_data)} samples'}
 
-        # Подготавливаем данные
         if anomaly_data is not None and len(anomaly_data) > 0:
             X = np.concatenate([normal_data, anomaly_data])
             y = np.concatenate([np.zeros(len(normal_data)), np.ones(len(anomaly_data))])
@@ -793,7 +715,6 @@ class ContrastiveVAEEngine:
             X = normal_data
             y = np.zeros(len(normal_data))
 
-        # Разделяем на train/val
         if validation_split > 0:
             from sklearn.model_selection import train_test_split
             X_train, X_val, y_train, y_val = train_test_split(
@@ -803,7 +724,6 @@ class ContrastiveVAEEngine:
             X_train, y_train = X, y
             X_val, y_val = None, None
 
-        # Создаём даталоадеры
         train_dataset = TensorDataset(
             torch.FloatTensor(X_train),
             torch.LongTensor(y_train)
@@ -836,7 +756,6 @@ class ContrastiveVAEEngine:
             patience_counter = 0
 
             for epoch in range(epochs):
-                # Training
                 epoch_loss = 0.0
                 epoch_recon = 0.0
                 epoch_kl = 0.0
@@ -867,7 +786,6 @@ class ContrastiveVAEEngine:
                 history['kl_loss'].append(epoch_kl / len(train_loader))
                 history['contrastive_loss'].append(epoch_contrast / len(train_loader))
 
-                # Validation
                 if val_loader:
                     self.model.eval()
                     val_loss = 0.0
@@ -885,7 +803,6 @@ class ContrastiveVAEEngine:
 
                     self.scheduler.step(avg_val_loss)
 
-                    # Early stopping
                     if avg_val_loss < best_val_loss:
                         best_val_loss = avg_val_loss
                         patience_counter = 0
@@ -911,10 +828,8 @@ class ContrastiveVAEEngine:
         self.is_trained = True
         self.training_history = history
 
-        # Калибруем пороги
         self._calibrate_thresholds(normal_data[:2000])
 
-        # Сохраняем модель
         self._save_model()
 
         logger.info(f"✅ Training complete. Best loss: {self.stats['best_loss']:.4f}")
@@ -943,19 +858,15 @@ class ContrastiveVAEEngine:
                 recon_errors.extend(recon_error.cpu().numpy())
                 latent_vectors.append(outputs['z'].cpu())
 
-        # Порог по reconstruction error
         self.recon_threshold = np.percentile(recon_errors, self.config.threshold_percentile)
 
-        # Латентное пространство
         if latent_vectors:
             all_latent = torch.cat(latent_vectors, dim=0)
             self.normal_centroid = all_latent.mean(dim=0)
 
-            # Радиус нормальных данных
             distances = torch.norm(all_latent - self.normal_centroid, dim=1)
             self.normal_radius = np.percentile(distances.cpu().numpy(), self.config.threshold_percentile)
 
-            # Присваиваем модели для использования при инференсе
             self.model.normal_centroid = self.normal_centroid
             self.model.normal_radius = self.normal_radius
             self.model.recon_threshold = self.recon_threshold
@@ -976,7 +887,6 @@ class ContrastiveVAEEngine:
         start_time = time.time()
         self.stats['total_predictions'] += 1
 
-        # Проверяем кэш
         cache_key = self._make_cache_key(features)
         with self._cache_lock:
             if cache_key in self._prediction_cache:
@@ -1016,7 +926,6 @@ class ContrastiveVAEEngine:
         if is_anomaly:
             self.stats['anomalies_detected'] += 1
 
-        # Калиброванная уверенность
         confidence = min(1.0, abs(score - 0.5) * 2 + 0.3)
 
         result = {
@@ -1031,7 +940,6 @@ class ContrastiveVAEEngine:
             'severity': self._get_severity(score)
         }
 
-        # Кэшируем
         with self._cache_lock:
             self._prediction_cache[cache_key] = (result, time.time())
 
@@ -1043,14 +951,12 @@ class ContrastiveVAEEngine:
                 for k in sorted_keys[:len(sorted_keys) // 10]:
                     del self._prediction_cache[k]
 
-        # Обновляем статистику
         inference_time = (time.time() - start_time) * 1000
         self.stats['avg_inference_time_ms'] = (
                 0.95 * self.stats['avg_inference_time_ms'] +
                 0.05 * inference_time
         )
 
-        # Добавляем в буфер для онлайн-обучения
         if not is_anomaly and score < 0.3:
             self.normal_buffer.append(features.flatten())
         elif is_anomaly and score > 0.7:
@@ -1092,7 +998,6 @@ class ContrastiveVAEEngine:
     def add_feedback(self, features: np.ndarray, is_false_positive: bool):
         """Добавление обратной связи"""
         if is_false_positive:
-            # Повышаем порог при ложных срабатываниях
             if self.recon_threshold:
                 self.recon_threshold *= 1.05
                 logger.debug(f"Adjusted threshold to {self.recon_threshold:.6f}")
@@ -1125,9 +1030,6 @@ class ContrastiveVAEEngine:
         }
 
 
-# ============================================================
-# SHARD ИНТЕГРАЦИЯ
-# ============================================================
 
 class ShardContrastiveVAEIntegration:
     """Интеграционный слой для SHARD Enterprise"""
@@ -1187,9 +1089,6 @@ class ShardContrastiveVAEIntegration:
         return self.engine.get_stats()
 
 
-# ============================================================
-# ТЕСТИРОВАНИЕ
-# ============================================================
 
 def test_contrastive_vae():
     """Тестирование Contrastive VAE"""
@@ -1201,31 +1100,25 @@ def test_contrastive_vae():
         print("❌ PyTorch not available")
         return
 
-    # Конфигурация
     config = ContrastiveVAEConfig()
     config.input_dim = 156
     config.epochs = 30
     config.latent_dim = 32
 
-    # Создаём движок
     engine = ContrastiveVAEEngine(config)
     engine.start()
 
-    # Генерируем синтетические данные
     print("\n📊 Generating synthetic data...")
 
     np.random.seed(42)
     normal_data = np.random.randn(1000, config.input_dim) * 0.1
     anomaly_data = np.random.randn(200, config.input_dim) * 1.5
 
-    # Обучаем
     print("\n🔄 Training model...")
     history = engine.train(normal_data, anomaly_data, verbose=1)
 
-    # Тестируем
     print("\n🔮 Testing predictions...")
 
-    # Нормальные данные
     normal_test = np.random.randn(20, config.input_dim) * 0.1
     normal_scores = []
 
@@ -1233,7 +1126,6 @@ def test_contrastive_vae():
         result = engine.predict(normal_test[i])
         normal_scores.append(result['score'])
 
-    # Аномальные данные
     anomaly_test = np.random.randn(20, config.input_dim) * 2.0
     anomaly_scores = []
 
@@ -1250,7 +1142,6 @@ def test_contrastive_vae():
     print(f"   Anomaly data - mean score: {np.mean(anomaly_scores):.4f}")
     print(f"   Separation: {np.mean(anomaly_scores) - np.mean(normal_scores):.4f}")
 
-    # Статистика
     print("\n📊 Statistics:")
     stats = engine.get_stats()
     print(f"   Trained: {stats['model']['is_trained']}")

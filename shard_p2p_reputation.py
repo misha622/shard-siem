@@ -41,7 +41,6 @@ class IPFSClient:
     def add(self, data: Dict) -> Optional[str]:
         """Добавление данных в IPFS"""
         if not self.connected:
-            # Локальное хеширование как fallback
             content = json.dumps(data, sort_keys=True)
             return hashlib.sha256(content.encode()).hexdigest()[:16]
 
@@ -88,7 +87,6 @@ class IPFSClient:
 
     def subscribe(self, topic: str, callback) -> bool:
         """Подписка на pubsub (упрощённо - через polling)"""
-        # В реальности нужен WebSocket, здесь упрощённая версия
         if not self.connected:
             return False
 
@@ -126,16 +124,12 @@ class ReputationManager:
     """
 
     def __init__(self):
-        # Локальная база репутации
         self.reputation: Dict[str, Dict] = {}
 
-        # Очередь для публикации
         self.publish_queue = queue.Queue()
 
-        # Подписки на другие узлы
         self.peers: Set[str] = set()
 
-        # Статистика
         self.stats = {
             'published': 0,
             'received': 0,
@@ -143,7 +137,6 @@ class ReputationManager:
             'external_threats': 0
         }
 
-        # Загружаем локальную базу
         self._load_local_db()
 
     def _load_local_db(self):
@@ -197,11 +190,9 @@ class ReputationManager:
         record['reports'] = len(record['threats'])
         record['sources'].append(source)
 
-        # Пересчёт скора
         record['score'] = self._calculate_score(record)
         record['confidence'] = min(1.0, record['confidence'] + confidence * 0.1)
 
-        # Сохраняем
         self._save_local_db()
 
         if source == "local":
@@ -209,7 +200,6 @@ class ReputationManager:
         else:
             self.stats['external_threats'] += 1
 
-        # Добавляем в очередь на публикацию
         if record['score'] > 0.7:
             self.publish_queue.put({
                 'indicator': indicator,
@@ -224,13 +214,10 @@ class ReputationManager:
 
     def _calculate_score(self, record: Dict) -> float:
         """Расчёт скора репутации"""
-        # Базовый скор от количества репортов
         base_score = min(1.0, record['reports'] * 0.2)
 
-        # Бонус за разнообразие источников
         source_bonus = min(0.3, len(record['sources']) * 0.1)
 
-        # Бонус за свежесть
         last_seen = datetime.fromisoformat(record['last_seen'])
         freshness = max(0, 1.0 - (datetime.now() - last_seen).days / 30)
 
@@ -281,7 +268,6 @@ class ReputationManager:
                     'last_seen': record['last_seen']
                 })
 
-        # Сортируем по скору
         threats.sort(key=lambda x: x['score'], reverse=True)
         return threats[:limit]
 
@@ -306,26 +292,20 @@ class SHARDP2PNetwork:
         self.ipfs = IPFSClient()
         self.reputation = ReputationManager()
 
-        # Топики для pubsub
         self.THREAT_TOPIC = "shard-threat-intel-v1"
         self.PEER_DISCOVERY = "shard-peer-discovery-v1"
 
-        # Известные пиры
         self.bootstrap_peers = [
             "/ip4/104.131.131.82/tcp/4001/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ",
         ]
 
-        # Статус
         self.running = True
         self.announce_thread = None
 
-        # Подписываемся на топики
         self._setup_subscriptions()
 
-        # Запускаем анонсирование
         self._start_announce()
 
-        # Запускаем публикацию из очереди
         self._start_publisher()
 
         logger.info(f"🌐 SHARD P2P Network запущена (node: {self.node_id})")
@@ -365,7 +345,7 @@ class SHARDP2PNetwork:
                     'timestamp': datetime.now().isoformat(),
                     'threats_count': len(self.reputation.reputation)
                 })
-                time.sleep(300)  # Каждые 5 минут
+                time.sleep(300)
 
         self.announce_thread = threading.Thread(target=announcer, daemon=True)
         self.announce_thread.start()
@@ -378,11 +358,9 @@ class SHARDP2PNetwork:
                 try:
                     threat = self.reputation.publish_queue.get(timeout=10)
 
-                    # Добавляем метаданные
                     threat['source'] = self.node_id
                     threat['version'] = 1
 
-                    # Публикуем
                     success = self.ipfs.publish(self.THREAT_TOPIC, threat)
                     if success:
                         self.reputation.stats['published'] += 1
@@ -401,7 +379,6 @@ class SHARDP2PNetwork:
         """
         Поделиться угрозой с сетью
         """
-        # Добавляем локально
         record = self.reputation.add_threat(
             indicator=indicator,
             indicator_type=indicator_type,
@@ -446,9 +423,6 @@ class SHARDP2PNetwork:
         logger.info("🛑 P2P Network остановлена")
 
 
-# ============================================================
-# ИНТЕГРАЦИЯ С SHARD
-# ============================================================
 
 class SHARDP2PIntegration:
     """
@@ -469,7 +443,7 @@ class SHARDP2PIntegration:
         """Отправка угрозы в P2P сеть"""
         src_ip = alert.get('src_ip')
         if not src_ip or src_ip in ['127.0.0.1', '::1', 'localhost']:
-            return  # Не делимся локальными адресами
+            return
 
         threat_type = alert.get('attack_type', alert.get('type', 'unknown'))
         confidence = alert.get('confidence', 0.5)
@@ -498,7 +472,6 @@ if __name__ == "__main__":
 
     p2p = SHARDP2PIntegration()
 
-    # Тест
     result = p2p.check_ip("185.142.53.101")
     print(f"🔍 Проверка IP: {result}")
 

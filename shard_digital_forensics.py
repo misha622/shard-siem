@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 SHARD Digital Forensics Module
@@ -32,29 +31,26 @@ import requests
 import yaml
 
 
-# ============================================================
-# КОНФИГУРАЦИЯ
-# ============================================================
 
 class EvidenceType(Enum):
     """Типы доказательств"""
-    PCAP = "pcap"  # Сетевой трафик
-    MEMORY_DUMP = "memory_dump"  # Дамп памяти
-    DISK_IMAGE = "disk_image"  # Образ диска
-    LOG_FILE = "log_file"  # Лог-файл
-    REGISTRY = "registry"  # Реестр Windows
-    PREFETCH = "prefetch"  # Prefetch файлы
-    EVENT_LOG = "event_log"  # Windows Event Log
-    BROWSER_HISTORY = "browser_history"  # История браузера
-    SHELLBAG = "shellbag"  # Shellbags
-    JUMP_LIST = "jump_list"  # Jump Lists
-    LNK_FILE = "lnk_file"  # Ярлыки
-    MFT = "mft"  # Master File Table
-    USN_JOURNAL = "usn_journal"  # USN Journal
-    AMCACHE = "amcache"  # Amcache
-    SHIMCACHE = "shimcache"  # Shimcache
-    SRUM = "srum"  # SRUM
-    RECYCLE_BIN = "recycle_bin"  # Корзина
+    PCAP = "pcap"
+    MEMORY_DUMP = "memory_dump"
+    DISK_IMAGE = "disk_image"
+    LOG_FILE = "log_file"
+    REGISTRY = "registry"
+    PREFETCH = "prefetch"
+    EVENT_LOG = "event_log"
+    BROWSER_HISTORY = "browser_history"
+    SHELLBAG = "shellbag"
+    JUMP_LIST = "jump_list"
+    LNK_FILE = "lnk_file"
+    MFT = "mft"
+    USN_JOURNAL = "usn_journal"
+    AMCACHE = "amcache"
+    SHIMCACHE = "shimcache"
+    SRUM = "srum"
+    RECYCLE_BIN = "recycle_bin"
 
 
 class EvidenceSeverity(Enum):
@@ -70,28 +66,23 @@ class EvidenceSeverity(Enum):
 class ForensicsConfig:
     """Конфигурация Digital Forensics"""
 
-    # Хранилище
     evidence_dir: str = "./data/forensics/evidence/"
     cases_dir: str = "./data/forensics/cases/"
     reports_dir: str = "./data/forensics/reports/"
 
-    # Анализ
     pcap_analysis_enabled: bool = True
     memory_analysis_enabled: bool = True
     disk_analysis_enabled: bool = True
     log_analysis_enabled: bool = True
 
-    # Инструменты
     tools_path: str = "/usr/bin"
     volatility_path: str = "/opt/volatility3"
     sleuthkit_path: str = "/usr/bin"
 
-    # Ограничения
     max_pcap_size_mb: int = 1024
     max_memory_dump_size_mb: int = 4096
     max_file_size_mb: int = 100
 
-    # Автоматизация
     auto_analyze_alerts: bool = True
     auto_create_timeline: bool = True
     auto_generate_report: bool = True
@@ -133,9 +124,6 @@ class ForensicFinding:
     iocs: List[Dict] = field(default_factory=list)
 
 
-# ============================================================
-# PCAP ANALYZER
-# ============================================================
 
 class PCAPAnalyzer:
     """Анализатор сетевого трафика (PCAP)"""
@@ -166,7 +154,6 @@ class PCAPAnalyzer:
 
             packets = rdpcap(pcap_path)
 
-            # Статистика
             ips = set()
             ports = set()
             protocols = defaultdict(int)
@@ -181,7 +168,6 @@ class PCAPAnalyzer:
                         ports.add(pkt[TCP].sport)
                         ports.add(pkt[TCP].dport)
 
-                        # Поиск подозрительных портов
                         if pkt[TCP].dport in [4444, 5555, 6666, 7777, 8888, 1337, 31337]:
                             findings.append(ForensicFinding(
                                 id=f"PCAP-SUSPICIOUS-PORT-{len(findings)}",
@@ -205,11 +191,9 @@ class PCAPAnalyzer:
                     elif UDP in pkt:
                         protocols['udp'] += 1
 
-                        # DNS анализ
                         if DNS in pkt and pkt[DNS].qr == 0:
                             dns_query = pkt[DNS].qd.qname.decode() if pkt[DNS].qd else ''
 
-                            # Длинные DNS запросы (туннелирование)
                             if len(dns_query) > 50:
                                 findings.append(ForensicFinding(
                                     id=f"PCAP-DNS-TUNNEL-{len(findings)}",
@@ -224,7 +208,6 @@ class PCAPAnalyzer:
                                     mitre_techniques=['T1572']
                                 ))
 
-                            # DGA домены (высокая энтропия)
                             entropy = self._calculate_entropy(dns_query)
                             if entropy > 3.5:
                                 findings.append(ForensicFinding(
@@ -238,10 +221,9 @@ class PCAPAnalyzer:
                                     data={'query': dns_query, 'entropy': entropy}
                                 ))
 
-                    elif pkt[IP].proto == 1:  # ICMP
+                    elif pkt[IP].proto == 1:
                         protocols['icmp'] += 1
 
-                        # ICMP туннелирование (большие пакеты)
                         if Raw in pkt and len(pkt[Raw].load) > 100:
                             findings.append(ForensicFinding(
                                 id=f"PCAP-ICMP-TUNNEL-{len(findings)}",
@@ -256,7 +238,6 @@ class PCAPAnalyzer:
                                 mitre_techniques=['T1095']
                             ))
 
-            # Общая статистика как finding
             findings.append(ForensicFinding(
                 id=f"PCAP-STATS-{evidence_id[:8]}",
                 evidence_id=evidence_id,
@@ -283,12 +264,10 @@ class PCAPAnalyzer:
         findings = []
 
         try:
-            # Проверка наличия tshark
             result = subprocess.run(['which', 'tshark'], capture_output=True, text=True)
             if result.returncode != 0:
                 return findings
 
-            # Статистика
             cmd = ['tshark', '-r', pcap_path, '-q', '-z', 'io,stat,0']
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
 
@@ -303,7 +282,6 @@ class PCAPAnalyzer:
                     data={'output': result.stdout[:1000]}
                 ))
 
-            # Поиск подозрительных соединений
             cmd = ['tshark', '-r', pcap_path, '-Y', 'tcp.port in {4444 5555 6666 7777 8888 1337 31337}', '-T', 'fields',
                    '-e', 'frame.time', '-e', 'ip.src', '-e', 'ip.dst', '-e', 'tcp.port']
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
@@ -335,13 +313,10 @@ class PCAPAnalyzer:
         freq = {}
         for c in data:
             freq[c] = freq.get(c, 0) + 1
-        entropy = -sum((c / len(data)) * (freq[c] / len(data) ** 0.5) for c in freq)  # Упрощённо
+        entropy = -sum((c / len(data)) * (freq[c] / len(data) ** 0.5) for c in freq)
         return min(8.0, abs(entropy))
 
 
-# ============================================================
-# MEMORY FORENSICS
-# ============================================================
 
 class MemoryAnalyzer:
     """Анализатор дампов памяти (Volatility)"""
@@ -381,7 +356,6 @@ class MemoryAnalyzer:
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
 
                 if result.returncode == 0 and result.stdout.strip():
-                    # Анализ вывода на подозрительные паттерны
                     suspicious = self._analyze_plugin_output(plugin, result.stdout)
 
                     for susp in suspicious:
@@ -397,7 +371,6 @@ class MemoryAnalyzer:
                             mitre_techniques=susp.get('techniques', [])
                         ))
 
-                    # Сохраняем общую информацию
                     findings.append(ForensicFinding(
                         id=f"MEM-{plugin}-SUMMARY-{evidence_id[:8]}",
                         evidence_id=evidence_id,
@@ -422,7 +395,6 @@ class MemoryAnalyzer:
         suspicious = []
 
         if plugin == 'windows.psscan':
-            # Поиск подозрительных процессов
             suspicious_names = ['mimikatz', 'procdump', 'psexec', 'nc.exe', 'netcat', 'powershell', 'cmd.exe']
             for line in output.split('\n'):
                 for name in suspicious_names:
@@ -436,7 +408,6 @@ class MemoryAnalyzer:
                         })
 
         elif plugin == 'windows.netscan':
-            # Поиск подозрительных соединений
             suspicious_ports = ['4444', '5555', '6666', '7777', '8888', '1337', '31337']
             for line in output.split('\n'):
                 for port in suspicious_ports:
@@ -450,7 +421,6 @@ class MemoryAnalyzer:
                         })
 
         elif plugin == 'windows.cmdline':
-            # Поиск подозрительных команд
             suspicious_cmds = ['-enc', '-encodedcommand', 'iex', 'invoke-', 'downloadstring', 'reflection']
             for line in output.split('\n'):
                 for cmd in suspicious_cmds:
@@ -464,7 +434,6 @@ class MemoryAnalyzer:
                         })
 
         elif plugin == 'windows.malfind':
-            # Malfind уже находит подозрительное
             if 'VAD' in output and 'PAGE_EXECUTE' in output:
                 suspicious.append({
                     'name': 'Potential code injection',
@@ -477,9 +446,6 @@ class MemoryAnalyzer:
         return suspicious
 
 
-# ============================================================
-# LOG ANALYZER
-# ============================================================
 
 class LogAnalyzer:
     """Анализатор лог-файлов"""
@@ -492,14 +458,12 @@ class LogAnalyzer:
     def _load_patterns(self) -> List[Dict]:
         """Загрузка паттернов для анализа логов"""
         return [
-            # SSH
             {'pattern': r'Failed password for (?:invalid user )?(\S+) from (\S+) port',
              'name': 'SSH Failed Login', 'severity': EvidenceSeverity.MEDIUM,
              'tactics': ['Credential Access'], 'techniques': ['T1110']},
             {'pattern': r'Accepted password for (\S+) from (\S+)',
              'name': 'SSH Successful Login', 'severity': EvidenceSeverity.INFO},
 
-            # Web
             {'pattern': r'(SELECT|UNION|INSERT|UPDATE|DELETE).*(FROM|INTO).*[\'\"]',
              'name': 'Potential SQL Injection', 'severity': EvidenceSeverity.CRITICAL,
              'tactics': ['Initial Access'], 'techniques': ['T1190']},
@@ -510,7 +474,6 @@ class LogAnalyzer:
              'name': 'Path Traversal / Command Injection', 'severity': EvidenceSeverity.CRITICAL,
              'tactics': ['Initial Access'], 'techniques': ['T1190']},
 
-            # Windows Event Log
             {'pattern': r'EventID[=:]?\s*4625',
              'name': 'Windows Failed Login', 'severity': EvidenceSeverity.MEDIUM,
              'tactics': ['Credential Access'], 'techniques': ['T1110']},
@@ -526,7 +489,6 @@ class LogAnalyzer:
         """Анализ лог-файла"""
         findings = []
 
-        # Определение типа лога
         if log_type == 'auto':
             log_type = self._detect_log_type(log_path)
 
@@ -534,7 +496,6 @@ class LogAnalyzer:
             with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
                 lines = f.readlines()
 
-                # Ограничение размера
                 if len(lines) > 100000:
                     lines = lines[:50000] + lines[-50000:]
 
@@ -578,9 +539,6 @@ class LogAnalyzer:
             return 'generic'
 
 
-# ============================================================
-# TIMELINE BUILDER
-# ============================================================
 
 class TimelineBuilder:
     """Построитель временной линии событий"""
@@ -608,7 +566,6 @@ class TimelineBuilder:
                     'mitre_techniques': f.mitre_techniques
                 })
 
-        # Сортировка по времени
         timeline.sort(key=lambda x: x['timestamp'] if x['timestamp'] else 0)
 
         return timeline
@@ -630,7 +587,6 @@ class TimelineBuilder:
         ]
 
         for event in timeline:
-            # Определение стадии по MITRE
             stage = self._determine_stage(event)
 
             if stage != current_stage:
@@ -678,9 +634,6 @@ class TimelineBuilder:
             return 'Unknown'
 
 
-# ============================================================
-# FORENSICS ENGINE
-# ============================================================
 
 class ForensicsEngine:
     """
@@ -692,18 +645,15 @@ class ForensicsEngine:
         self.config = config or ForensicsConfig()
         self.logger = logger
 
-        # Анализаторы
         self.pcap_analyzer = PCAPAnalyzer(self.config, logger)
         self.memory_analyzer = MemoryAnalyzer(self.config, logger)
         self.log_analyzer = LogAnalyzer(self.config, logger)
         self.timeline_builder = TimelineBuilder(self.config, logger)
 
-        # Хранилище
         self.evidence: Dict[str, Evidence] = {}
         self.findings: Dict[str, ForensicFinding] = {}
         self.cases: Dict[str, Dict] = {}
 
-        # Статистика
         self.stats = {
             'total_evidence': 0,
             'total_findings': 0,
@@ -714,7 +664,6 @@ class ForensicsEngine:
         self._lock = threading.RLock()
         self._running = False
 
-        # Инициализация директорий
         self._init_dirs()
         self._load_cases()
 
@@ -768,7 +717,6 @@ class ForensicsEngine:
             self.cases[case_id] = case
             self.stats['total_cases'] += 1
 
-        # Сохранение
         self._save_case(case_id)
 
         if self.logger:
@@ -790,7 +738,6 @@ class ForensicsEngine:
         if case_id not in self.cases:
             raise ValueError(f"Case {case_id} not found")
 
-        # Вычисление хешей
         hash_md5 = None
         hash_sha256 = None
         size_bytes = 0
@@ -820,7 +767,6 @@ class ForensicsEngine:
             notes=notes
         )
 
-        # Chain of custody
         evidence.chain_of_custody.append({
             'timestamp': time.time(),
             'action': 'collected',
@@ -838,7 +784,6 @@ class ForensicsEngine:
         if self.logger:
             self.logger.info(f"🔍 Evidence {evidence_id} added to case {case_id}: {evidence_type.value}")
 
-        # Автоматический анализ
         if self.config.auto_analyze_alerts:
             self.analyze_evidence(evidence_id)
 
@@ -852,7 +797,6 @@ class ForensicsEngine:
 
         findings = []
 
-        # Выбор анализатора
         if evidence.type == EvidenceType.PCAP:
             findings = self.pcap_analyzer.analyze(evidence.path, evidence_id)
         elif evidence.type == EvidenceType.MEMORY_DUMP:
@@ -905,7 +849,6 @@ class ForensicsEngine:
         timeline = self.get_case_timeline(case_id)
         attack_chain = self.get_case_attack_chain(case_id)
 
-        # Группировка находок
         findings_by_severity = defaultdict(int)
         findings_by_type = defaultdict(int)
         iocs = []
@@ -917,7 +860,6 @@ class ForensicsEngine:
                 findings_by_type[f.artifact_type] += 1
                 iocs.extend(f.iocs)
 
-        # Сбор evidence
         evidence_list = []
         for eid in case['evidence_ids']:
             if eid in self.evidence:
@@ -963,13 +905,11 @@ class ForensicsEngine:
             ]
         }
 
-        # Сохранение отчёта
         if self.config.auto_generate_report:
             report_path = Path(self.config.reports_dir) / f"{case_id}_report.json"
             with open(report_path, 'w') as f:
                 json.dump(report, f, indent=2)
 
-            # HTML отчёт
             html_report = self._generate_html_report(report)
             html_path = Path(self.config.reports_dir) / f"{case_id}_report.html"
             with open(html_path, 'w') as f:
@@ -988,25 +928,25 @@ class ForensicsEngine:
     <meta charset="UTF-8">
     <title>SHARD Forensics Report - {case['id']}</title>
     <style>
-        body {{ font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }}
+        body {{ font-family: Arial, sans-serif; margin: 20px; background:
         .container {{ max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }}
-        h1 {{ color: #333; border-bottom: 3px solid #007bff; padding-bottom: 10px; }}
-        h2 {{ color: #555; margin-top: 30px; }}
+        h1 {{ color:
+        h2 {{ color:
         .summary {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0; }}
         .card {{ padding: 20px; border-radius: 10px; color: white; text-align: center; }}
-        .critical {{ background: #dc3545; }}
-        .high {{ background: #fd7e14; }}
-        .medium {{ background: #ffc107; color: black; }}
-        .low {{ background: #28a745; }}
+        .critical {{ background:
+        .high {{ background:
+        .medium {{ background:
+        .low {{ background:
         table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
-        th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }}
-        th {{ background: #007bff; color: white; }}
+        th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid
+        th {{ background:
         .timeline {{ margin: 20px 0; }}
-        .timeline-event {{ padding: 10px; margin: 5px 0; border-left: 4px solid; background: #f8f9fa; }}
-        .timeline-event.critical {{ border-color: #dc3545; }}
-        .timeline-event.high {{ border-color: #fd7e14; }}
-        .timeline-event.medium {{ border-color: #ffc107; }}
-        .timeline-event.low {{ border-color: #28a745; }}
+        .timeline-event {{ padding: 10px; margin: 5px 0; border-left: 4px solid; background:
+        .timeline-event.critical {{ border-color:
+        .timeline-event.high {{ border-color:
+        .timeline-event.medium {{ border-color:
+        .timeline-event.low {{ border-color:
     </style>
 </head>
 <body>
@@ -1066,7 +1006,7 @@ class ForensicsEngine:
         html += """
         </div>
         <hr>
-        <p style="color: #999; text-align: right;">SHARD Enterprise SIEM - Digital Forensics Module</p>
+        <p style="color:
     </div>
 </body>
 </html>
@@ -1093,9 +1033,6 @@ class ForensicsEngine:
         ]
 
 
-# ============================================================
-# ИНТЕГРАЦИЯ С SHARD
-# ============================================================
 
 class ShardForensicsIntegration:
     """Интеграция Digital Forensics в SHARD"""
@@ -1138,7 +1075,6 @@ class ShardForensicsIntegration:
         if severity not in ['CRITICAL', 'HIGH']:
             return
 
-        # Создание дела для критических алертов
         case_name = f"Alert: {alert.get('attack_type', 'Unknown')} from {alert.get('src_ip', 'unknown')}"
         case_id = self.engine.create_case(
             name=case_name,
@@ -1149,7 +1085,6 @@ class ShardForensicsIntegration:
         if self.logger:
             self.logger.info(f"📁 Auto-created case {case_id} for alert")
 
-        # Публикация события
         if self.event_bus:
             self.event_bus.publish('forensics.case.created', {
                 'case_id': case_id,
@@ -1232,9 +1167,6 @@ class ShardForensicsIntegration:
         return []
 
 
-# ============================================================
-# ТЕСТИРОВАНИЕ
-# ============================================================
 
 def test_forensics():
     """Тестирование Digital Forensics"""
@@ -1246,7 +1178,6 @@ def test_forensics():
     engine = ForensicsEngine(config)
     engine.start()
 
-    # Тест 1: Создание дела
     print("\n📝 Тест 1: Создание дела")
     case_id = engine.create_case(
         name="Test Investigation",
@@ -1255,13 +1186,11 @@ def test_forensics():
     )
     print(f"   Case created: {case_id}")
 
-    # Тест 2: Статистика
     print("\n📝 Тест 2: Статистика")
     stats = engine.get_stats()
     for key, value in stats.items():
         print(f"   {key}: {value}")
 
-    # Тест 3: Список дел
     print("\n📝 Тест 3: Список дел")
     cases = engine.list_cases()
     for case in cases:

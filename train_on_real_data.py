@@ -33,17 +33,15 @@ def extract_features_from_logs(logs):
     for entry in logs:
         log = entry.get('log', '')
         
-        # Извлекаем базовые фичи
         feat = {
-            'packet_size': 500,  # средний
-            'protocol': 6,       # TCP
+            'packet_size': 500,
+            'protocol': 6,
             'dst_port': 80,
             'is_alert': 0,
             'score': 0.0,
             'entropy': 0.3,
         }
         
-        # Определяем тип события
         if '🍯' in log or 'Honeypot' in log:
             feat['is_alert'] = 1
             feat['score'] = 0.7
@@ -51,7 +49,6 @@ def extract_features_from_logs(logs):
             feat['is_alert'] = 1
             feat['score'] = 0.8
         
-        # Извлекаем порт
         port_match = re.search(r'port (\d+)|:(\d{2,5})', log)
         if port_match:
             port = int(port_match.group(1) or port_match.group(2))
@@ -67,7 +64,6 @@ def retrain_vae(features):
     
     from train_anomaly_autoencoder import TrafficFeatureExtractor, VariationalAutoencoder, CONFIG
     
-    # Конвертируем в numpy
     X = np.zeros((len(features), 72), dtype=np.float32)
     for i, f in enumerate(features):
         X[i, 0] = min(1.0, f.get('packet_size', 500) / 1500.0)
@@ -76,16 +72,13 @@ def retrain_vae(features):
         X[i, 21] = f.get('entropy', 0.3)
         X[i, 62] = f.get('score', 0.0)
     
-    # Нормализация
     mean = X.mean(axis=0)
     std = X.std(axis=0) + 1e-8
     X = (X - mean) / std
     
-    # Модель
     model = VariationalAutoencoder(input_dim=72)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     
-    # Обучение
     dataset = torch.tensor(X, dtype=torch.float32)
     n_samples = len(dataset)
     batch_size = 32
@@ -112,7 +105,6 @@ def retrain_vae(features):
         if epoch % 10 == 0:
             logger.info(f"   Epoch {epoch}: loss={total_loss/len(dataset):.4f}")
     
-    # Сохраняем
     Path('./models/anomaly').mkdir(exist_ok=True)
     torch.save({
         'model_state_dict': model.state_dict(),
@@ -132,7 +124,6 @@ def main():
     logger.info("🧠 SHARD — Переобучение на реальном трафике")
     logger.info("="*60)
     
-    # Загружаем трафик
     logs = load_captured_traffic()
     
     if logs is None or len(logs) < 100:
@@ -141,15 +132,12 @@ def main():
         train_vae()
         return
     
-    # Извлекаем фичи
     features = extract_features_from_logs(logs)
     logger.info(f"Извлечено {len(features)} фич")
     
-    # Считаем статистику
     alerts = sum(1 for f in features if f['is_alert'])
     logger.info(f"   Алертов: {alerts} ({alerts/len(features)*100:.1f}%)")
     
-    # Переобучаем VAE
     retrain_vae(features)
     
     logger.info("\n✅ Обучение на реальных данных завершено!")

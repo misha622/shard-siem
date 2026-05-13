@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 SHARD Deep Learning Models - Production-Ready
@@ -10,7 +9,7 @@ SHARD Deep Learning Models - Production-Ready
 Author: SHARD Enterprise
 """
 
-from __future__ import annotations  # Safe for Docker without TF
+from __future__ import annotations
 import os
 import sys
 import time
@@ -28,26 +27,20 @@ import logging
 
 import numpy as np
 
-# Настройка логирования
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger("SHARD-DLModels")
 
-# Подавление предупреждений
 warnings.filterwarnings('ignore')
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-# ============================================================
-# ИМПОРТ БИБЛИОТЕК
-# ============================================================
 
 TF_AVAILABLE = False
 TORCH_AVAILABLE = False
 SKLEARN_AVAILABLE = False
 
-# TensorFlow
 try:
     import tensorflow as tf
     from tensorflow import keras
@@ -59,7 +52,6 @@ try:
 except ImportError:
     logger.warning("⚠️ TensorFlow not installed")
 
-# PyTorch
 try:
     import torch
     import torch.nn as nn
@@ -72,7 +64,6 @@ try:
 except ImportError:
     logger.warning("⚠️ PyTorch not installed")
 
-# Scikit-learn
 try:
     from sklearn.preprocessing import StandardScaler, RobustScaler
     from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
@@ -83,15 +74,11 @@ except ImportError:
     logger.warning("⚠️ Scikit-learn not installed")
 
 
-# ============================================================
-# КОНФИГУРАЦИЯ
-# ============================================================
 
 @dataclass
 class DLModelConfig:
     """Конфигурация Deep Learning моделей"""
 
-    # LSTM Autoencoder
     lstm_enabled: bool = True
     lstm_sequence_length: int = 100
     lstm_input_dim: int = 156
@@ -104,7 +91,6 @@ class DLModelConfig:
     lstm_batch_size: int = 32
     lstm_learning_rate: float = 0.001
 
-    # Transformer
     transformer_enabled: bool = True
     transformer_num_heads: int = 4
     transformer_num_layers: int = 2
@@ -115,7 +101,6 @@ class DLModelConfig:
     transformer_batch_size: int = 32
     transformer_learning_rate: float = 0.001
 
-    # VAE
     vae_enabled: bool = True
     vae_latent_dim: int = 32
     vae_hidden_dims: List[int] = field(default_factory=lambda: [128, 64])
@@ -125,30 +110,25 @@ class DLModelConfig:
     vae_learning_rate: float = 0.001
     vae_kl_weight: float = 0.1
 
-    # Ensemble
     ensemble_weights: Dict[str, float] = field(default_factory=lambda: {
         'lstm': 0.35, 'transformer': 0.35, 'vae': 0.3
     })
     ensemble_temperature: float = 2.0
     min_model_weight: float = 0.05
 
-    # Online Learning
     online_learning_enabled: bool = True
     online_buffer_size: int = 10000
     retrain_interval: int = 3600
     min_samples_retrain: int = 100
     sequence_buffer_size: int = 100
 
-    # Anomaly Detection
     anomaly_threshold_percentile: float = 95.0
     use_adaptive_threshold: bool = True
 
-    # Storage
     model_dir: str = './models/dl/'
     checkpoint_frequency: int = 10
 
-    # Performance
-    device: str = 'auto'  # 'cpu', 'cuda', 'auto'
+    device: str = 'auto'
     use_mixed_precision: bool = True
     max_workers: int = 4
     cache_size: int = 10000
@@ -168,9 +148,6 @@ class DLModelConfig:
         return cls(**data)
 
 
-# ============================================================
-# POSITIONAL ENCODING (для Transformer)
-# ============================================================
 
 if TORCH_AVAILABLE:
     class PositionalEncoding(nn.Module):
@@ -197,9 +174,6 @@ if TORCH_AVAILABLE:
             x = x + self.pe[:x.size(1)]
             return self.dropout(x)
 
-# ============================================================
-# 1. LSTM AUTOENCODER (PyTorch)
-# ============================================================
 
 if TORCH_AVAILABLE:
 
@@ -217,7 +191,6 @@ if TORCH_AVAILABLE:
             super().__init__()
             self.config = config
 
-            # Encoder LSTM
             self.encoder_lstm = nn.LSTM(
                 input_size=config.lstm_input_dim,
                 hidden_size=config.lstm_hidden_dim,
@@ -229,7 +202,6 @@ if TORCH_AVAILABLE:
 
             lstm_output_dim = config.lstm_hidden_dim * (2 if config.lstm_bidirectional else 1)
 
-            # Attention для энкодера
             self.encoder_attention = nn.MultiheadAttention(
                 embed_dim=lstm_output_dim,
                 num_heads=4,
@@ -237,7 +209,6 @@ if TORCH_AVAILABLE:
                 batch_first=True
             )
 
-            # Проекция в латентное пространство
             self.encoder_projection = nn.Sequential(
                 nn.Linear(lstm_output_dim, config.lstm_hidden_dim),
                 nn.ReLU(),
@@ -245,7 +216,6 @@ if TORCH_AVAILABLE:
                 nn.Linear(config.lstm_hidden_dim, config.lstm_latent_dim)
             )
 
-            # Декодер - проекция из латентного пространства
             self.decoder_projection = nn.Sequential(
                 nn.Linear(config.lstm_latent_dim, config.lstm_hidden_dim),
                 nn.ReLU(),
@@ -253,7 +223,6 @@ if TORCH_AVAILABLE:
                 nn.Linear(config.lstm_hidden_dim, lstm_output_dim)
             )
 
-            # Decoder LSTM
             self.decoder_lstm = nn.LSTM(
                 input_size=lstm_output_dim,
                 hidden_size=config.lstm_hidden_dim,
@@ -265,7 +234,6 @@ if TORCH_AVAILABLE:
 
             decoder_output_dim = config.lstm_hidden_dim * (2 if config.lstm_bidirectional else 1)
 
-            # Выходной слой
             self.output_layer = nn.Sequential(
                 nn.Linear(decoder_output_dim, config.lstm_hidden_dim),
                 nn.ReLU(),
@@ -273,7 +241,6 @@ if TORCH_AVAILABLE:
                 nn.Linear(config.lstm_hidden_dim, config.lstm_input_dim)
             )
 
-            # Batch нормализация
             self.input_norm = nn.BatchNorm1d(config.lstm_input_dim)
 
         def encode(self, x):
@@ -283,25 +250,19 @@ if TORCH_AVAILABLE:
             Args:
                 x: (batch_size, seq_len, input_dim)
             """
-            # Нормализация входа
             batch_size, seq_len, _ = x.shape
             x_norm = x.view(-1, self.config.lstm_input_dim)
             x_norm = self.input_norm(x_norm)
             x = x_norm.view(batch_size, seq_len, -1)
 
-            # LSTM
             lstm_out, (hidden, cell) = self.encoder_lstm(x)
 
-            # Attention
             attn_out, _ = self.encoder_attention(lstm_out, lstm_out, lstm_out)
 
-            # Residual connection
             lstm_out = lstm_out + attn_out
 
-            # Global pooling
             pooled = lstm_out.mean(dim=1)
 
-            # Проекция в латентное пространство
             latent = self.encoder_projection(pooled)
 
             return latent, lstm_out
@@ -314,16 +275,12 @@ if TORCH_AVAILABLE:
                 latent: (batch_size, latent_dim)
                 seq_len: длина последовательности
             """
-            # Проекция
             decoder_input = self.decoder_projection(latent)
 
-            # Повторяем для всей последовательности
             decoder_input = decoder_input.unsqueeze(1).repeat(1, seq_len, 1)
 
-            # LSTM
             lstm_out, _ = self.decoder_lstm(decoder_input)
 
-            # Выходной слой
             reconstruction = self.output_layer(lstm_out)
 
             return reconstruction
@@ -355,10 +312,8 @@ if TORCH_AVAILABLE:
                 result = self.forward(x)
                 reconstruction = result['reconstruction']
 
-                # MSE
                 mse = F.mse_loss(reconstruction, x, reduction='none').mean(dim=(1, 2))
 
-                # Нормализуем
                 if hasattr(self, 'threshold'):
                     score = torch.sigmoid((mse - self.threshold) / (self.threshold * 0.5))
                 else:
@@ -366,9 +321,6 @@ if TORCH_AVAILABLE:
 
                 return score, mse, score > 0.5
 
-# ============================================================
-# 2. TRANSFORMER ANOMALY DETECTOR (PyTorch)
-# ============================================================
 
 if TORCH_AVAILABLE:
     class TransformerAnomalyDetector(nn.Module):
@@ -385,16 +337,13 @@ if TORCH_AVAILABLE:
             super().__init__()
             self.config = config
 
-            # Входная проекция
             self.input_projection = nn.Linear(config.lstm_input_dim, config.transformer_d_model)
 
-            # Positional encoding
             self.pos_encoder = PositionalEncoding(
                 config.transformer_d_model,
                 dropout=config.transformer_dropout
             )
 
-            # Transformer encoder layers
             encoder_layer = nn.TransformerEncoderLayer(
                 d_model=config.transformer_d_model,
                 nhead=config.transformer_num_heads,
@@ -409,7 +358,6 @@ if TORCH_AVAILABLE:
                 num_layers=config.transformer_num_layers
             )
 
-            # Attention pooling
             self.attention_pool = nn.MultiheadAttention(
                 embed_dim=config.transformer_d_model,
                 num_heads=config.transformer_num_heads,
@@ -417,7 +365,6 @@ if TORCH_AVAILABLE:
                 batch_first=True
             )
 
-            # Классификатор
             self.classifier = nn.Sequential(
                 nn.Linear(config.transformer_d_model, config.transformer_d_model // 2),
                 nn.LayerNorm(config.transformer_d_model // 2),
@@ -427,7 +374,6 @@ if TORCH_AVAILABLE:
                 nn.Sigmoid()
             )
 
-            # LayerNorm для стабильности
             self.layer_norm = nn.LayerNorm(config.transformer_d_model)
 
         def forward(self, x):
@@ -437,26 +383,19 @@ if TORCH_AVAILABLE:
             Args:
                 x: (batch_size, seq_len, input_dim)
             """
-            # Входная проекция
             x = self.input_projection(x)
 
-            # Positional encoding
             x = self.pos_encoder(x)
 
-            # Transformer
             x = self.transformer(x)
             x = self.layer_norm(x)
 
-            # Attention pooling
             attn_out, attn_weights = self.attention_pool(x, x, x)
 
-            # Residual
             x = x + attn_out
 
-            # Global pooling (mean)
             pooled = x.mean(dim=1)
 
-            # Классификация
             score = self.classifier(pooled)
 
             return {
@@ -477,9 +416,6 @@ if TORCH_AVAILABLE:
 
                 return score, score, score > 0.5
 
-# ============================================================
-# 3. VAE ANOMALY DETECTOR (PyTorch)
-# ============================================================
 
 if TORCH_AVAILABLE:
 
@@ -497,7 +433,6 @@ if TORCH_AVAILABLE:
             super().__init__()
             self.config = config
 
-            # Encoder
             encoder_layers = []
             input_dim = config.lstm_input_dim
 
@@ -512,11 +447,9 @@ if TORCH_AVAILABLE:
 
             self.encoder = nn.Sequential(*encoder_layers)
 
-            # Latent space
             self.z_mean = nn.Linear(config.vae_hidden_dims[-1], config.vae_latent_dim)
             self.z_log_var = nn.Linear(config.vae_hidden_dims[-1], config.vae_latent_dim)
 
-            # Decoder
             decoder_layers = []
             input_dim = config.vae_latent_dim
 
@@ -533,7 +466,6 @@ if TORCH_AVAILABLE:
 
             self.decoder = nn.Sequential(*decoder_layers)
 
-            # KL annealing
             self.register_buffer('kl_weight', torch.tensor(0.0))
 
         def encode(self, x):
@@ -576,13 +508,10 @@ if TORCH_AVAILABLE:
 
             batch_size = x.size(0)
 
-            # Reconstruction loss
             recon_loss = F.mse_loss(reconstruction, x, reduction='sum') / batch_size
 
-            # KL divergence
             kl_loss = -0.5 * torch.sum(1 + z_log_var - z_mean.pow(2) - z_log_var.exp()) / batch_size
 
-            # KL annealing
             if epoch is not None:
                 kl_weight = min(1.0, epoch / 20) * self.config.vae_kl_weight
             else:
@@ -607,10 +536,8 @@ if TORCH_AVAILABLE:
                 outputs = self.forward(x)
                 reconstruction = outputs['reconstruction']
 
-                # MSE
                 mse = F.mse_loss(reconstruction, x, reduction='none').mean(dim=1)
 
-                # Нормализуем
                 if hasattr(self, 'threshold'):
                     score = torch.sigmoid((mse - self.threshold) / (self.threshold * 0.5))
                 else:
@@ -619,9 +546,6 @@ if TORCH_AVAILABLE:
                 return score, mse, score > 0.5
 
 
-# ============================================================
-# 4. DEEP LEARNING ENSEMBLE (Production-Ready)
-# ============================================================
 
 class DeepLearningEnsemble:
     """
@@ -637,19 +561,16 @@ class DeepLearningEnsemble:
     def __init__(self, config: DLModelConfig = None):
         self.config = config or DLModelConfig()
 
-        # Определяем устройство
         if self.config.device == 'auto':
             self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         else:
             self.device = torch.device(self.config.device)
 
-        # Модели
         self.models = {}
         self.optimizers = {}
         self.schedulers = {}
 
         if TORCH_AVAILABLE:
-            # LSTM Autoencoder
             if self.config.lstm_enabled:
                 self.models['lstm'] = LSTMAutoencoder(self.config).to(self.device)
                 self.optimizers['lstm'] = optim.AdamW(
@@ -660,7 +581,6 @@ class DeepLearningEnsemble:
                     self.optimizers['lstm'], mode='min', factor=0.5, patience=5
                 )
 
-            # Transformer
             if self.config.transformer_enabled:
                 self.models['transformer'] = TransformerAnomalyDetector(self.config).to(self.device)
                 self.optimizers['transformer'] = optim.AdamW(
@@ -671,7 +591,6 @@ class DeepLearningEnsemble:
                     self.optimizers['transformer'], mode='min', factor=0.5, patience=5
                 )
 
-            # VAE
             if self.config.vae_enabled:
                 self.models['vae'] = VAEAnomalyDetector(self.config).to(self.device)
                 self.optimizers['vae'] = optim.AdamW(
@@ -682,23 +601,18 @@ class DeepLearningEnsemble:
                     self.optimizers['vae'], mode='min', factor=0.5, patience=5
                 )
 
-        # Веса ансамбля
         self.ensemble_weights = self.config.ensemble_weights.copy()
 
-        # Пороги
         self.thresholds = {name: 0.5 for name in self.models.keys()}
 
-        # Буферы
         self.sequence_buffer: Dict[str, deque] = defaultdict(
             lambda: deque(maxlen=self.config.lstm_sequence_length)
         )
         self.online_buffer: deque = deque(maxlen=self.config.online_buffer_size)
         self.feedback_buffer: deque = deque(maxlen=1000)
 
-        # Состояние
         self.is_trained = {name: False for name in self.models.keys()}
 
-        # Статистика
         self.stats = {
             'total_predictions': 0,
             'anomalies_detected': 0,
@@ -707,21 +621,16 @@ class DeepLearningEnsemble:
                                   for name in self.models.keys()}
         }
 
-        # Блокировки
         self._model_lock = threading.RLock()
         self._training_lock = threading.RLock()
 
-        # Кэш
         self._prediction_cache: Dict[str, Tuple[Dict, float]] = {}
         self._cache_lock = threading.RLock()
 
-        # Пул для асинхронных операций
         self._executor = ThreadPoolExecutor(max_workers=self.config.max_workers)
 
-        # Создаём директорию моделей
         Path(self.config.model_dir).mkdir(parents=True, exist_ok=True)
 
-        # Загружаем модели
         self._load_all_models()
 
         logger.info(f"✅ DeepLearningEnsemble initialized on {self.device} "
@@ -805,7 +714,6 @@ class DeepLearningEnsemble:
         start_time = time.time()
         self.stats['total_predictions'] += 1
 
-        # Проверяем кэш
         cache_key = self._make_cache_key(sequence, raw_features)
         with self._cache_lock:
             if cache_key in self._prediction_cache:
@@ -826,9 +734,8 @@ class DeepLearningEnsemble:
         anomaly_votes = 0.0
 
         with self._model_lock:
-            # Подготавливаем данные
-            seq_tensor = torch.FloatTensor(sequence).unsqueeze(0).to(self.device)  # (1, seq_len, input_dim)
-            feat_tensor = torch.FloatTensor(raw_features).unsqueeze(0).to(self.device)  # (1, input_dim)
+            seq_tensor = torch.FloatTensor(sequence).unsqueeze(0).to(self.device)
+            feat_tensor = torch.FloatTensor(raw_features).unsqueeze(0).to(self.device)
 
             for name, model in self.models.items():
                 if not self.is_trained.get(name, False):
@@ -885,7 +792,6 @@ class DeepLearningEnsemble:
         if result['is_anomaly']:
             self.stats['anomalies_detected'] += 1
 
-        # Кэшируем
         with self._cache_lock:
             self._prediction_cache[cache_key] = (result, time.time())
 
@@ -901,7 +807,6 @@ class DeepLearningEnsemble:
 
     def _make_cache_key(self, sequence: np.ndarray, features: List[float]) -> str:
         """Создаёт ключ кэша"""
-        # Хешируем последние 5 шагов последовательности и признаки
         seq_flat = sequence[-5:].flatten()
         quantized_seq = np.round(seq_flat[:20], 3)
         quantized_feat = np.round(features[:10], 3)
@@ -962,7 +867,6 @@ class DeepLearningEnsemble:
 
             self.is_trained['lstm'] = True
 
-            # Калибруем порог
             self._calibrate_threshold('lstm', normal_sequences[:500])
 
         return history
@@ -1027,7 +931,6 @@ class DeepLearningEnsemble:
 
             self.is_trained['vae'] = True
 
-            # Калибруем порог
             self._calibrate_threshold('vae', normal_data[:500])
 
         return history
@@ -1076,7 +979,6 @@ class DeepLearningEnsemble:
 
         logger.info(f"🔄 Online retraining on {len(data)} samples")
 
-        # Дообучаем VAE (быстрее всего)
         if 'vae' in self.models and self.is_trained.get('vae', False):
             self._online_retrain_vae(data)
 
@@ -1104,7 +1006,6 @@ class DeepLearningEnsemble:
                 loss.backward()
                 optimizer.step()
 
-        # Обновляем порог
         self._calibrate_threshold('vae', data[:500])
 
         self._save_model('vae')
@@ -1122,7 +1023,6 @@ class DeepLearningEnsemble:
             'timestamp': time.time()
         })
 
-        # Периодическое обновление весов
         if len(self.feedback_buffer) >= 50:
             self._update_ensemble_weights()
 
@@ -1133,7 +1033,6 @@ class DeepLearningEnsemble:
 
         feedback = list(self.feedback_buffer)[-100:]
 
-        # Оцениваем каждую модель
         f1_scores = {}
 
         for name in self.models.keys():
@@ -1148,7 +1047,7 @@ class DeepLearningEnsemble:
                 y_true.append(true_label)
                 y_pred.append(pred_label)
 
-            if len(set(y_true)) > 1:  # Есть оба класса
+            if len(set(y_true)) > 1:
                 f1 = f1_score(y_true, y_pred, zero_division=0)
                 precision = precision_score(y_true, y_pred, zero_division=0)
                 recall = recall_score(y_true, y_pred, zero_division=0)
@@ -1162,18 +1061,14 @@ class DeepLearningEnsemble:
                 }
 
         if f1_scores:
-            # Вычисляем новые веса
             f1_values = np.array([f1_scores.get(name, 0.5) for name in self.models.keys()])
 
-            # Softmax
             exp_scores = np.exp(f1_values / self.config.ensemble_temperature)
             new_weights = exp_scores / np.sum(exp_scores)
 
-            # Применяем минимальный вес
             new_weights = np.maximum(new_weights, self.config.min_model_weight)
             new_weights = new_weights / np.sum(new_weights)
 
-            # Плавное обновление
             for i, name in enumerate(self.models.keys()):
                 old_weight = self.ensemble_weights.get(name, 0.0)
                 self.ensemble_weights[name] = 0.7 * old_weight + 0.3 * new_weights[i]
@@ -1182,7 +1077,6 @@ class DeepLearningEnsemble:
 
             logger.info(f"✅ Ensemble weights updated: {self.ensemble_weights}")
 
-        # Очищаем буфер
         self.feedback_buffer.clear()
 
     def save_all(self):
@@ -1191,7 +1085,6 @@ class DeepLearningEnsemble:
             if self.is_trained.get(name, False):
                 self._save_model(name)
 
-        # Сохраняем конфигурацию ансамбля
         ensemble_path = Path(self.config.model_dir) / 'ensemble_config.json'
         with open(ensemble_path, 'w') as f:
             json.dump({
@@ -1229,9 +1122,6 @@ class DeepLearningEnsemble:
         }
 
 
-# ============================================================
-# 5. ИНТЕГРАЦИЯ С SHARD (Production-Ready)
-# ============================================================
 
 class DeepLearningEngine:
     """
@@ -1251,14 +1141,11 @@ class DeepLearningEngine:
                 if hasattr(self.config, key):
                     setattr(self.config, key, value)
 
-        # Ансамбль
         self.ensemble = DeepLearningEnsemble(self.config)
 
-        # Состояние
         self._running = False
         self._retrain_thread = None
 
-        # Статистика
         self.stats = {
             'total_packets': 0,
             'predictions_made': 0,
@@ -1271,7 +1158,6 @@ class DeepLearningEngine:
         """Запуск движка"""
         self._running = True
 
-        # Запускаем фоновое обучение
         if self.config.online_learning_enabled:
             self._retrain_thread = threading.Thread(
                 target=self._retrain_loop,
@@ -1316,7 +1202,6 @@ class DeepLearningEngine:
         """
         self.stats['total_packets'] += 1
 
-        # Добавляем в буфер последовательности
         sequence = self.ensemble.add_sequence(device, features)
 
         if sequence is not None:
@@ -1324,13 +1209,11 @@ class DeepLearningEngine:
 
             result = self.ensemble.predict(sequence, features)
 
-            # Добавляем в буфер для онлайн-обучения (если норма)
             if not result['is_anomaly'] and result['ensemble_score'] < 0.3:
                 self.ensemble.online_buffer.append(features)
 
             return result
 
-        # Недостаточно данных для последовательности
         return {
             'ensemble_score': 0.5,
             'is_anomaly': False,
@@ -1342,7 +1225,6 @@ class DeepLearningEngine:
     def add_feedback(self, device: str, features: List[float],
                      true_label: int, model_predictions: Dict):
         """Добавление обратной связи"""
-        # Получаем последовательность
         sequence = list(self.ensemble.sequence_buffer[device])
 
         if len(sequence) >= self.config.lstm_sequence_length:
@@ -1377,9 +1259,6 @@ class DeepLearningEngine:
         }
 
 
-# ============================================================
-# ТЕСТИРОВАНИЕ
-# ============================================================
 
 def test_dl_models():
     """Тестирование DL моделей"""
@@ -1391,45 +1270,36 @@ def test_dl_models():
         print("❌ PyTorch not available")
         return
 
-    # Конфигурация
     config = DLModelConfig()
     config.lstm_epochs = 20
     config.vae_epochs = 20
     config.lstm_sequence_length = 50
 
-    # Создаём движок
     engine = DeepLearningEngine()
     engine.start()
 
-    # Генерируем данные для обучения
     print("\n📊 Generating training data...")
 
     np.random.seed(42)
 
-    # Нормальные последовательности для LSTM
     normal_sequences = []
     for _ in range(100):
         seq = np.random.randn(config.lstm_sequence_length, config.lstm_input_dim) * 0.1
         normal_sequences.append(seq)
     normal_sequences = np.array(normal_sequences)
 
-    # Нормальные данные для VAE
     normal_data = np.random.randn(500, config.lstm_input_dim) * 0.1
 
-    # Обучаем LSTM
     print("\n🔄 Training LSTM...")
     lstm_history = engine.train_lstm(normal_sequences, epochs=10, verbose=1)
 
-    # Обучаем VAE
     print("\n🔄 Training VAE...")
     vae_history = engine.train_vae(normal_data, epochs=10, verbose=1)
 
-    # Тестируем предсказания
     print("\n🔮 Testing predictions...")
 
     device = "test_device"
 
-    # Нормальный трафик
     print("\n   Normal traffic:")
     normal_scores = []
     for i in range(60):
@@ -1439,7 +1309,6 @@ def test_dl_models():
         if result.get('ensemble_score') is not None:
             normal_scores.append(result['ensemble_score'])
 
-    # Аномальный трафик
     print("\n   Anomalous traffic:")
     anomaly_scores = []
     for i in range(60):
@@ -1461,7 +1330,6 @@ def test_dl_models():
     if anomaly_scores:
         print(f"   Anomaly mean score: {np.mean(anomaly_scores[-30:]):.4f}")
 
-    # Статистика
     print("\n📊 Statistics:")
     stats = engine.get_stats()
     print(f"   Total packets: {stats['engine']['total_packets']}")
@@ -1478,5 +1346,4 @@ def test_dl_models():
 
 if __name__ == "__main__":
     test_dl_models()
-# Алиас для обратной совместимости с run_shard.py
 ModelConfig = DLModelConfig

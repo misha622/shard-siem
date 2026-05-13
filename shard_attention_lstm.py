@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 SHARD Attention LSTM Module
 """
 
-from __future__ import annotations  # Safe for Docker without TF
+from __future__ import annotations
 import os
 import json
 import time
@@ -21,9 +20,6 @@ import numpy as np
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 warnings.filterwarnings('ignore')
 
-# ============================================================
-# БЕЗОПАСНЫЙ ИМПОРТ TENSORFLOW
-# ============================================================
 
 TF_AVAILABLE = False
 Model = None
@@ -43,9 +39,6 @@ except ImportError:
     print("⚠️ TensorFlow не установлен. Attention LSTM недоступен.")
 
 
-# ============================================================
-# CONFIGURATION
-# ============================================================
 
 @dataclass
 class AttentionLSTMConfig:
@@ -66,9 +59,6 @@ class AttentionLSTMConfig:
     model_dir: str = './models/attention_lstm/'
 
 
-# ============================================================
-# ATTENTION LSTM MODEL (только если TF доступен)
-# ============================================================
 
 if TF_AVAILABLE:
     class AttentionLSTM(Model):
@@ -161,9 +151,6 @@ else:
             pass
 
 
-# ============================================================
-# ATTENTION LSTM ENGINE
-# ============================================================
 
 class AttentionLSTMEngine:
     """Движок для Attention LSTM"""
@@ -257,9 +244,6 @@ class AttentionLSTMEngine:
         }
 
 
-# ============================================================
-# SHARD INTEGRATION
-# ============================================================
 
 class ShardAttentionLSTMIntegration:
     """Интеграция с SHARD"""

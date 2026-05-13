@@ -23,7 +23,6 @@ class JA3Fingerprinter:
     Вычисление JA3 отпечатков для TLS Client Hello
     """
 
-    # TLS Version mapping
     TLS_VERSIONS = {
         0x0301: "TLSv1.0",
         0x0302: "TLSv1.1",
@@ -47,39 +46,30 @@ class JA3Fingerprinter:
         )
         """
         try:
-            # Парсинг Client Hello
             if len(client_hello) < 43:
                 return None
 
-            # TLS Record Layer
             record_type = client_hello[0]
-            if record_type != 0x16:  # Handshake
+            if record_type != 0x16:
                 return None
 
-            # TLS Version
             tls_version = struct.unpack(">H", client_hello[1:3])[0]
             tls_version_str = self.TLS_VERSIONS.get(tls_version, f"0x{tls_version:04x}")
 
-            # Handshake Protocol
             handshake_type = client_hello[5]
-            if handshake_type != 0x01:  # Client Hello
+            if handshake_type != 0x01:
                 return None
 
-            # Ищем Client Hello (упрощённо)
-            offset = 9  # После заголовков
+            offset = 9
 
-            # Client Version
             client_version = struct.unpack(">H", client_hello[offset:offset + 2])[0]
             offset += 2
 
-            # Random (32 bytes)
             offset += 32
 
-            # Session ID
             session_id_len = client_hello[offset]
             offset += 1 + session_id_len
 
-            # Cipher Suites
             cipher_suites_len = struct.unpack(">H", client_hello[offset:offset + 2])[0]
             offset += 2
 
@@ -89,11 +79,9 @@ class JA3Fingerprinter:
                 cipher_suites.append(str(suite))
                 offset += 2
 
-            # Compression Methods
             comp_methods_len = client_hello[offset]
             offset += 1 + comp_methods_len
 
-            # Extensions
             extensions_len = struct.unpack(">H", client_hello[offset:offset + 2])[0]
             offset += 2
 
@@ -112,7 +100,6 @@ class JA3Fingerprinter:
 
                 extensions.append(str(ext_type))
 
-                # Elliptic Curves (10)
                 if ext_type == 10 and ext_len >= 2:
                     curves_len = struct.unpack(">H", client_hello[offset:offset + 2])[0]
                     offset += 2
@@ -120,9 +107,8 @@ class JA3Fingerprinter:
                         curve = struct.unpack(">H", client_hello[offset:offset + 2])[0]
                         elliptic_curves.append(str(curve))
                         offset += 2
-                    offset -= 2  # Корректировка
+                    offset -= 2
 
-                # EC Point Formats (11)
                 elif ext_type == 11:
                     formats_len = client_hello[offset]
                     offset += 1
@@ -134,14 +120,12 @@ class JA3Fingerprinter:
 
                 offset += ext_len
 
-            # Формируем строку JA3
             ja3_string = f"{tls_version_str},"
             ja3_string += "-".join(cipher_suites) + ","
             ja3_string += "-".join(extensions) + ","
             ja3_string += "-".join(elliptic_curves) + ","
             ja3_string += "-".join(ec_point_formats)
 
-            # MD5 хеш
             ja3_hash = hashlib.md5(ja3_string.encode()).hexdigest()
 
             return ja3_hash
@@ -163,7 +147,6 @@ class JA3Database:
     def _load_signatures(self) -> Dict:
         """Загрузка сигнатур"""
         default_signatures = {
-            # Вредоносное ПО
             "a0e9f5d64349fb1319c5e4f5e2d2e5c7": {
                 "name": "TrickBot",
                 "category": "malware",
@@ -189,7 +172,6 @@ class JA3Database:
                 "description": "QakBot/QBot banking trojan"
             },
 
-            # Легитимные браузеры
             "cd08e31494f9531f73ed6b15a1d33f4c": {
                 "name": "Chrome 120",
                 "category": "browser",
@@ -203,7 +185,6 @@ class JA3Database:
                 "description": "Mozilla Firefox"
             },
 
-            # Инструменты пентеста
             "a6a8c5d4e3f2a1b0c9d8e7f6a5b4c3d2": {
                 "name": "nmap",
                 "category": "tool",
@@ -247,11 +228,9 @@ class JA3Analyzer:
         self.fingerprinter = JA3Fingerprinter()
         self.database = JA3Database()
 
-        # Кеш для снижения нагрузки
         self.cache = {}
-        self.cache_ttl = 3600  # 1 час
+        self.cache_ttl = 3600
 
-        # Статистика
         self.stats = {
             'total_connections': 0,
             'ja3_computed': 0,
@@ -260,7 +239,6 @@ class JA3Analyzer:
             'malware_detected': 0
         }
 
-        # Отслеживание C2 коммуникаций
         self.c2_trackers: Dict[str, List] = defaultdict(list)
 
         logger.info("🔐 JA3 Analyzer инициализирован")
@@ -288,13 +266,11 @@ class JA3Analyzer:
             'recommendation': None
         }
 
-        # JA3 (клиент)
         ja3 = self.fingerprinter.compute_ja3(client_hello)
         if ja3:
             result['ja3'] = ja3
             self.stats['ja3_computed'] += 1
 
-            # Проверка в базе
             threat = self.database.lookup(ja3)
             if threat:
                 result['threat_detected'] = True
@@ -306,7 +282,6 @@ class JA3Analyzer:
                     self.stats['c2_detected'] += 1
                     result['recommendation'] = f"BLOCK - C2 communication detected: {threat['name']}"
 
-                    # Отслеживаем C2
                     self.c2_trackers[src_ip].append({
                         'timestamp': datetime.now().isoformat(),
                         'dst_ip': dst_ip,
@@ -321,13 +296,11 @@ class JA3Analyzer:
                 elif threat['category'] == 'tool':
                     result['recommendation'] = f"MONITOR - Security tool: {threat['name']}"
 
-        # JA3S (сервер) - если есть
         if server_hello:
             ja3s = self.fingerprinter.compute_ja3(server_hello)
             if ja3s:
                 result['ja3s'] = ja3s
 
-                # Проверка известных C2 серверов
                 threat = self.database.lookup(ja3s)
                 if threat and threat['category'] == 'c2':
                     result['threat_detected'] = True
@@ -359,21 +332,18 @@ class JA3Analyzer:
         """Экспорт threat intelligence"""
         intel = []
         for ip, activities in self.c2_trackers.items():
-            if len(activities) >= 3:  # Минимум 3 соединения
+            if len(activities) >= 3:
                 intel.append({
                     'src_ip': ip,
                     'threat_type': 'C2_BEACON',
                     'confidence': min(0.9, 0.5 + len(activities) * 0.1),
-                    'evidence': activities[-5:],  # Последние 5 соединений
+                    'evidence': activities[-5:],
                     'first_seen': activities[0]['timestamp'],
                     'last_seen': activities[-1]['timestamp']
                 })
         return intel
 
 
-# ============================================================
-# ИНТЕГРАЦИЯ С SHARD
-# ============================================================
 
 class SHARDJA3Integration:
     """
@@ -384,7 +354,6 @@ class SHARDJA3Integration:
         self.analyzer = JA3Analyzer()
         self.enabled = True
 
-        # Кеш для быстрого доступа
         self.alert_cache = {}
 
         logger.info("🔐 SHARD JA3 Integration готов!")
@@ -397,9 +366,7 @@ class SHARDJA3Integration:
         if not self.enabled:
             return None
 
-        # Проверяем, TLS ли это (порт 443 или Client Hello)
         if dst_port != 443 and src_port != 443:
-            # Может быть на другом порту - проверяем содержимое
             if len(packet_data) < 43 or packet_data[0] != 0x16:
                 return None
 
@@ -412,7 +379,6 @@ class SHARDJA3Integration:
             )
 
             if result['threat_detected']:
-                # Кешируем алерт
                 cache_key = f"{src_ip}_{dst_ip}_{result['ja3']}"
                 if cache_key not in self.alert_cache:
                     self.alert_cache[cache_key] = result
@@ -466,15 +432,14 @@ if __name__ == "__main__":
 
     ja3 = SHARDJA3Integration()
 
-    # Тестовый Client Hello (Chrome)
     test_hello = bytes.fromhex(
         "1603010200010001fc0303" +
         "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2" +
-        "00002a" +  # Cipher suites
+        "00002a" +
         "c02bc02fc02cc030cca9cca8c013c014009c009d002f0035" +
-        "01" +  # Compression
-        "00ff" +  # Extensions length
-        "0100"  # Extension
+        "01" +
+        "00ff" +
+        "0100"
     )
 
     result = ja3.process_packet(test_hello, "192.168.1.100", "1.1.1.1", 12345, 443)

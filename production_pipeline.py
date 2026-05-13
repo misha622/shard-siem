@@ -17,30 +17,23 @@ from collections import deque
 import numpy as np
 import psutil
 
-# ============================================================
-# КОНФИГУРАЦИЯ PIPELINE
-# ============================================================
 
 PIPELINE_CONFIG = {
-    # Поток данных
     "capture_interface": "eth0",
     "capture_filter": "ip",
     "packet_buffer_size": 50000,
 
-    # Контроль ложных срабатываний
-    "fp_threshold": 3,  # Количество FP до авто-отключения правила
-    "fp_window_minutes": 60,  # Окно подсчёта FP
-    "auto_suppress_fp": True,  # Авто-подавление FP правил
-    "min_confidence": 0.7,  # Минимальная уверенность для алерта
+    "fp_threshold": 3,
+    "fp_window_minutes": 60,
+    "auto_suppress_fp": True,
+    "min_confidence": 0.7,
 
-    # Мониторинг
-    "metrics_interval": 10,  # Сбор метрик каждые N секунд
-    "health_check_interval": 30,  # Проверка здоровья модулей
-    "alert_threshold": 100,  # Алерт при >N алертов/мин
-    "cpu_threshold": 80,  # Алерт при CPU >80%
-    "memory_threshold": 85,  # Алерт при RAM >85%
+    "metrics_interval": 10,
+    "health_check_interval": 30,
+    "alert_threshold": 100,
+    "cpu_threshold": 80,
+    "memory_threshold": 85,
 
-    # Стабильность
     "restart_on_crash": True,
     "max_restarts": 5,
     "restart_cooldown": 60,
@@ -48,21 +41,17 @@ PIPELINE_CONFIG = {
 }
 
 
-# ============================================================
-# ЛОЖНЫЕ СРАБАТЫВАНИЯ
-# ============================================================
 
 class FalsePositiveController:
     """Контроль и подавление ложных срабатываний"""
 
     def __init__(self, config: dict):
         self.config = config
-        self.fp_counter = {}  # rule_id -> count
-        self.fp_timestamps = {}  # rule_id -> deque(timestamps)
+        self.fp_counter = {}
+        self.fp_timestamps = {}
         self.suppressed_rules = set()
         self._lock = threading.RLock()
 
-        # Статистика
         self.stats = {
             'total_fp_suppressed': 0,
             'active_suppressions': 0,
@@ -83,13 +72,11 @@ class FalsePositiveController:
             self.fp_counter[rule_id] += 1
             self.fp_timestamps[rule_id].append(now)
 
-            # Очистка старых записей
             cutoff = now - (self.config['fp_window_minutes'] * 60)
             while self.fp_timestamps[rule_id] and self.fp_timestamps[rule_id][0] < cutoff:
                 self.fp_timestamps[rule_id].popleft()
                 self.fp_counter[rule_id] -= 1
 
-            # Проверка порога
             recent_count = len(self.fp_timestamps[rule_id])
             if recent_count >= self.config['fp_threshold'] and rule_id not in self.suppressed_rules:
                 self.suppress_rule(rule_id)
@@ -133,9 +120,6 @@ class FalsePositiveController:
             return dict(self.stats)
 
 
-# ============================================================
-# МОНИТОРИНГ
-# ============================================================
 
 class PipelineMonitor:
     """Мониторинг production pipeline"""
@@ -175,13 +159,11 @@ class PipelineMonitor:
             time.sleep(self.config['metrics_interval'])
 
             with self._lock:
-                # Системные метрики
                 self.metrics['cpu_percent'] = psutil.cpu_percent()
                 self.metrics['memory_percent'] = psutil.virtual_memory().percent
                 self.metrics['disk_free_gb'] = psutil.disk_usage('/').free / (1024 ** 3)
                 self.metrics['uptime_seconds'] = time.time() - self.start_time
 
-                # Расчёт rates
                 now = time.time()
                 elapsed = now - last_time
 
@@ -196,7 +178,6 @@ class PipelineMonitor:
                 last_alerts = self.metrics['alerts_generated']
                 last_time = now
 
-                # Проверка порогов
                 self._check_thresholds()
 
     def _health_check_loop(self):
@@ -207,9 +188,6 @@ class PipelineMonitor:
 
     def _health_check(self):
         """Проверка здоровья всех компонентов"""
-        # Проверка что EventBus жив
-        # Проверка что модели отвечают
-        # Проверка что БД доступна
         pass
 
     def _check_thresholds(self):
@@ -250,9 +228,6 @@ class PipelineMonitor:
         self._running = False
 
 
-# ============================================================
-# PRODUCTION PIPELINE
-# ============================================================
 
 class ProductionPipeline:
     """Production pipeline для SHARD"""
@@ -266,7 +241,6 @@ class ProductionPipeline:
         self.restart_count = 0
         self.last_restart = 0
 
-        # Логирование
         self._setup_logging()
         self.logger = logging.getLogger("SHARD-Pipeline")
 
@@ -287,13 +261,10 @@ class ProductionPipeline:
         self.logger.info("🚀 SHARD PRODUCTION PIPELINE STARTING")
         self.logger.info("=" * 60)
 
-        # Запуск мониторинга
         self.monitor.start()
 
-        # Запуск SHARD
         self._start_shard()
 
-        # Ожидание
         try:
             while self._running:
                 time.sleep(1)
@@ -305,7 +276,6 @@ class ProductionPipeline:
     def _start_shard(self):
         """Запуск SHARD с защитой от падений"""
         try:
-            # Импорт здесь чтобы не замедлять старт
             sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
             from run_shard import EnhancedShardEnterprise
 
@@ -316,7 +286,6 @@ class ProductionPipeline:
                 no_capture=False
             )
 
-            # Перехватываем алерты для FP контроля
             self._hook_alerts()
 
             self.shard.start()
@@ -335,7 +304,6 @@ class ProductionPipeline:
             rule_id = alert.get('rule_id', alert.get('attack_type', 'unknown'))
             confidence = alert.get('confidence', 0.5)
 
-            # Проверка FP
             if not self.fp_controller.should_alert(rule_id, confidence):
                 self.monitor.record_alert(blocked=True)
                 return
@@ -382,7 +350,6 @@ class ProductionPipeline:
 
         self.monitor.stop()
 
-        # Финальные метрики
         self._print_final_stats()
 
     def _print_final_stats(self):
@@ -411,14 +378,10 @@ class ProductionPipeline:
         }
 
 
-# ============================================================
-# ТОЧКА ВХОДА
-# ============================================================
 
 def main():
     pipeline = ProductionPipeline()
 
-    # Обработка сигналов
     def signal_handler(sig, frame):
         pipeline.stop()
         sys.exit(0)

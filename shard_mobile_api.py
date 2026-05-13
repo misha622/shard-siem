@@ -20,9 +20,6 @@ app = Flask(__name__)
 CORS(app)
 
 
-# ============================================================
-# PUSH-УВЕДОМЛЕНИЯ
-# ============================================================
 
 class PushNotificationManager:
     """
@@ -30,11 +27,10 @@ class PushNotificationManager:
     """
 
     def __init__(self):
-        self.devices = {}  # device_token -> info
-        self.alert_history = []  # История алертов
+        self.devices = {}
+        self.alert_history = []
         self.max_history = 1000
 
-        # Конфигурация Firebase (заглушка)
         self.firebase_enabled = False
         self.fcm_server_key = None
 
@@ -142,7 +138,6 @@ class PushNotificationManager:
 
         logger.info(f"📱 Broadcast: {sent_count}/{len(self.devices)} устройств")
 
-        # Сохраняем в историю
         self.alert_history.append({
             **data,
             'title': title,
@@ -167,13 +162,9 @@ class PushNotificationManager:
         }
 
 
-# Глобальный менеджер уведомлений
 push_manager = PushNotificationManager()
 
 
-# ============================================================
-# REST API
-# ============================================================
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
@@ -226,7 +217,7 @@ def get_recent_alerts():
 
     return jsonify({
         'count': len(alerts),
-        'alerts': alerts[::-1]  # Новые первыми
+        'alerts': alerts[::-1]
     })
 
 
@@ -259,7 +250,6 @@ def block_ip():
     if not ip:
         return jsonify({'error': 'ip required'}), 400
 
-    # Здесь вызов функции блокировки
     logger.warning(f"📱 Remote BLOCK command for IP: {ip}")
 
     return jsonify({
@@ -302,9 +292,6 @@ def _get_top_threats() -> List[Dict]:
     )[:5]
 
 
-# ============================================================
-# ИНТЕГРАЦИЯ С SHARD
-# ============================================================
 
 class SHARDMobileIntegration:
     """
@@ -315,7 +302,6 @@ class SHARDMobileIntegration:
         self.port = port
         self.server_thread = None
 
-        # Подписываемся на алерты SHARD (через хук)
         self.alert_callback = None
 
         logger.info(f"📱 SHARD Mobile Integration готов (порт: {port})")
@@ -332,7 +318,6 @@ class SHARDMobileIntegration:
 
     def on_alert(self, alert: Dict):
         """Обработчик алертов от SHARD"""
-        # Отправляем критичные алерты
         severity = alert.get('severity', 'MEDIUM')
         if severity in ['HIGH', 'CRITICAL']:
             push_manager.broadcast_alert({

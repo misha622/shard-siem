@@ -20,9 +20,6 @@ import time
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("SHARD-Seq2Seq")
 
-# ============================================================
-# КОНФИГУРАЦИЯ
-# ============================================================
 
 CONFIG = {
     'vocab_size': 500,
@@ -37,9 +34,6 @@ CONFIG = {
     'dropout': 0.1,
 }
 
-# ============================================================
-# ТОКЕНИЗАТОР
-# ============================================================
 
 class SimpleTokenizer:
     """Простой токенизатор для кода iptables/WAF"""
@@ -57,7 +51,6 @@ class SimpleTokenizer:
             tokens = self._tokenize(text)
             counter.update(tokens)
         
-        # Берём top-N слов
         for word, _ in counter.most_common(self.max_vocab - len(self.word2idx)):
             idx = len(self.word2idx)
             self.word2idx[word] = idx
@@ -68,9 +61,7 @@ class SimpleTokenizer:
     
     def _tokenize(self, text):
         """Токенизация: слова + спецсимволы iptables"""
-        # Сохраняем флаги iptables и спецсимволы
         text = text.replace('\n', ' <NL> ')
-        # Разбиваем по пробелам и пунктуации
         tokens = re.findall(r'[a-zA-Z0-9_\-\./]+|[<>|&;]', text.lower())
         return tokens
     
@@ -82,13 +73,11 @@ class SimpleTokenizer:
         tokens = self._tokenize(text)
         max_len = max_len or CONFIG['max_seq_len']
         
-        # Добавляем <SOS> и <EOS>
         indices = [self.word2idx['<SOS>']]
         for token in tokens[:max_len - 2]:
             indices.append(self.word2idx.get(token, self.word2idx['<UNK>']))
         indices.append(self.word2idx['<EOS>'])
         
-        # Паддинг
         if len(indices) < max_len:
             indices += [self.word2idx['<PAD>']] * (max_len - len(indices))
         
@@ -99,7 +88,7 @@ class SimpleTokenizer:
         words = []
         for idx in indices:
             if skip_special and idx in [0, 1, 2, 3]:
-                if idx == 2:  # <EOS>
+                if idx == 2:
                     break
                 continue
             word = self.idx2word.get(int(idx), '<UNK>')
@@ -110,9 +99,6 @@ class SimpleTokenizer:
         return ' '.join(words)
 
 
-# ============================================================
-# ГЕНЕРАТОР ДАТАСЕТА
-# ============================================================
 
 def create_dataset() -> list:
     """Создание расширенного датасета атака → защитный код"""
@@ -201,7 +187,7 @@ def create_dataset() -> list:
     for attack_type, variants in defense_rules.items():
         for attack_template, defense_template in variants:
             for ip in ips:
-                for port in ports[:4]:  # 4 порта на IP
+                for port in ports[:4]:
                     attack = attack_template.format(ip=ip, port=port)
                     defense = defense_template.format(ip=ip, port=port)
                     samples.append({'attack': attack, 'defense': defense})
@@ -210,9 +196,6 @@ def create_dataset() -> list:
     return samples
 
 
-# ============================================================
-# TRANSFORMER МОДЕЛЬ
-# ============================================================
 
 class PositionalEncoding(nn.Module):
     """Позиционное кодирование для Transformer"""
@@ -239,7 +222,6 @@ class Seq2SeqTransformer(nn.Module):
         self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)
         self.pos_encoder = PositionalEncoding(embed_dim, max_len)
         
-        # Encoder
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=embed_dim,
             nhead=num_heads,
@@ -250,7 +232,6 @@ class Seq2SeqTransformer(nn.Module):
         )
         self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
         
-        # Decoder
         decoder_layer = nn.TransformerDecoderLayer(
             d_model=embed_dim,
             nhead=num_heads,
@@ -261,7 +242,6 @@ class Seq2SeqTransformer(nn.Module):
         )
         self.decoder = nn.TransformerDecoder(decoder_layer, num_layers=num_layers)
         
-        # Output projection
         self.output_proj = nn.Linear(embed_dim, vocab_size)
         
         self.dropout = nn.Dropout(dropout)
@@ -269,18 +249,15 @@ class Seq2SeqTransformer(nn.Module):
         self.vocab_size = vocab_size
         
     def forward(self, src, tgt, src_mask=None, tgt_mask=None):
-        # Энкодер
         src_emb = self.embedding(src)
         src_emb = self.pos_encoder(src_emb)
         src_emb = self.dropout(src_emb)
         memory = self.encoder(src_emb, src_key_padding_mask=(src == 0))
         
-        # Декодер
         tgt_emb = self.embedding(tgt)
         tgt_emb = self.pos_encoder(tgt_emb)
         tgt_emb = self.dropout(tgt_emb)
         
-        # Причинная маска для декодера
         if tgt_mask is None:
             tgt_mask = nn.Transformer.generate_square_subsequent_mask(tgt.size(1)).to(tgt.device)
         
@@ -293,12 +270,10 @@ class Seq2SeqTransformer(nn.Module):
         max_len = max_len or self.max_len
         
         with torch.no_grad():
-            # Энкодер
             src_emb = self.embedding(src)
             src_emb = self.pos_encoder(src_emb)
             memory = self.encoder(src_emb, src_key_padding_mask=(src == 0))
             
-            # Начинаем с <SOS>
             tgt_indices = [tokenizer.word2idx['<SOS>']]
             
             for _ in range(max_len - 1):
@@ -311,11 +286,9 @@ class Seq2SeqTransformer(nn.Module):
                 output = self.decoder(tgt_emb, memory, tgt_mask=tgt_mask)
                 logits = self.output_proj(output[0, -1]) / temperature
                 
-                # Семплирование
                 probs = torch.softmax(logits, dim=-1)
                 next_token = torch.multinomial(probs, 1).item()
                 
-                # <EOS> или <PAD> — стоп
                 if next_token in [tokenizer.word2idx['<EOS>'], tokenizer.word2idx['<PAD>']]:
                     break
                 
@@ -324,9 +297,6 @@ class Seq2SeqTransformer(nn.Module):
             return tokenizer.decode(tgt_indices)
 
 
-# ============================================================
-# ОБУЧЕНИЕ
-# ============================================================
 
 class DefenseDataset(Dataset):
     def __init__(self, samples, src_tokenizer, tgt_tokenizer, max_len=100):
@@ -350,11 +320,9 @@ def train():
     logger.info("🧠 SHARD Seq2Seq Defense Code Generator (PyTorch Transformer)")
     logger.info("=" * 60)
     
-    # Датасет
     logger.info("\n📊 Creating dataset...")
     samples = create_dataset()
     
-    # Токенизаторы
     logger.info("🔤 Building tokenizers...")
     src_tokenizer = SimpleTokenizer(max_vocab=CONFIG['vocab_size'])
     tgt_tokenizer = SimpleTokenizer(max_vocab=CONFIG['vocab_size'])
@@ -362,7 +330,6 @@ def train():
     src_tokenizer.fit([s['attack'] for s in samples])
     tgt_tokenizer.fit([s['defense'] for s in samples])
     
-    # DataLoader
     dataset = DefenseDataset(samples, src_tokenizer, tgt_tokenizer, CONFIG['max_seq_len'])
     dataloader = DataLoader(dataset, batch_size=CONFIG['batch_size'], shuffle=True)
     
@@ -370,7 +337,6 @@ def train():
     logger.info(f"   Source vocab: {len(src_tokenizer.word2idx)}")
     logger.info(f"   Target vocab: {len(tgt_tokenizer.word2idx)}")
     
-    # Модель
     logger.info(f"\n🧠 Creating Transformer model...")
     vocab_size = max(len(src_tokenizer.word2idx), len(tgt_tokenizer.word2idx)) + 1
     model = Seq2SeqTransformer(
@@ -387,11 +353,9 @@ def train():
     logger.info(f"   Parameters: {total_params:,}")
     logger.info(f"   Device: {'GPU' if torch.cuda.is_available() else 'CPU'}")
     
-    # Оптимизатор и лосс
     optimizer = optim.Adam(model.parameters(), lr=CONFIG['lr'])
-    criterion = nn.CrossEntropyLoss(ignore_index=0)  # Игнорируем PAD
+    criterion = nn.CrossEntropyLoss(ignore_index=0)
     
-    # Обучение
     logger.info(f"\n🔄 Training {CONFIG['epochs']} epochs...")
     
     for epoch in range(CONFIG['epochs']):
@@ -399,19 +363,15 @@ def train():
         total_loss = 0.0
         
         for batch_idx, (src, tgt) in enumerate(dataloader):
-            # Teacher forcing: decoder input = tgt[:-1], output = tgt[1:]
             tgt_input = tgt[:, :-1]
             tgt_output = tgt[:, 1:]
             
-            # Forward
             output = model(src, tgt_input)
             
-            # Loss
             output_flat = output.reshape(-1, vocab_size)
             tgt_flat = tgt_output.reshape(-1)
             loss = criterion(output_flat, tgt_flat)
             
-            # Backward
             optimizer.zero_grad()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -425,7 +385,6 @@ def train():
         avg_loss = total_loss / len(dataloader)
         logger.info(f"✅ Epoch {epoch+1}/{CONFIG['epochs']}: avg_loss={avg_loss:.4f}")
     
-    # Сохранение
     logger.info(f"\n💾 Saving model...")
     Path('./models/seq2seq').mkdir(parents=True, exist_ok=True)
     
@@ -439,7 +398,6 @@ def train():
     
     logger.info("✅ Model saved: models/seq2seq/defense_transformer.pt")
     
-    # Тест генерации
     logger.info(f"\n🧪 Testing code generation...")
     model.eval()
     

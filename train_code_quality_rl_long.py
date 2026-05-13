@@ -15,9 +15,6 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("SHARD-CodeRL-Long")
 
-# ============================================================
-# КОНФИГУРАЦИЯ
-# ============================================================
 CONFIG = {
     'rl_episodes': 5000,
     'batch_size': 8,
@@ -31,7 +28,6 @@ CONFIG = {
     'target_accuracy': 0.90,
 }
 
-# Метрики
 metrics = {
     'compiler_valid': 0, 'compiler_total': 0,
     'ast_avg': [], 'llm_avg': [],
@@ -49,16 +45,12 @@ def load_metrics():
         with open(metrics_file) as f:
             metrics.update(json.load(f))
 
-# ============================================================
-# УПРОЩЁННЫЙ ВАЛИДАТОР (быстрый)
-# ============================================================
 def validate_rule(rule: str) -> Tuple[bool, str, float]:
     """Быстрая проверка правила без системных вызовов"""
     rule = rule.strip().replace('<NL>', '\n').replace('  ', ' ')
     while '\n\n' in rule:
         rule = rule.replace('\n\n', '\n')
     
-    # 1. Есть ли команды защиты?
     has_iptables = 'iptables' in rule.lower()
     has_waf = 'secrule' in rule.lower()
     has_sysctl = 'sysctl' in rule.lower()
@@ -69,11 +61,9 @@ def validate_rule(rule: str) -> Tuple[bool, str, float]:
     
     reward = 0.0
     
-    # 2. iptables проверка
     if has_iptables:
         lines = [l.strip() for l in rule.split('\n') if 'iptables' in l.lower()]
         for line in lines:
-            # Проверяем базовую структуру
             parts = line.lower().split()
             if '-a' in parts or '-i' in parts or '-d' in parts:
                 reward += 0.3
@@ -86,26 +76,20 @@ def validate_rule(rule: str) -> Tuple[bool, str, float]:
             if '--dport' in parts or '--sport' in parts:
                 reward += 0.1
     
-    # 3. WAF проверка
     if has_waf:
         if 'id:' in rule and 'phase:' in rule:
             reward += 0.3
     
-    # 4. sysctl проверка
     if has_sysctl:
         if '=' in rule:
             reward += 0.2
     
-    # 5. tcpdump проверка
     if has_tcpdump:
         reward += 0.2
     
     valid = reward >= 0.3
     return valid, "ok" if valid else "incomplete", min(1.0, reward)
 
-# ============================================================
-# AST VALIDATOR (упрощённый)
-# ============================================================
 def validate_ast(code: str) -> float:
     score = 0.0
     if code.count("'") % 2 == 0: score += 0.2
@@ -115,9 +99,6 @@ def validate_ast(code: str) -> float:
     if 'drop' in code.lower(): score += 0.2
     return min(1.0, score)
 
-# ============================================================
-# LLM TEACHER (few-shot)
-# ============================================================
 EXAMPLES = [
     {'code': 'iptables -A INPUT -s {ip} -p tcp --dport {port} -j DROP\n'
              'iptables -A INPUT -p tcp --dport {port} -m string --string "UNION SELECT" --algo bm -j DROP\n'
@@ -140,9 +121,6 @@ def llm_similarity(code: str) -> float:
             best = max(best, overlap)
     return min(1.0, best)
 
-# ============================================================
-# ГЛАВНЫЙ ЦИКЛ
-# ============================================================
 def main():
     logger.info("="*60)
     logger.info("🧠 SHARD CODE QUALITY RL — ДЛИТЕЛЬНОЕ ОБУЧЕНИЕ")
@@ -150,7 +128,6 @@ def main():
     logger.info(f"   Целевая точность: {CONFIG['target_accuracy']:.0%}")
     logger.info("="*60)
     
-    # Загружаем модель
     logger.info("\n📂 Загрузка модели...")
     ckpt = torch.load('models/seq2seq/defense_transformer_v2.pt', map_location='cpu', weights_only=False)
     cfg = ckpt['config']
@@ -175,7 +152,6 @@ def main():
     
     logger.info(f"✅ {sum(p.numel() for p in model.parameters()):,} параметров")
     
-    # Загружаем предыдущий прогресс
     load_metrics()
     start_episode = metrics.get('episodes', 0)
     
@@ -200,16 +176,13 @@ def main():
     best_acc = metrics.get('compiler_valid', 0) / max(1, metrics.get('compiler_total', 1))
     
     for episode in range(start_episode, CONFIG['rl_episodes']):
-        # Генерируем атаку
         ip = f"10.0.0.{random.randint(1,255)}"
         port = random.choice([22, 80, 443, 3306, 8080, 8443])
         attack = random.choice(attacks).format(ip=ip, port=port)
         
-        # Генерируем защиту
         src = src_tok.encode(attack).unsqueeze(0)
         code = model.generate(src, tgt_tok, temperature=max(0.3, epsilon))
         
-        # Оцениваем
         valid, msg, reward = validate_rule(code)
         ast_score = validate_ast(code)
         llm_score_val = llm_similarity(code)
@@ -222,22 +195,18 @@ def main():
         ast_scores.append(ast_score)
         llm_scores.append(llm_score_val)
         
-        # Простое REINFORCE обновление
         if reward > 0:
             try:
-                # Даём модели сигнал что это хорошая генерация
                 tgt = tgt_tok.encode(code).unsqueeze(0)
                 tgt_input = tgt[:, :-1]
                 tgt_output = tgt[:, 1:]
                 output = model(src, tgt_input)
-                # Не делаем backward — просто даём положительный пример через teacher forcing
             except:
                 pass
         
         metrics['episodes'] = episode + 1
         epsilon = max(CONFIG['epsilon_end'], epsilon * CONFIG['epsilon_decay'])
         
-        # Прогресс
         if (episode + 1) % 100 == 0:
             avg_comp = sum(compiler_rewards) / len(compiler_rewards) if compiler_rewards else -1
             avg_ast = sum(ast_scores) / len(ast_scores) if ast_scores else 0
@@ -252,7 +221,6 @@ def main():
                        f"acc: {curr_acc:.1%} | ε: {epsilon:.3f} | "
                        f"осталось: {remaining/60:.0f}мин")
             
-            # Сохраняем если улучшилось
             if curr_acc > best_acc and (episode + 1) % CONFIG['save_interval'] == 0:
                 best_acc = curr_acc
                 torch.save({
@@ -266,11 +234,9 @@ def main():
                 logger.info(f"\n🎉 ЦЕЛЬ ДОСТИГНУТА! accuracy={curr_acc:.1%}")
                 break
     
-    # ФИНАЛ
     final_acc = metrics['compiler_valid'] / max(1, metrics['compiler_total'])
     elapsed = time.time() - metrics['start_time']
     
-    # Сохраняем финальную модель
     torch.save({
         'model_state_dict': model.state_dict(),
         'src_tokenizer': ckpt['src_tokenizer'],

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 SHARD CVE Intelligence Module
@@ -31,17 +30,14 @@ import yaml
 import xml.etree.ElementTree as ET
 
 
-# ============================================================
-# КОНФИГУРАЦИЯ
-# ============================================================
 
 class CVESeverity(Enum):
     """Уровни серьёзности CVE"""
-    CRITICAL = "CRITICAL"  # CVSS 9.0-10.0
-    HIGH = "HIGH"  # CVSS 7.0-8.9
-    MEDIUM = "MEDIUM"  # CVSS 4.0-6.9
-    LOW = "LOW"  # CVSS 0.1-3.9
-    NONE = "NONE"  # CVSS 0.0
+    CRITICAL = "CRITICAL"
+    HIGH = "HIGH"
+    MEDIUM = "MEDIUM"
+    LOW = "LOW"
+    NONE = "NONE"
 
 
 class CVEStatus(Enum):
@@ -56,38 +52,28 @@ class CVEStatus(Enum):
 class CVEIntelligenceConfig:
     """Конфигурация CVE Intelligence"""
 
-    # Источники данных
     nvd_api_url: str = "https://services.nvd.nist.gov/rest/json/cves/2.0"
     cve_database_path: str = "./data/cve/cve.db"
     exploit_db_path: str = "./data/cve/exploitdb"
 
-    # Обновление
     auto_update: bool = True
     update_interval_hours: int = 24
     max_cves_per_update: int = 2000
 
-    # Кэширование
     cache_ttl: int = 3600
     max_cache_size: int = 10000
 
-    # API ключи
-    nvd_api_key: str = ""  # Опционально, для повышенного лимита
+    nvd_api_key: str = ""
 
-    # Пороги
-    alert_on_cvss: float = 7.0  # Алерт при CVSS >= 7.0
+    alert_on_cvss: float = 7.0
     critical_cvss: float = 9.0
 
-    # Сканирование инфраструктуры
     scan_installed_software: bool = True
     scan_dependencies: bool = True
 
-    # Отчёты
     reports_dir: str = "./data/cve/reports/"
 
 
-# ============================================================
-# МОДЕЛИ ДАННЫХ
-# ============================================================
 
 @dataclass
 class CVE:
@@ -131,7 +117,7 @@ class Software:
     product: Optional[str] = None
     cpe: Optional[str] = None
     path: Optional[str] = None
-    source: str = "unknown"  # system, container, dependency
+    source: str = "unknown"
     last_seen: float = field(default_factory=time.time)
 
 
@@ -143,13 +129,10 @@ class VulnerabilityMatch:
     status: CVEStatus = CVEStatus.UNKNOWN
     confidence: float = 1.0
     risk_score: float = 0.0
-    matched_by: str = "cpe"  # cpe, name, version_range
+    matched_by: str = "cpe"
     remediation: Optional[str] = None
 
 
-# ============================================================
-# БАЗА ДАННЫХ CVE
-# ============================================================
 
 class CVEDatabase:
     """Локальная база данных CVE (SQLite)"""
@@ -168,7 +151,6 @@ class CVEDatabase:
             conn.execute('PRAGMA journal_mode=WAL')
             conn.execute('PRAGMA synchronous=NORMAL')
 
-            # Таблица CVE
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS cve (
                     cve_id TEXT PRIMARY KEY,
@@ -189,7 +171,6 @@ class CVEDatabase:
                 )
             ''')
 
-            # Таблица software
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS software (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -205,7 +186,6 @@ class CVEDatabase:
                 )
             ''')
 
-            # Таблица matches (связи CVE и ПО)
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS vulnerability_matches (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -223,7 +203,6 @@ class CVEDatabase:
                 )
             ''')
 
-            # Индексы
             conn.execute('CREATE INDEX IF NOT EXISTS idx_cve_score ON cve(cvss_v3_score)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_cve_updated ON cve(updated_at)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_software_name ON software(name)')
@@ -375,7 +354,6 @@ class CVEDatabase:
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             try:
-                # Получаем software_id
                 cursor = conn.execute(
                     'SELECT id FROM software WHERE name = ? AND version = ?',
                     (match.software.name, match.software.version)
@@ -456,9 +434,6 @@ class CVEDatabase:
                 conn.close()
 
 
-# ============================================================
-# NVD API КЛИЕНТ
-# ============================================================
 
 class NVDClient:
     """Клиент для National Vulnerability Database API"""
@@ -472,7 +447,7 @@ class NVDClient:
         if config.nvd_api_key:
             self.session.headers.update({'apiKey': config.nvd_api_key})
 
-        self.rate_limit_delay = 6.0 if not config.nvd_api_key else 0.6  # 10 rpm без ключа, 100 с ключом
+        self.rate_limit_delay = 6.0 if not config.nvd_api_key else 0.6
         self.last_request_time = 0
 
     def _rate_limit(self):
@@ -576,7 +551,6 @@ class NVDClient:
             published = data.get('published', '')
             modified = data.get('lastModified', '')
 
-            # CVSS v3
             metrics = data.get('metrics', {})
             cvss_v3 = metrics.get('cvssMetricV31', [{}])[0] or metrics.get('cvssMetricV30', [{}])[0]
             cvss_v3_score = None
@@ -589,14 +563,12 @@ class NVDClient:
                 cvss_v3_vector = cvss_data.get('vectorString')
                 cvss_v3_severity = cvss_data.get('baseSeverity', 'NONE')
 
-            # CVSS v2
             cvss_v2 = metrics.get('cvssMetricV2', [{}])[0]
             cvss_v2_score = None
             if cvss_v2:
                 cvss_data = cvss_v2.get('cvssData', {})
                 cvss_v2_score = cvss_data.get('baseScore')
 
-            # CWE IDs
             weaknesses = data.get('weaknesses', [])
             cwe_ids = []
             for w in weaknesses:
@@ -604,10 +576,8 @@ class NVDClient:
                     if desc.get('lang') == 'en':
                         cwe_ids.append(desc.get('value', ''))
 
-            # References
             references = [ref.get('url', '') for ref in data.get('references', [])]
 
-            # Affected products (from configurations)
             affected = []
             configurations = data.get('configurations', [])
             for config in configurations:
@@ -636,9 +606,6 @@ class NVDClient:
             return None
 
 
-# ============================================================
-# EXPLOIT DB КЛИЕНТ
-# ============================================================
 
 class ExploitDBClient:
     """Клиент для проверки наличия эксплоитов"""
@@ -660,7 +627,6 @@ class ExploitDBClient:
                         if len(row) >= 3:
                             file_id = row[0]
                             description = row[2]
-                            # Поиск CVE в описании
                             cve_pattern = r'CVE-\d{4}-\d{4,}'
                             cves = re.findall(cve_pattern, description, re.IGNORECASE)
                             for cve in cves:
@@ -684,7 +650,6 @@ class ExploitDBClient:
         db_dir.mkdir(parents=True, exist_ok=True)
 
         try:
-            # Скачивание files.csv из exploit-db.com
             response = requests.get(
                 'https://raw.githubusercontent.com/offensive-security/exploitdb/master/files_exploits.csv',
                 timeout=60
@@ -700,9 +665,6 @@ class ExploitDBClient:
         return False
 
 
-# ============================================================
-# СКАНЕР ПРОГРАММНОГО ОБЕСПЕЧЕНИЯ
-# ============================================================
 
 class SoftwareScanner:
     """Сканер установленного программного обеспечения"""
@@ -721,7 +683,6 @@ class SoftwareScanner:
         """Сканирование системы"""
         software = []
 
-        # Определение ОС
         if os.name == 'nt':
             software.extend(self._scan_windows())
         else:
@@ -753,7 +714,6 @@ class SoftwareScanner:
         software = []
 
         try:
-            # Debian/Ubuntu
             import subprocess
             result = subprocess.run(['dpkg-query', '-W', '-f=${Package}\t${Version}\n'],
                                     capture_output=True, text=True, timeout=30)
@@ -772,7 +732,6 @@ class SoftwareScanner:
             pass
 
         try:
-            # RedHat/CentOS
             import subprocess
             result = subprocess.run(['rpm', '-qa', '--queryformat=%{NAME}\t%{VERSION}-%{RELEASE}\n'],
                                     capture_output=True, text=True, timeout=30)
@@ -933,9 +892,6 @@ class SoftwareScanner:
         return software
 
 
-# ============================================================
-# CVE МАТЧЕР
-# ============================================================
 
 class CVEMatcher:
     """Сопоставление CVE с установленным ПО"""
@@ -947,7 +903,6 @@ class CVEMatcher:
 
     def _build_index(self):
         """Построение индекса CPE -> CVE"""
-        # Загружаем все CVE из базы
         cves = self.database.search_cves(min_cvss=0, limit=100000)
 
         for cve in cves:
@@ -958,7 +913,6 @@ class CVEMatcher:
         """Поиск CVE для ПО"""
         matches = []
 
-        # Генерация возможных CPE
         cpes = self._generate_cpes(software)
 
         seen_cves = set()
@@ -983,7 +937,6 @@ class CVEMatcher:
                     )
                     matches.append(match)
 
-        # Также поиск по имени (fallback)
         if not matches:
             cves = self.database.search_cves(query=software.name, min_cvss=0, limit=10)
             for cve in cves:
@@ -1008,7 +961,6 @@ class CVEMatcher:
         name = software.name.lower()
         version = software.version
 
-        # Формат CPE: cpe:2.3:a:vendor:product:version:*:*:*:*:*:*:*
         vendors = [software.vendor, '*', 'apache', 'microsoft', 'google', 'oracle', 'redhat']
         for vendor in vendors:
             if vendor:
@@ -1019,7 +971,6 @@ class CVEMatcher:
 
     def _version_in_range(self, version: str, cve: CVE) -> bool:
         """Проверка версии в диапазоне"""
-        # Упрощённая проверка - точное совпадение или содержит
         for product in cve.affected_products:
             if version in product:
                 return True
@@ -1030,11 +981,9 @@ class CVEMatcher:
         base_score = cve.cvss_v3_score or cve.cvss_v2_score or 5.0
         risk = base_score / 10.0
 
-        # Повышаем риск если есть эксплоит
         if cve.exploit_available:
             risk = min(1.0, risk * 1.3)
 
-        # Повышаем риск для критического ПО
         critical_software = ['openssl', 'nginx', 'apache', 'mysql', 'postgresql', 'redis', 'docker']
         if any(cs in software.name.lower() for cs in critical_software):
             risk = min(1.0, risk * 1.2)
@@ -1055,9 +1004,6 @@ class CVEMatcher:
             return "Monitor for updates."
 
 
-# ============================================================
-# ОСНОВНОЙ КЛАСС CVE INTELLIGENCE
-# ============================================================
 
 class CVEIntelligenceEngine:
     """
@@ -1114,7 +1060,6 @@ class CVEIntelligenceEngine:
 
         print("🔄 Обновление базы CVE...")
 
-        # Получаем недавние CVE
         start_index = 0
         while fetched < max_cves:
             cves = self.nvd_client.fetch_recent_cves(start_index, 100)
@@ -1122,12 +1067,10 @@ class CVEIntelligenceEngine:
                 break
 
             for cve in cves:
-                # Проверяем наличие эксплоита
                 has_exploit, exploit_links = self.exploit_client.check_exploit(cve.cve_id)
                 cve.exploit_available = has_exploit
                 cve.exploit_links = exploit_links
 
-                # Сохраняем в БД
                 if self.database.upsert_cve(cve):
                     fetched += 1
                     with self._lock:
@@ -1135,7 +1078,6 @@ class CVEIntelligenceEngine:
 
             start_index += 100
 
-            # Соблюдаем rate limit
             time.sleep(1)
 
         print(f"✅ Обновлено {fetched} CVE")
@@ -1147,7 +1089,6 @@ class CVEIntelligenceEngine:
 
         print("🔍 Сканирование инфраструктуры...")
 
-        # Сканирование системы
         system_software = self.software_scanner.scan_system()
         with self._lock:
             self.stats['total_software_scanned'] += len(system_software)
@@ -1194,12 +1135,10 @@ class CVEIntelligenceEngine:
 
     def check_cve(self, cve_id: str) -> Optional[CVE]:
         """Проверка конкретного CVE"""
-        # Сначала в локальной БД
         cve = self.database.get_cve(cve_id)
         if cve and time.time() - float(cve.last_modified_date) < self.config.cache_ttl:
             return cve
 
-        # Запрашиваем из NVD
         cve = self.nvd_client.fetch_cve(cve_id)
         if cve:
             has_exploit, exploit_links = self.exploit_client.check_exploit(cve_id)
@@ -1258,17 +1197,17 @@ class CVEIntelligenceEngine:
     <title>SHARD CVE Intelligence Report</title>
     <style>
         body {{ font-family: Arial, sans-serif; margin: 20px; }}
-        h1 {{ color: #333; }}
+        h1 {{ color:
         .summary {{ display: flex; gap: 20px; margin: 20px 0; }}
         .card {{ padding: 20px; border-radius: 10px; color: white; min-width: 100px; text-align: center; }}
-        .critical {{ background: #dc3545; }}
-        .high {{ background: #fd7e14; }}
-        .medium {{ background: #ffc107; color: black; }}
-        .low {{ background: #28a745; }}
+        .critical {{ background:
+        .high {{ background:
+        .medium {{ background:
+        .low {{ background:
         table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
-        th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }}
-        th {{ background: #007bff; color: white; }}
-        .exploit {{ color: #dc3545; font-weight: bold; }}
+        th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid
+        th {{ background:
+        .exploit {{ color:
     </style>
 </head>
 <body>
@@ -1378,9 +1317,6 @@ class CVEIntelligenceEngine:
             }
 
 
-# ============================================================
-# ИНТЕГРАЦИЯ С SHARD
-# ============================================================
 
 class ShardCVEIntelligenceIntegration:
     """Интеграция CVE Intelligence в SHARD"""
@@ -1404,7 +1340,6 @@ class ShardCVEIntelligenceIntegration:
         """Запуск интеграции"""
         self.engine.start()
 
-        # Сканирование инфраструктуры при старте
         if self.config.scan_installed_software:
             threading.Thread(target=self._initial_scan, daemon=True).start()
 
@@ -1417,10 +1352,9 @@ class ShardCVEIntelligenceIntegration:
 
     def _initial_scan(self):
         """Первоначальное сканирование"""
-        time.sleep(5)  # Даём системе запуститься
+        time.sleep(5)
         matches = self.engine.scan_infrastructure()
 
-        # Публикуем критические уязвимости как алерты
         for match in matches:
             if match.risk_score >= 0.7:
                 self._publish_alert(match)
@@ -1469,7 +1403,6 @@ class ShardCVEIntelligenceIntegration:
         """Обработка запроса сканирования"""
         matches = self.engine.scan_infrastructure()
 
-        # Публикуем результаты
         for match in matches:
             if match.risk_score >= 0.7:
                 self._publish_alert(match)
@@ -1495,9 +1428,6 @@ class ShardCVEIntelligenceIntegration:
         return self.engine.get_stats()
 
 
-# ============================================================
-# ТЕСТИРОВАНИЕ
-# ============================================================
 
 def test_cve_intelligence():
     """Тестирование CVE Intelligence"""
@@ -1511,7 +1441,6 @@ def test_cve_intelligence():
 
     engine = CVEIntelligenceEngine(config)
 
-    # Тест 1: Проверка известного CVE
     print("\n📝 Тест 1: Проверка CVE-2021-44228 (Log4Shell)")
     cve = engine.check_cve("CVE-2021-44228")
     if cve:
@@ -1521,19 +1450,16 @@ def test_cve_intelligence():
         print(f"   Severity: {cve.cvss_v3_severity}")
         print(f"   Exploit available: {cve.exploit_available}")
 
-    # Тест 2: Сканирование системы
     print("\n📝 Тест 2: Сканирование установленного ПО")
     software = engine.software_scanner.scan_system()
     print(f"   Найдено ПО: {len(software)}")
     for sw in software[:5]:
         print(f"      - {sw.name} {sw.version} (source: {sw.source})")
 
-    # Тест 3: Генерация отчёта
     print("\n📝 Тест 3: Генерация отчёта")
     report = engine.generate_report('json')
     print(f"   Отчёт сгенерирован, размер: {len(report)} байт")
 
-    # Статистика
     print("\n📊 Статистика:")
     stats = engine.get_stats()
     for key, value in stats.items():

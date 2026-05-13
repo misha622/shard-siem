@@ -14,23 +14,17 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("SHARD-Federated")
 
-# ============================================================
-# КОНФИГУРАЦИЯ
-# ============================================================
 
 CONFIG = {
-    'num_clients': 10,           # Количество виртуальных клиентов
-    'federation_rounds': 50,     # Раундов федеративного обучения
-    'local_epochs': 5,           # Локальных эпох на клиенте
-    'fraction_fit': 0.5,         # Доля клиентов участвующих в раунде
+    'num_clients': 10,
+    'federation_rounds': 50,
+    'local_epochs': 5,
+    'fraction_fit': 0.5,
     'batch_size': 32,
     'lr': 0.001,
-    'model_type': 'defense_ml',  # Какую модель обучаем
+    'model_type': 'defense_ml',
 }
 
-# ============================================================
-# СИМУЛЯТОР КЛИЕНТОВ С РАЗНЫМИ ДАННЫМИ
-# ============================================================
 
 class FederatedClientSimulator:
     """Симулирует клиентов с разными данными (non-IID)"""
@@ -39,7 +33,6 @@ class FederatedClientSimulator:
         self.client_id = client_id
         self.total_clients = total_clients
         
-        # Каждый клиент имеет смещённое распределение атак
         self.attack_distribution = self._generate_client_data_bias()
         self.data = self._generate_local_dataset()
     
@@ -49,10 +42,8 @@ class FederatedClientSimulator:
                        'C2 Beacon', 'DNS Tunnel', 'XSS', 'Lateral Movement',
                        'Data Exfiltration', 'Botnet', 'Ransomware', 'Phishing', 'Zero-Day']
         
-        # Каждый клиент специализируется на 3-5 типах атак
         client_specialization = random.sample(attack_types, random.randint(3, 5))
         
-        # Создаём смещённое распределение
         distribution = {}
         for atype in attack_types:
             if atype in client_specialization:
@@ -60,7 +51,6 @@ class FederatedClientSimulator:
             else:
                 distribution[atype] = random.uniform(0.01, 0.05)
         
-        # Нормализуем
         total = sum(distribution.values())
         return {k: v/total for k, v in distribution.items()}
     
@@ -78,10 +68,9 @@ class FederatedClientSimulator:
             atype = random.choices(attack_types, 
                                    weights=[self.attack_distribution[a] for a in attack_types])[0]
             
-            # Фичи в зависимости от типа атаки
             idx = attack_types.index(atype)
             X[i] = np.random.randn(n_features) * 0.3
-            X[i, idx % n_features] = np.random.uniform(0.5, 1.0)  # Сигнал атаки
+            X[i, idx % n_features] = np.random.uniform(0.5, 1.0)
             y[i] = idx
         
         return X, y
@@ -101,9 +90,6 @@ class FederatedClientSimulator:
         }
 
 
-# ============================================================
-# ФЕДЕРАТИВНАЯ МОДЕЛЬ
-# ============================================================
 
 class FederatedModel:
     """Модель для федеративного обучения"""
@@ -165,9 +151,6 @@ class FederatedModel:
         return acc
 
 
-# ============================================================
-# СЕРВЕР ФЕДЕРАТИВНОГО ОБУЧЕНИЯ
-# ============================================================
 
 class FederatedServer:
     """Центральный сервер федеративного обучения"""
@@ -184,7 +167,6 @@ class FederatedServer:
             self.clients[i] = FederatedClientSimulator(i, num_clients)
         logger.info(f"Зарегистрировано клиентов: {len(self.clients)}")
         
-        # Покажем распределение данных
         logger.info("\n📊 Распределение данных по клиентам:")
         for cid, client in list(self.clients.items())[:3]:
             summary = client.get_data_summary()
@@ -216,10 +198,8 @@ class FederatedServer:
         """
         Secure Aggregation с добавлением шума для differential privacy
         """
-        # Стандартное FedAvg
         aggregated = self.aggregate_weights(client_updates)
         
-        # Добавляем небольшой шум для приватности (Differential Privacy)
         noise_scale = 0.001
         noisy_weights = []
         for w in aggregated:
@@ -230,14 +210,12 @@ class FederatedServer:
     
     def train_round(self, round_num: int) -> Dict:
         """Один раунд федеративного обучения"""
-        # Выбираем случайных клиентов
         num_selected = max(2, int(len(self.clients) * CONFIG['fraction_fit']))
         selected_clients = random.sample(list(self.clients.keys()), num_selected)
         
         logger.info(f"\n🔄 Раунд {round_num+1}/{CONFIG['federation_rounds']}")
         logger.info(f"   Выбрано клиентов: {num_selected}/{len(self.clients)}")
         
-        # Отправляем глобальные веса клиентам
         global_weights = self.global_model.get_weights()
         
         client_updates = []
@@ -246,18 +224,15 @@ class FederatedServer:
             client = self.clients[cid]
             X, y = client.get_local_data()
             
-            # Клиент обучается локально
             local_model = FederatedModel()
             local_model.set_weights(global_weights)
             updated_weights = local_model.train_local(X, y, CONFIG['local_epochs'], CONFIG['lr'])
             
             client_updates.append((updated_weights, len(X)))
         
-        # Агрегируем обновления
         new_global_weights = self.secure_aggregate(client_updates)
         self.global_model.set_weights(new_global_weights)
         
-        # Оцениваем точность на объединённых данных
         total_X, total_y = [], []
         for cid in selected_clients[:3]:
             X, y = self.clients[cid].get_local_data()
@@ -293,7 +268,6 @@ class FederatedServer:
         for r in range(rounds):
             result = self.train_round(r)
         
-        # Финальный отчёт
         initial_acc = self.accuracy_history[0] if self.accuracy_history else 0
         final_acc = self.accuracy_history[-1] if self.accuracy_history else 0
         
@@ -305,7 +279,6 @@ class FederatedServer:
         logger.info(f"   Раундов: {len(self.round_history)}")
         logger.info(f"{'='*60}")
         
-        # Сохраняем модель
         Path('./models/federated').mkdir(exist_ok=True)
         torch.save({
             'model_state_dict': self.global_model.model.state_dict(),
@@ -319,9 +292,6 @@ class FederatedServer:
         return self.global_model
 
 
-# ============================================================
-# ДЕМОНСТРАЦИЯ ДЛЯ SHARD
-# ============================================================
 
 def demo_federated_learning():
     """
@@ -348,12 +318,10 @@ def demo_federated_learning():
     logger.info("   3. Сервер агрегирует веса → модель учится на ВСЕХ данных")
     logger.info("   4. Данные НИКОГДА не покидают клиента 🔒")
     
-    # Запускаем федеративное обучение
     server = FederatedServer(n_features=13, n_classes=13)
     server.register_clients(CONFIG['num_clients'])
     final_model = server.train(CONFIG['federation_rounds'])
     
-    # Показываем что модель научилась на всех данных
     logger.info(f"\n🔍 ПРОВЕРКА: Модель после федеративного обучения")
     
     test_attacks = [
@@ -364,7 +332,7 @@ def demo_federated_learning():
     
     for atype, features in test_attacks:
         X = np.array([features])
-        acc = final_model.evaluate(X, np.array([0]))  # Проверяем что модель отвечает
+        acc = final_model.evaluate(X, np.array([0]))
         logger.info(f"   {atype}: модель обучена (точность агрегации: {acc:.0%})")
     
     return server

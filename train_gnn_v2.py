@@ -33,9 +33,6 @@ CONFIG = {
     'num_edges': 500,
 }
 
-# ============================================================
-# УЛУЧШЕННЫЙ ГЕНЕРАТОР ГРАФОВ
-# ============================================================
 
 class ThreatGraphGenerator:
     ATTACK_TYPES = ['normal', 'scan', 'brute', 'ddos', 'sqli', 'c2', 'exfil', 'dns_tunnel', 'botnet']
@@ -48,30 +45,28 @@ class ThreatGraphGenerator:
         N = self.num_nodes
         E = self.num_edges
         
-        # === Узлы: 16 признаков ===
         x = torch.zeros(N, CONFIG['node_features'])
         y = torch.zeros(N, dtype=torch.long)
         
         for i in range(N):
             r = random.random()
-            if r < 0.4:  # normal
+            if r < 0.4:
                 x[i] = torch.tensor([random.uniform(0,0.2) for _ in range(8)] + 
                                      [0]*7 + [random.uniform(0,0.3)])
                 y[i] = 0
-            elif r < 0.7:  # suspicious  
+            elif r < 0.7:
                 atype = random.randint(0,8)
                 x[i] = torch.tensor([random.uniform(0.3,0.6) for _ in range(3)] +
                                      [1.0 if j==atype else 0 for j in range(5)] +
                                      [random.uniform(0.3,0.7) for _ in range(8)])
                 y[i] = 1
-            else:  # malicious
+            else:
                 atype = random.randint(3,8)
                 x[i] = torch.tensor([random.uniform(0.7,1.0) for _ in range(3)] +
                                      [1.0 if j==atype-3 else 0 for j in range(5)] +
                                      [random.uniform(0.5,1.0) for _ in range(8)])
                 y[i] = 2
         
-        # === Рёбра ===
         edge_index = []
         for _ in range(E):
             src = random.randint(0, N-1)
@@ -87,9 +82,6 @@ class ThreatGraphGenerator:
         return [self.generate_graph() for _ in range(batch_size)]
 
 
-# ============================================================
-# GCN + GAT ГИБРИД
-# ============================================================
 
 class GCNLayer(nn.Module):
     """Graph Convolutional Network layer"""
@@ -102,7 +94,6 @@ class GCNLayer(nn.Module):
         src, dst = edge_index
         N = x.size(0)
         
-        # Нормализованная агрегация
         deg = torch.zeros(N, device=x.device)
         deg = deg.index_add(0, dst, torch.ones_like(dst, dtype=torch.float))
         deg = deg.clamp(min=1)
@@ -138,17 +129,14 @@ class GATLayer(nn.Module):
         h = self.W(x).view(N, self.heads, self.out_dim)
         h_src, h_dst = h[src], h[dst]
         
-        # Attention scores
         attn = self.a_src(h_src) + self.a_dst(h_dst)
         attn = self.leaky_relu(attn).squeeze(-1)
         
-        # Softmax per destination
         attn_max = torch.zeros(N, self.heads, device=x.device)
         attn_max = attn_max.index_add(0, dst, attn.exp()) + 1e-8
         alpha = attn / attn_max[dst]
         alpha = self.dropout(alpha)
         
-        # Aggregate
         out = torch.zeros(N, self.heads, self.out_dim, device=x.device)
         out = out.index_add(0, dst, h_src * alpha.unsqueeze(-1))
         out = out.view(N, -1)
@@ -207,9 +195,6 @@ class ThreatGNNv2(nn.Module):
         return node_logits, graph_score
 
 
-# ============================================================
-# FOCAL LOSS (для несбалансированных классов)
-# ============================================================
 
 class FocalLoss(nn.Module):
     def __init__(self, alpha=None, gamma=2.0):
@@ -229,9 +214,6 @@ class FocalLoss(nn.Module):
         return focal_loss.mean()
 
 
-# ============================================================
-# ОБУЧЕНИЕ
-# ============================================================
 
 def train():
     logger.info("="*60)
@@ -251,8 +233,7 @@ def train():
     logger.info(f"\n🧠 Model: {params:,} parameters")
     logger.info(f"   GCN+GAT layers: {CONFIG['gnn_layers']}, hidden: {CONFIG['hidden_dim']}")
     
-    # Focal Loss с весами для классов
-    alpha = torch.tensor([0.5, 1.0, 2.0])  # malicious важнее
+    alpha = torch.tensor([0.5, 1.0, 2.0])
     criterion = FocalLoss(alpha=alpha, gamma=2.0)
     optimizer = optim.AdamW(model.parameters(), lr=CONFIG['lr'], weight_decay=0.01)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=CONFIG['epochs'])
@@ -295,7 +276,6 @@ def train():
     
     logger.info(f"\n✅ Final: loss={avg_loss:.4f}, acc={accuracy:.2%}, best_acc={best_acc:.2%}")
     
-    # Сохранение
     Path('./models/gnn').mkdir(parents=True, exist_ok=True)
     torch.save({
         'model_state_dict': model.state_dict(),
@@ -306,7 +286,6 @@ def train():
     
     logger.info(f"\n💾 Model saved: models/gnn/threat_gnn_v2.pt")
     
-    # Тест
     logger.info(f"\n🧪 Testing...")
     model.eval()
     

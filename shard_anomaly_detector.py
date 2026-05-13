@@ -114,45 +114,37 @@ class ShardAnomalyDetector:
         """Извлечение 72 фич из алерта"""
         features = np.zeros(self.input_dim, dtype=np.float32)
         
-        # Базовые фичи
         features[0] = min(1.0, alert.get('score', 0))
-        features[1] = 6.0 / 255.0  # TCP
+        features[1] = 6.0 / 255.0
         features[2] = alert.get('dst_port', 80) / 65535.0
-        features[3] = 0.5  # src_port эфемерный
-        features[4] = 64.0 / 255.0  # TTL
-        features[5] = 0.0  # TCP flags
+        features[3] = 0.5
+        features[4] = 64.0 / 255.0
+        features[5] = 0.0
         
-        # IP class (one-hot)
         src_ip = alert.get('src_ip', '0.0.0.0')
         ip_class = 9 if src_ip.startswith('127.') else hash(src_ip) % 9
         features[6 + ip_class] = 1.0
         
-        # Port features
         port_idx = 16 + (alert.get('dst_port', 80) % 15)
         features[port_idx] = 1.0
         
-        # Timing
         import time
         t = time.localtime()
         features[31] = t.tm_hour / 24.0
         features[32] = t.tm_wday / 7.0
-        features[33] = 0.5  # interval
+        features[33] = 0.5
         features[34] = alert.get('confidence', 0.5)
-        features[35] = 0.5  # connection rate
+        features[35] = 0.5
         
-        # Protocol
-        features[36] = 1.0  # TCP
+        features[36] = 1.0
         
-        # Payload (из explanation)
         explanation = alert.get('explanation', '')
         for i, ch in enumerate(explanation[:15]):
             features[46 + i] = ord(ch) / 255.0
         
-        # Statistical
         features[61] = alert.get('score', 0)
         features[62] = alert.get('confidence', 0)
         
-        # Sequence
         features[70] = np.random.uniform(0, 1)
         features[71] = alert.get('score', 0)
         

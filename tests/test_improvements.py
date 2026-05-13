@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 SHARD Enterprise - Проверка улучшений
@@ -32,7 +31,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger("SHARD-Test")
 
-# Добавляем путь к проекту
 sys.path.insert(0, str(Path(__file__).parent))
 
 PASS_COUNT = 0
@@ -63,9 +61,6 @@ def test(name: str):
     return decorator
 
 
-# ============================================================
-# ТЕСТ 1: EventBus per-subscriber очереди
-# ============================================================
 
 @test("EventBus: per-subscriber очереди")
 def test_eventbus_per_subscriber():
@@ -74,24 +69,20 @@ def test_eventbus_per_subscriber():
 
     bus = EventBus()
 
-    # Проверяем что есть subscribers
     received_a = []
     received_b = []
 
     bus.subscribe('test.event', lambda d: received_a.append(d))
     bus.subscribe('test.event', lambda d: received_b.append(d))
 
-    # Публикуем события
     for i in range(100):
         bus.publish('test.event', {'id': i})
 
-    time.sleep(0.5)  # Даём время на доставку
+    time.sleep(0.5)
 
-    # Проверяем что оба подписчика получили все события
     assert len(received_a) == 100, f"Subscriber A got {len(received_a)}/100 events"
     assert len(received_b) == 100, f"Subscriber B got {len(received_b)}/100 events"
 
-    # Проверяем статистику
     stats = bus.get_stats()
     assert stats['events_published'] >= 100, f"Published: {stats['events_published']}"
     assert stats['total_event_types'] >= 1, f"Event types: {stats['total_event_types']}"
@@ -99,9 +90,6 @@ def test_eventbus_per_subscriber():
     bus.shutdown()
 
 
-# ============================================================
-# ТЕСТ 2: Temporal GNN — один вызов вместо per-node
-# ============================================================
 
 @test("Temporal GNN: betweenness/pagerank один вызов")
 def test_temporal_gnn_single_call():
@@ -113,7 +101,6 @@ def test_temporal_gnn_single_call():
     config.max_nodes = 100
     builder = NetworkGraphBuilder(config)
 
-    # Создаём тестовый граф
     for i in range(20):
         for j in range(20):
             if i != j and np.random.random() < 0.1:
@@ -122,11 +109,9 @@ def test_temporal_gnn_single_call():
                     12345, 443, 6, 1000, 1
                 )
 
-    # Делаем снапшот
     builder._create_snapshot(time.time())
     time.sleep(0.1)
 
-    # Измеряем время извлечения признаков
     graphs = builder.get_temporal_graphs(1)
     assert len(graphs) > 0, "No graphs created"
 
@@ -134,19 +119,14 @@ def test_temporal_gnn_single_call():
     features = builder.extract_features(graphs[0])
     elapsed = time.time() - start
 
-    # Должно быть быстро (< 1 секунды для 100 узлов)
     assert elapsed < 1.0, f"Feature extraction took {elapsed:.2f}s (too slow!)"
 
-    # Проверяем что features не пустые
     node_feat, edge_idx, edge_feat = features
     assert node_feat.shape[0] > 0, "No node features extracted"
 
     logger.info(f"      Graph: {node_feat.shape[0]} nodes, {edge_idx.shape[1]} edges, {elapsed * 1000:.0f}ms")
 
 
-# ============================================================
-# ТЕСТ 3: AgenticAI TTLSet
-# ============================================================
 
 @test("AgenticAI: TTLSet FIFO удаление")
 def test_agenticai_ttlset():
@@ -164,7 +144,7 @@ def test_agenticai_ttlset():
                 return
             self._data[item] = time.time()
             if len(self._data) > self.max_size:
-                self._data.popitem(last=False)  # FIFO
+                self._data.popitem(last=False)
 
         def discard(self, item):
             self._data.pop(item, None)
@@ -174,28 +154,22 @@ def test_agenticai_ttlset():
 
     ttl = TTLSet(max_size=5)
 
-    # Добавляем 5 элементов
     for i in range(5):
         ttl.add(f"alert_{i}")
 
     assert len(ttl._data) == 5
 
-    # Добавляем 6-й — первый должен удалиться
     ttl.add("alert_5")
     assert len(ttl._data) == 5
     assert "alert_0" not in ttl, "FIFO failed: alert_0 should be removed"
     assert "alert_1" in ttl, "FIFO failed: alert_1 should remain"
     assert "alert_5" in ttl, "FIFO failed: alert_5 should be added"
 
-    # Проверяем что старые удаляются первыми
     ttl.add("alert_6")
     assert "alert_1" not in ttl, "FIFO failed: alert_1 should be removed second"
     assert "alert_2" in ttl, "FIFO failed: alert_2 should remain"
 
 
-# ============================================================
-# ТЕСТ 4: ContrastiveVAE LayerNorm
-# ============================================================
 
 @test("ContrastiveVAE: LayerNorm при batch_size=1")
 def test_contrastive_vae_layernorm():
@@ -204,13 +178,12 @@ def test_contrastive_vae_layernorm():
         import torch
         import torch.nn as nn
 
-        # Создаём тестовую модель с LayerNorm
         class TestModel(nn.Module):
             def __init__(self):
                 super().__init__()
                 self.net = nn.Sequential(
                     nn.Linear(156, 128),
-                    nn.LayerNorm(128),  # LayerNorm вместо BatchNorm
+                    nn.LayerNorm(128),
                     nn.ReLU(),
                     nn.Linear(128, 64),
                     nn.LayerNorm(64),
@@ -224,14 +197,12 @@ def test_contrastive_vae_layernorm():
         model = TestModel()
         model.eval()
 
-        # Тест с batch_size=1
         x = torch.randn(1, 156)
         with torch.no_grad():
             out = model(x)
 
         assert out.shape == (1, 32), f"Wrong output shape: {out.shape}"
 
-        # Тест с batch_size=32
         x = torch.randn(32, 156)
         with torch.no_grad():
             out = model(x)
@@ -244,9 +215,6 @@ def test_contrastive_vae_layernorm():
         logger.warning("      PyTorch not installed, skipping")
 
 
-# ============================================================
-# ТЕСТ 5: SQLite с партициями
-# ============================================================
 
 @test("SQLite: партиции по датам")
 def test_sqlite_partitioning():
@@ -296,15 +264,11 @@ def test_sqlite_partitioning():
 
 
 
-# ============================================================
-# ТЕСТ 6: Super AI реальные признаки
-# ============================================================
 
 @test("Super AI: реальные признаки вместо hash-заглушек")
 def test_super_ai_real_features():
     """Проверка что _extract_network_features возвращает реальные признаки"""
 
-    # Эмулируем класс с реальным методом
     class TestSuperAI:
         def __init__(self):
             self.ip_stats = {}
@@ -313,12 +277,10 @@ def test_super_ai_real_features():
         def _extract_network_features(self, alert):
             features = [0.0] * 1024
 
-            # Базовые признаки
             features[0] = float(alert.get('score', 0))
             features[1] = float(alert.get('confidence', 0))
             features[4] = alert.get('hour_of_day', 0) / 24.0
 
-            # Порт
             dst_port = alert.get('dst_port', 0)
             features[10] = dst_port / 65535.0
             features[11] = 1.0 if dst_port in [22, 3389, 445, 3306] else 0.0
@@ -336,20 +298,15 @@ def test_super_ai_real_features():
 
     features = ai._extract_network_features(alert)
 
-    # Проверяем что признаки не случайные
     assert features[0] == 0.85, f"Score not set: {features[0]}"
     assert features[1] == 0.9, f"Confidence not set: {features[1]}"
     assert features[4] == 14 / 24.0, f"Hour not set: {features[4]}"
     assert features[12] == 1.0, f"C2 port not detected: {features[12]}"
 
-    # Проверяем что это не хэш-заглушки (все значения должны быть осмысленными)
     non_zero = sum(1 for f in features if f != 0.0)
     assert non_zero >= 5, f"Only {non_zero} non-zero features (expected >= 5)"
 
 
-# ============================================================
-# ТЕСТ 7: EventBus нагрузочный тест
-# ============================================================
 
 @test("EventBus: нагрузочный тест 10K событий/сек")
 def test_eventbus_load():
@@ -361,12 +318,10 @@ def test_eventbus_load():
     received = []
     bus.subscribe('test.load', lambda d: received.append(d))
 
-    # Отправляем 5000 событий
     start = time.time()
     for i in range(5000):
         bus.publish('test.load', {'id': i})
 
-    # Ждём доставку
     time.sleep(2)
 
     elapsed = time.time() - start
@@ -379,63 +334,49 @@ def test_eventbus_load():
     bus.shutdown()
 
 
-# ============================================================
-# ТЕСТ 8: RL Defense reward shaping
-# ============================================================
 
 @test("RL Defense: reward shaping")
 def test_rl_defense_reward():
     """Проверка что reward shaping работает правильно"""
 
-    # Эмулируем calculate_reward
     def calculate_reward(action, alert_resolved, damage_prevented, resolution_time):
         reward = 0.0
 
-        # Награда за предотвращение ущерба
         if damage_prevented > 0:
             reward += damage_prevented * 10.0
 
-        # Награда за разрешение
         if alert_resolved:
             reward += 5.0
 
-        # Штраф за действие
-        if action == 0:  # no_action
+        if action == 0:
             if not alert_resolved:
-                reward -= 1.0  # Штраф за бездействие
-        elif action in [3, 4]:  # block_ip
+                reward -= 1.0
+        elif action in [3, 4]:
             if alert_resolved:
-                reward += 3.0  # Бонус за блокировку
+                reward += 3.0
             else:
-                reward -= 5.0  # False positive штраф
+                reward -= 5.0
 
-        # Временной горизонт
         if alert_resolved:
             if resolution_time < 60:
-                reward += 2.0  # Быстрый бонус
+                reward += 2.0
             elif resolution_time > 600:
-                reward -= 1.0  # Медленный штраф
+                reward -= 1.0
 
         return reward
 
-    # Тест 1: Успешная быстрая блокировка
     r1 = calculate_reward(action=4, alert_resolved=True, damage_prevented=0.8, resolution_time=30)
-    assert r1 > 15, f"Expected high reward, got {r1}"  # 0.8*10 + 5 + 3 + 2 = 18
+    assert r1 > 15, f"Expected high reward, got {r1}"
 
-    # Тест 2: Бездействие при атаке
     r2 = calculate_reward(action=0, alert_resolved=False, damage_prevented=0.0, resolution_time=999)
-    assert r2 < 0, f"Expected negative reward, got {r2}"  # -1
+    assert r2 < 0, f"Expected negative reward, got {r2}"
 
-    # Тест 3: False positive блокировка
     r3 = calculate_reward(action=4, alert_resolved=False, damage_prevented=0.0, resolution_time=30)
-    assert r3 < 0, f"Expected negative reward for FP, got {r3}"  # -5
+    assert r3 < 0, f"Expected negative reward for FP, got {r3}"
 
     logger.info(f"      Rewards: block={r1:.1f}, noop={r2:.1f}, fp={r3:.1f}")
 
 
-# ============================================================
-# ЗАПУСК ВСЕХ ТЕСТОВ
-# ============================================================
 
 def main():
     print("""
@@ -446,7 +387,6 @@ def main():
 
     logger.info("Запуск тестов...\n")
 
-    # Запуск всех тестов
     test_eventbus_per_subscriber()
     test_temporal_gnn_single_call()
     test_agenticai_ttlset()
@@ -456,7 +396,6 @@ def main():
     test_eventbus_load()
     test_rl_defense_reward()
 
-    # Итоги
     print("\n" + "=" * 60)
     logger.info(f"РЕЗУЛЬТАТЫ:")
     logger.info(f"   ✅ Пройдено: {PASS_COUNT}/{TOTAL_TESTS}")

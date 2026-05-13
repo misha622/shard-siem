@@ -52,7 +52,7 @@ class ZeroDaySignature:
     iocs: List[Dict]
     detection_count: int = 1
     recommended_defense: Optional[str] = None
-    status: str = "active"  # active, mitigated, false_positive
+    status: str = "active"
 
 
 class AnomalyCluster:
@@ -76,7 +76,6 @@ class AnomalyCluster:
         self.last_seen = time.time()
         self.count += 1
 
-        # Обновление центроида
         if len(self.features) > 0:
             self.centroid = np.mean(self.features, axis=0)
             if len(self.features) > 1:
@@ -99,11 +98,9 @@ class ZeroDayDetector:
         self.baseline: Optional[np.ndarray] = None
         self.scaler = StandardScaler() if SKLEARN_AVAILABLE else None
 
-        # Буферы
         self.anomaly_buffer: deque = deque(maxlen=10000)
         self.normal_buffer: deque = deque(maxlen=50000)
 
-        # Статистика
         self.stats = {
             'total_anomalies': 0,
             'clusters_formed': 0,
@@ -115,7 +112,6 @@ class ZeroDayDetector:
         self._lock = threading.RLock()
         self._running = False
 
-        # Известные атаки (для сравнения)
         self.known_attacks = {
             'brute_force', 'port_scan', 'dos', 'ddos', 'sql_injection',
             'xss', 'c2_beacon', 'dns_tunnel', 'data_exfiltration',
@@ -126,7 +122,6 @@ class ZeroDayDetector:
         """Извлечение признаков для кластеризации"""
         features = []
 
-        # Базовые признаки (первые 20)
         features.extend([
             alert.get('score', 0),
             alert.get('confidence', 0),
@@ -138,16 +133,14 @@ class ZeroDayDetector:
             alert.get('day_of_week', datetime.now().weekday()) / 7.0,
         ])
 
-        # Хеш признаков для уникальности паттерна
         pattern_hash = int(
             hashlib.md5(
                 str(alert.get('attack_type', '')).encode()
             ).hexdigest()[:8], 16
-        ) / 4294967295.0  # 2^32 - 1
+        ) / 4294967295.0
 
         features.append(pattern_hash)
 
-        # Поведенческие признаки
         features.extend([
             alert.get('connection_count', 0) / 100,
             alert.get('bytes_transferred', 0) / 1_000_000,
@@ -170,11 +163,9 @@ class ZeroDayDetector:
         with self._lock:
             self.stats['total_anomalies'] += 1
 
-            # Извлекаем признаки
             features = self.extract_features(alert)
             self.anomaly_buffer.append(features)
 
-            # Проверяем, является ли атака известной
             attack_type = str(alert.get('attack_type', '')).lower()
             is_known = any(
                 known in attack_type
@@ -182,9 +173,8 @@ class ZeroDayDetector:
             )
 
             if is_known:
-                return None  # Известная атака — не zero-day
+                return None
 
-            # Кластеризация
             if len(self.anomaly_buffer) >= 50 and SKLEARN_AVAILABLE:
                 result = self._cluster_anomalies(features, alert)
                 if result:
@@ -198,13 +188,11 @@ class ZeroDayDetector:
             return None
 
         try:
-            # Подготавливаем данные
             recent = np.array(list(self.anomaly_buffer)[-200:])
 
             if len(recent) < 10:
                 return None
 
-            # Масштабирование
             if self.scaler:
                 recent_scaled = self.scaler.fit_transform(recent)
                 new_scaled = self.scaler.transform([new_features])[0]
@@ -212,16 +200,13 @@ class ZeroDayDetector:
                 recent_scaled = recent
                 new_scaled = new_features
 
-            # DBSCAN кластеризация
             clustering = DBSCAN(eps=0.5, min_samples=3)
             labels = clustering.fit_predict(recent_scaled)
 
-            # Анализ кластеров
             unique_labels = set(labels)
             new_label = labels[-1] if len(labels) > 0 else -1
 
             if new_label >= 0:
-                # Новый сэмпл попал в существующий кластер
                 if new_label not in self.clusters:
                     self.clusters[new_label] = AnomalyCluster(new_label)
                     self.stats['clusters_formed'] += 1
@@ -229,16 +214,12 @@ class ZeroDayDetector:
                 cluster = self.clusters[new_label]
                 cluster.add_sample(new_scaled, alert)
 
-                # Если кластер вырос — возможно zero-day
                 if cluster.count >= 10 and not cluster.label:
                     zero_day = self._create_zero_day_signature(cluster, alert)
                     return zero_day
 
             elif new_label == -1:
-                # Новый сэмпл не попал ни в один кластер — noise
-                # Проверяем не является ли это началом нового кластера
                 if self._is_potential_new_cluster(new_features):
-                    # Создаём новый кластер
                     new_id = max(self.clusters.keys(), default=-1) + 1
                     self.clusters[new_id] = AnomalyCluster(new_id)
                     self.clusters[new_id].add_sample(new_scaled, alert)
@@ -251,14 +232,12 @@ class ZeroDayDetector:
 
     def _is_potential_new_cluster(self, features: np.ndarray) -> bool:
         """Проверка на потенциально новый кластер"""
-        # Высокая уверенность + необычный паттерн
         if len(self.anomaly_buffer) < 20:
             return False
 
         recent = np.array(list(self.anomaly_buffer)[-20:])
         distances = np.linalg.norm(recent - features, axis=1)
 
-        # Если точка далеко от всех остальных — новый кластер
         if np.min(distances) > np.percentile(distances, 80):
             return True
 
@@ -270,7 +249,6 @@ class ZeroDayDetector:
         """Создание сигнатуры zero-day атаки"""
         self.stats['zero_days_found'] += 1
 
-        # Генерация имени
         attack_name = f"Unknown_Attack_{int(time.time()) % 100000:05d}"
         severity = self._assess_severity(cluster, alert)
         confidence = self._calculate_confidence(cluster)
@@ -330,22 +308,18 @@ class ZeroDayDetector:
         """Оценка серьёзности zero-day"""
         score = 0
 
-        # Большой кластер = опаснее
         if cluster.count > 50:
             score += 2
         elif cluster.count > 20:
             score += 1
 
-        # Высокая уверенность алерта
         if alert.get('confidence', 0) > 0.8:
             score += 1
 
-        # Атака на критическую инфраструктуру
         dst_port = alert.get('dst_port', 0)
         if dst_port in [22, 3389, 445, 3306, 5432, 6379, 27017]:
             score += 1
 
-        # Много затронутых систем
         if len(cluster.samples) > 10:
             score += 1
 
@@ -361,10 +335,8 @@ class ZeroDayDetector:
         """Расчёт уверенности в zero-day"""
         confidence = 0.5
 
-        # Больше образцов = выше уверенность
         confidence += min(0.3, cluster.count / 100)
 
-        # Плотный кластер = выше уверенность
         if cluster.radius > 0:
             confidence += min(0.2, 1.0 / (cluster.radius + 0.1))
 
@@ -382,7 +354,6 @@ class ZeroDayDetector:
 
     def _map_to_mitre(self, alert: Dict) -> List[str]:
         """Маппинг на MITRE ATT&CK"""
-        # Для неизвестных атак — используем общие тактики
         return [
             'TA0043 - Reconnaissance',
             'TA0001 - Initial Access',
@@ -393,7 +364,6 @@ class ZeroDayDetector:
         """Извлечение IOCs"""
         iocs = []
 
-        # IP адреса
         ips = set()
         for sample in cluster.samples[-20:]:
             for key in ['src_ip', 'dst_ip']:
@@ -404,7 +374,6 @@ class ZeroDayDetector:
         for ip in list(ips)[:5]:
             iocs.append({'type': 'ip', 'value': ip})
 
-        # Порты
         ports = set()
         for sample in cluster.samples[-20:]:
             port = sample.get('dst_port', 0)
@@ -430,11 +399,11 @@ class ZeroDayDetector:
                 ips.add(sample['src_ip'])
 
         recommendations = [
-            "# SHARD AI - Zero-Day Defense Recommendation",
-            f"# Attack: {cluster.label or 'Unknown'}",
-            f"# Generated: {datetime.now().isoformat()}",
+            "
+            f"
+            f"
             "",
-            "# Immediate Actions:",
+            "
         ]
 
         for ip in list(ips)[:5]:
@@ -445,7 +414,7 @@ class ZeroDayDetector:
 
         recommendations.extend([
             "",
-            "# Monitor for similar patterns:",
+            "
             "tcpdump -i any -w /tmp/shard_zeroday_$(date +%s).pcap host " + " or host ".join(list(ips)[:3])
         ])
 
@@ -476,12 +445,10 @@ class ZeroDayDetector:
         ]
 
 
-# Тест
 if __name__ == "__main__":
     print("🧪 Тест Zero-Day Detector")
     detector = ZeroDayDetector()
 
-    # Симулируем неизвестную атаку
     for i in range(30):
         alert = {
             'attack_type': 'Unknown_Pattern',

@@ -33,23 +33,17 @@ import numpy as np
 logger = logging.getLogger("SHARD-Defender")
 
 
-# ============================================================
-# ТИПЫ ЗАЩИТНЫХ ДЕЙСТВИЙ
-# ============================================================
 
 class DefenseLevel(Enum):
-    MONITOR = 0  # Только наблюдение
-    THROTTLE = 1  # Замедление трафика
-    BLOCK_PORT = 2  # Блокировка порта
-    BLOCK_IP = 3  # Блокировка IP
-    ISOLATE = 4  # Изоляция хоста
-    REDIRECT = 5  # Перенаправление на honeypot
-    COUNTER_ATTACK = 6  # Активное противодействие
+    MONITOR = 0
+    THROTTLE = 1
+    BLOCK_PORT = 2
+    BLOCK_IP = 3
+    ISOLATE = 4
+    REDIRECT = 5
+    COUNTER_ATTACK = 6
 
 
-# ============================================================
-# ГЕНЕРАТОР ЗАЩИТНОГО КОДА
-# ============================================================
 
 class DefenseCodeGenerator:
     """
@@ -68,19 +62,13 @@ class DefenseCodeGenerator:
         """Шаблоны защитного кода"""
         return {
             'iptables_block': '''
-# Сгенерировано SHARD AI Defender
-# Атака: {attack_type} от {src_ip}:{src_port}
-# Время: {timestamp}
 
-# Блокировка источника атаки
 iptables -A INPUT -s {src_ip} -j DROP
 iptables -A FORWARD -s {src_ip} -j DROP
 iptables -A OUTPUT -d {src_ip} -j DROP
 
-# Блокировка конкретного порта
 iptables -A INPUT -s {src_ip} -p tcp --dport {dst_port} -j DROP
 
-# Rate limiting для похожих атак
 iptables -A INPUT -p tcp --dport {dst_port} -m state --state NEW -m recent --set
 iptables -A INPUT -p tcp --dport {dst_port} -m state --state NEW -m recent --update --seconds 60 --hitcount 10 -j DROP
 
@@ -88,27 +76,20 @@ echo "SHARD: {src_ip} заблокирован ({attack_type})"
 ''',
 
             'nginx_waf_rule': '''
-# Сгенерировано SHARD AI Defender
-# Атака: {attack_type}
-# Сигнатура: {signature}
 
 location / {{
-    # Блокировка по User-Agent
     if ($http_user_agent ~* "{bad_user_agent}") {{
         return 403;
     }}
 
-    # Блокировка SQL инъекций
     if ($query_string ~* "{sql_pattern}") {{
         return 403;
     }}
 
-    # Блокировка Path Traversal
     if ($uri ~* "{path_pattern}") {{
         return 403;
     }}
 
-    # Rate limiting
     limit_req_zone $binary_remote_addr zone=shard_limit:10m rate=5r/s;
     limit_req zone=shard_limit burst=10 nodelay;
 }}
@@ -134,7 +115,6 @@ def block_ip(ip: str, port: int = None):
     \"\"\"Блокировка IP адреса\"\"\"
     logger.warning(f"🚫 Блокировка IP: {{ip}}")
 
-    # iptables правила
     rules = [
         ['iptables', '-A', 'INPUT', '-s', ip, '-j', 'DROP'],
         ['iptables', '-A', 'FORWARD', '-s', ip, '-j', 'DROP'],
@@ -174,13 +154,10 @@ def main():
     logger.info(f"   Цель: защита от {{attack_type}}")
     logger.info(f"   Источник: {{src_ip}}")
 
-    # Блокировка источника
     block_ip('{src_ip}', {dst_port})
 
-    # Rate limiting
     rate_limit({dst_port}, max_connections=5)
 
-    # Мониторинг
     monitor_logs()
 
 if __name__ == "__main__":
@@ -188,8 +165,6 @@ if __name__ == "__main__":
 ''',
 
             'waf_signature': '''
-# Сгенерировано SHARD AI Defender
-# Правило WAF для {attack_type}
 
 SecRule REQUEST_URI "{pattern}" \\
     "id:{rule_id},\\
@@ -202,7 +177,6 @@ SecRule REQUEST_URI "{pattern}" \\
 ''',
 
             'honeypot_redirect': '''
-# Редирект атакующего на honeypot
 iptables -t nat -A PREROUTING -s {src_ip} -p tcp --dport {dst_port} \\
     -j DNAT --to-destination 127.0.0.1:{honeypot_port}
 iptables -t nat -A POSTROUTING -s {src_ip} -j MASQUERADE
@@ -241,8 +215,7 @@ echo "SHARD: {src_ip} перенаправлен на honeypot:{honeypot_port}"
             pattern = attack_type.lower().replace(' ', '_')
             sig = attack_type
 
-        return f'''# SHARD AI Defender - WAF Rule
-# {sig}: {pattern}
+        return f'''
 SecRule REQUEST_URI "@rx {pattern}" \\
     "id:{hash(attack_type) % 1000000:06d},\\
     phase:2,\\
@@ -292,7 +265,6 @@ SecRule REQUEST_URI "@rx {pattern}" \\
 
         strategies = []
 
-        # Strategy 1: Block IP (always for CRITICAL)
         if severity in ['CRITICAL', 'HIGH'] and confidence > 0.7:
             strategies.append({
                 'action': DefenseLevel.BLOCK_IP,
@@ -302,7 +274,6 @@ SecRule REQUEST_URI "@rx {pattern}" \\
                 'description': f"Блокировка IP {attack_info.get('src_ip')}"
             })
 
-        # Strategy 2: WAF Rule (Web Attacks)
         if any(t in attack_type for t in ['SQL', 'XSS', 'Web', 'Path Traversal', 'Injection']):
             strategies.append({
                 'action': DefenseLevel.BLOCK_PORT,
@@ -311,7 +282,6 @@ SecRule REQUEST_URI "@rx {pattern}" \\
                 'description': f"WAF правило для {attack_type}"
             })
 
-        # Strategy 3: Rate Limiting
         if attack_type in ['Brute Force', 'DDoS', 'DoS']:
             strategies.append({
                 'action': DefenseLevel.THROTTLE,
@@ -320,7 +290,6 @@ SecRule REQUEST_URI "@rx {pattern}" \\
                 'description': "Rate limiting активирован"
             })
 
-        # Strategy 4: Honeypot Redirect
         if severity not in ['CRITICAL'] and confidence > 0.6:
             strategies.append({
                 'action': DefenseLevel.REDIRECT,
@@ -329,7 +298,6 @@ SecRule REQUEST_URI "@rx {pattern}" \\
                 'description': "Перенаправление на honeypot"
             })
 
-        # Strategy 5: Isolate Host
         if attack_type in ['Botnet', 'C2 Beacon', 'Malware']:
             strategies.append({
                 'action': DefenseLevel.ISOLATE,
@@ -339,7 +307,6 @@ SecRule REQUEST_URI "@rx {pattern}" \\
                 'description': f"Изоляция хоста {attack_info.get('dst_ip', 'unknown')}"
             })
 
-        # Sort by priority
         strategies.sort(key=lambda x: x['priority'], reverse=True)
 
         return {
@@ -349,9 +316,6 @@ SecRule REQUEST_URI "@rx {pattern}" \\
         }
 
 
-# ============================================================
-# АВТОНОМНЫЙ ЗАЩИТНИК
-# ============================================================
 
 class AutonomousDefender:
     """
@@ -364,12 +328,10 @@ class AutonomousDefender:
         self.logger = logger_instance or logger
         self.code_gen = DefenseCodeGenerator()
 
-        # История защитных действий
         self.defense_history: deque = deque(maxlen=10000)
         self.successful_defenses: List[Dict] = []
         self.failed_defenses: List[Dict] = []
 
-        # Статистика
         self.stats = {
             'total_attacks': 0,
             'blocked': 0,
@@ -379,7 +341,6 @@ class AutonomousDefender:
             'false_positives': 0
         }
 
-        # Обучение на defensive действиях
         self.defense_effectiveness: Dict[str, float] = defaultdict(lambda: 0.5)
         self.attack_patterns: Dict[str, Dict] = {}
 
@@ -393,7 +354,6 @@ class AutonomousDefender:
         with self._lock:
             self.stats['total_attacks'] += 1
 
-            # Анализ атаки и выбор защиты
             defense_plan = self.code_gen.get_best_defense(alert)
 
             result = {
@@ -405,7 +365,6 @@ class AutonomousDefender:
                 'success': False
             }
 
-            # Применяем рекомендованную защиту
             if defense_plan['recommended']:
                 action = defense_plan['recommended']
 
@@ -415,7 +374,6 @@ class AutonomousDefender:
                         f"(priority={action['priority']})"
                     )
 
-                # Выполняем действие
                 if action['action'] == DefenseLevel.BLOCK_IP:
                     self._execute_block_ip(alert, action)
                     result['actions_taken'].append('block_ip')
@@ -431,7 +389,6 @@ class AutonomousDefender:
                     result['actions_taken'].append('isolate')
                     self.stats['isolated'] += 1
 
-                # Генерируем защитный скрипт
                 if 'script' in action:
                     script_path = action['script']
                     result['code_generated'].append(str(script_path))
@@ -439,10 +396,8 @@ class AutonomousDefender:
 
                 result['success'] = True
 
-            # Сохраняем в историю
             self.defense_history.append(result)
 
-            # Публикуем результат
             if self.event_bus:
                 self.event_bus.publish('defense.action', result)
 
@@ -455,7 +410,7 @@ class AutonomousDefender:
             return
 
         try:
-            if os.name != 'nt':  # Linux/WSL
+            if os.name != 'nt':
                 rules = [
                     ['iptables', '-A', 'INPUT', '-s', src_ip, '-j', 'DROP'],
                     ['iptables', '-A', 'FORWARD', '-s', src_ip, '-j', 'DROP'],
@@ -557,7 +512,6 @@ class AutonomousDefender:
 
             try:
                 if os.name != 'nt':
-                    # Удаляем iptables правила для этого IP
                     subprocess.run(
                         ['iptables', '-D', 'INPUT', '-s', src_ip, '-j', 'DROP'],
                         capture_output=True, timeout=5
@@ -576,9 +530,6 @@ class AutonomousDefender:
                 return False
 
 
-# ============================================================
-# ИНТЕГРАЦИЯ С SHARD
-# ============================================================
 
 class ShardAutonomousDefenderIntegration:
     """Интеграция автономного защитника в SHARD"""
@@ -620,7 +571,6 @@ class ShardAutonomousDefenderIntegration:
                 f"против {alert.get('attack_type')} от {alert.get('src_ip')}"
             )
 
-            # Публикуем сгенерированный код
             if result.get('code_generated'):
                 for code_file in result['code_generated']:
                     self.logger.info(f"📝 Сгенерирован код защиты: {code_file}")
@@ -645,9 +595,6 @@ class ShardAutonomousDefenderIntegration:
         return self.defender.get_defense_stats()
 
 
-# ============================================================
-# ТЕСТ
-# ============================================================
 
 def test_defender():
     """Тестирование автономного защитника"""
@@ -657,7 +604,6 @@ def test_defender():
 
     defender = AutonomousDefender()
 
-    # Тестовые атаки
     test_attacks = [
         {
             'attack_type': 'SQL Injection',
@@ -703,14 +649,12 @@ def test_defender():
             if result.get('code_generated'):
                 for code_file in result['code_generated']:
                     print(f"   📝 Код: {code_file}")
-                    # Покажем содержимое сгенерированного файла
                     if Path(code_file).exists():
                         with open(code_file) as f:
                             lines = f.readlines()[:5]
                             for line in lines:
                                 print(f"      {line.rstrip()}")
 
-    # Статистика
     stats = defender.get_defense_stats()
     print(f"\n📊 Статистика защиты:")
     print(f"   Атак: {stats['total_attacks']}")

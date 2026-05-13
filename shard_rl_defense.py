@@ -9,7 +9,7 @@ Author: SHARD Enterprise
 Version: 2.0.0
 """
 
-from __future__ import annotations  # Safe for Docker without TF
+from __future__ import annotations
 import os
 import json
 import time
@@ -39,67 +39,54 @@ except ImportError:
     print("❌ TensorFlow not installed")
 
 
-# ============================================================
-# CONFIGURATION
-# ============================================================
 
 @dataclass
 class RLDefenseConfig:
     """Configuration for RL Defense Agent"""
-    # Environment
-    state_size: int = 32  # Encoded state dimension
-    action_size: int = 8  # Number of possible defense actions
+    state_size: int = 32
+    action_size: int = 8
 
-    # DQN hyperparameters
-    gamma: float = 0.95  # Discount factor
-    epsilon: float = 1.0  # Exploration rate
+    gamma: float = 0.95
+    epsilon: float = 1.0
     epsilon_min: float = 0.01
     epsilon_decay: float = 0.995
     learning_rate: float = 0.001
     batch_size: int = 32
     memory_size: int = 10000
-    target_update_freq: int = 100  # Steps between target network updates
+    target_update_freq: int = 100
 
-    # Training
     episodes: int = 1000
     steps_per_episode: int = 500
 
-    # Double DQN
     use_double_dqn: bool = True
     use_dueling: bool = True
     use_prioritized_replay: bool = True
-    per_alpha: float = 0.6  # Prioritization exponent
-    per_beta: float = 0.4  # Importance sampling exponent
+    per_alpha: float = 0.6
+    per_beta: float = 0.4
 
-    # Defense-specific
-    min_action_interval: float = 1.0  # Seconds between actions
+    min_action_interval: float = 1.0
     max_blocks_per_minute: int = 10
     adaptive_threshold: bool = True
 
-    # Storage
     model_dir: str = './models/rl_defense/'
     checkpoint_dir: str = './models/rl_defense/checkpoints/'
 
 
-# ============================================================
-# DEFENSE ACTIONS
-# ============================================================
 
 class DefenseAction:
     """Defense action definitions"""
 
     ACTIONS = [
-        'no_action',  # 0: Do nothing
-        'throttle',  # 1: Rate limit the source
-        'block_port',  # 2: Block specific port
-        'block_ip_temp',  # 3: Block IP temporarily (30 min)
-        'block_ip_perm',  # 4: Block IP permanently
-        'increase_logging',  # 5: Increase logging verbosity
-        'enable_honeypot',  # 6: Redirect to honeypot
-        'isolate_subnet'  # 7: Isolate entire subnet
+        'no_action',
+        'throttle',
+        'block_port',
+        'block_ip_temp',
+        'block_ip_perm',
+        'increase_logging',
+        'enable_honeypot',
+        'isolate_subnet'
     ]
 
-    # Action costs (negative reward for taking action)
     COSTS = {
         'no_action': 0.0,
         'throttle': -0.05,
@@ -121,9 +108,6 @@ class DefenseAction:
         return cls.COSTS.get(action_name, 0.0)
 
 
-# ============================================================
-# PRIORITIZED EXPERIENCE REPLAY
-# ============================================================
 
 class PrioritizedReplayBuffer:
     """
@@ -161,22 +145,17 @@ class PrioritizedReplayBuffer:
         if self.size == 0:
             return None
 
-        # Calculate sampling probabilities
         probs = self.priorities[:self.size] ** self.alpha
         probs /= probs.sum()
 
-        # Sample indices
         indices = np.random.choice(self.size, batch_size, p=probs, replace=False)
 
-        # Calculate importance sampling weights
         total = self.size
         weights = (total * probs[indices]) ** (-self.beta)
         weights /= weights.max()
 
-        # Increment beta
         self.beta = min(1.0, self.beta + self.beta_increment)
 
-        # Extract samples
         states, actions, rewards, next_states, dones = [], [], [], [], []
         for idx in indices:
             s, a, r, ns, d = self.buffer[idx]
@@ -195,9 +174,6 @@ class PrioritizedReplayBuffer:
             self.priorities[idx] = abs(td_error) + 1e-6
 
 
-# ============================================================
-# DUELING DQN NETWORK
-# ============================================================
 
 try:
     from tensorflow.keras import Model
@@ -216,27 +192,23 @@ class DuelingDQN(Model):
         self.state_size = state_size
         self.action_size = action_size
 
-        # Shared feature extractor
         self.feature_layers = []
         for i, units in enumerate(hidden_layers):
             self.feature_layers.append(layers.Dense(units, activation='relu', name=f'feature_{i}'))
             self.feature_layers.append(layers.BatchNormalization(name=f'bn_{i}'))
             self.feature_layers.append(layers.Dropout(0.2, name=f'dropout_{i}'))
 
-        # Value stream
         self.value_stream = [
             layers.Dense(64, activation='relu', name='value_dense'),
             layers.Dense(1, name='value_output')
         ]
 
-        # Advantage stream
         self.advantage_stream = [
             layers.Dense(64, activation='relu', name='advantage_dense'),
             layers.Dense(action_size, name='advantage_output')
         ]
 
     def call(self, state, training=False):
-        # Feature extraction
         x = state
         for layer in self.feature_layers:
             if isinstance(layer, (layers.BatchNormalization, layers.Dropout)):
@@ -244,25 +216,19 @@ class DuelingDQN(Model):
             else:
                 x = layer(x)
 
-        # Value stream
         value = x
         for layer in self.value_stream:
             value = layer(value)
 
-        # Advantage stream
         advantage = x
         for layer in self.advantage_stream:
             advantage = layer(advantage)
 
-        # Combine: Q(s,a) = V(s) + (A(s,a) - mean(A(s,:)))
         q_values = value + (advantage - tf.reduce_mean(advantage, axis=1, keepdims=True))
 
         return q_values
 
 
-# ============================================================
-# RL DEFENSE AGENT
-# ============================================================
 
 class RLDefenseAgent:
     """
@@ -273,21 +239,17 @@ class RLDefenseAgent:
     def __init__(self, config: RLDefenseConfig = None):
         self.config = config or RLDefenseConfig()
 
-        # Networks
         self.policy_net = None
         self.target_net = None
 
-        # Memory
         self.memory = None
 
-        # Training state
         self.step_count = 0
         self.episode_count = 0
         self.last_action_time = 0
         self.recent_actions: deque = deque(maxlen=100)
         self.blocked_ips: Set[str] = set()
 
-        # Statistics
         self.stats = {
             'total_steps': 0,
             'total_episodes': 0,
@@ -296,12 +258,10 @@ class RLDefenseAgent:
             'epsilon': self.config.epsilon
         }
 
-        # Thread safety
         self._lock = threading.RLock()
         self._training_thread = None
         self._running = False
 
-        # State encoder (can be replaced with actual encoder from SHARD)
         self.state_encoder = None
 
         Path(self.config.model_dir).mkdir(parents=True, exist_ok=True)
@@ -327,15 +287,12 @@ class RLDefenseAgent:
             self.config.action_size
         )
 
-        # Build networks
         dummy_state = tf.random.normal((1, self.config.state_size))
         _ = self.policy_net(dummy_state)
         _ = self.target_net(dummy_state)
 
-        # Copy weights
         self.target_net.set_weights(self.policy_net.get_weights())
 
-        # Compile
         self.policy_net.compile(optimizer=Adam(learning_rate=self.config.learning_rate))
 
         print(f"✅ RL Defense Agent initialized")
@@ -363,10 +320,8 @@ class RLDefenseAgent:
         if self.state_encoder:
             return self.state_encoder(raw_state)
 
-        # Default encoding
         encoded = np.zeros(self.config.state_size)
 
-        # Fill with available features
         features = [
             raw_state.get('alert_score', 0.0),
             raw_state.get('alert_count', 0) / 100,
@@ -408,18 +363,15 @@ class RLDefenseAgent:
         encoded_state = self._encode_state(state)
 
         with self._lock:
-            # Rate limiting for actions
             now = time.time()
             if now - self.last_action_time < self.config.min_action_interval:
                 return 0, DefenseAction.get_action_name(0)
 
-            # Check block limits
             if len(self.recent_actions) >= self.config.max_blocks_per_minute:
                 recent_blocks = sum(1 for a in self.recent_actions if a in [3, 4])
                 if recent_blocks >= self.config.max_blocks_per_minute:
-                    return 1, DefenseAction.get_action_name(1)  # Throttle instead
+                    return 1, DefenseAction.get_action_name(1)
 
-            # Epsilon-greedy
             if training and np.random.random() < self.config.epsilon:
                 action = np.random.randint(self.config.action_size)
             else:
@@ -427,7 +379,6 @@ class RLDefenseAgent:
                 q_values = self.policy_net(state_tensor, training=False)
                 action = int(tf.argmax(q_values[0]))
 
-                # Update average Q-value
                 self.stats['avg_q_value'] = 0.99 * self.stats['avg_q_value'] + 0.01 * float(tf.reduce_max(q_values))
 
             self.last_action_time = now
@@ -463,24 +414,19 @@ class RLDefenseAgent:
         weights_t = tf.convert_to_tensor(weights, dtype=tf.float32)
 
         with tf.GradientTape() as tape:
-            # Current Q values
             current_q = self.policy_net(states_t, training=True)
             current_q = tf.gather(current_q, actions_t, batch_dims=1)
 
-            # Target Q values
             if self.config.use_double_dqn:
-                # Double DQN: use policy net for action selection
                 next_actions = tf.argmax(self.policy_net(next_states_t, training=False), axis=1)
                 next_q = self.target_net(next_states_t, training=False)
                 next_q = tf.gather(next_q, next_actions, batch_dims=1)
             else:
-                # Standard DQN
                 next_q = self.target_net(next_states_t, training=False)
                 next_q = tf.reduce_max(next_q, axis=1)
 
             target_q = rewards_t + (1 - dones_t) * self.config.gamma * next_q
 
-            # Huber loss
             td_errors = target_q - current_q
             loss = tf.reduce_mean(weights_t * tf.where(
                 tf.abs(td_errors) < 1.0,
@@ -488,20 +434,16 @@ class RLDefenseAgent:
                 tf.abs(td_errors) - 0.5
             ))
 
-        # Compute and apply gradients
         grads = tape.gradient(loss, self.policy_net.trainable_variables)
         self.policy_net.optimizer.apply_gradients(zip(grads, self.policy_net.trainable_variables))
 
-        # Update priorities
         if self.config.use_prioritized_replay:
             self.memory.update_priorities(indices, tf.abs(td_errors).numpy())
 
-        # Update target network
         self.step_count += 1
         if self.step_count % self.config.target_update_freq == 0:
             self.target_net.set_weights(self.policy_net.get_weights())
 
-        # Decay epsilon
         self.config.epsilon = max(self.config.epsilon_min,
                                   self.config.epsilon * self.config.epsilon_decay)
         self.stats['epsilon'] = self.config.epsilon
@@ -525,17 +467,13 @@ class RLDefenseAgent:
         """
         reward = 0.0
 
-        # Positive reward for resolving alerts
         if alert_resolved:
             reward += 1.0
 
-        # Reward for preventing damage
         reward += damage_prevented * 2.0
 
-        # Penalty for action cost
         reward += DefenseAction.get_cost(action)
 
-        # Penalty for repeated actions
         recent_same_action = sum(1 for a in self.recent_actions if a == action)
         if recent_same_action > 3:
             reward -= 0.1 * recent_same_action
@@ -573,7 +511,6 @@ class RLDefenseAgent:
         self.episode_count += 1
         self.stats['total_episodes'] += 1
 
-        # Save periodically
         if self.episode_count % 100 == 0:
             self.save()
 
@@ -609,9 +546,6 @@ class RLDefenseAgent:
             }
 
 
-# ============================================================
-# DEFENSE ENVIRONMENT SIMULATOR
-# ============================================================
 
 class DefenseEnvironmentSimulator:
     """
@@ -657,9 +591,8 @@ class DefenseEnvironmentSimulator:
         """
         self.step_count += 1
 
-        # Simulate attack progression
         if self.alert_active:
-            if action in [3, 4, 7]:  # Block actions
+            if action in [3, 4, 7]:
                 self.alert_active = False
                 reward = 1.0
                 damage_prevented = self.attack_severity
@@ -668,17 +601,15 @@ class DefenseEnvironmentSimulator:
                 reward = -0.1
                 damage_prevented = 0.0
         else:
-            # Random chance of new alert
             if np.random.random() < 0.1:
                 self.alert_active = True
                 self.attack_severity = np.random.random() * 0.3 + 0.2
                 reward = 0.0
                 damage_prevented = 0.0
             else:
-                reward = 0.01  # Small reward for normal operation
+                reward = 0.01
                 damage_prevented = 0.0
 
-        # Update state
         self.state['alert_score'] = self.attack_severity if self.alert_active else 0.0
         self.state['alert_count'] = 1 if self.alert_active else 0
         self.state['connection_rate'] = np.random.random() * 100 if self.alert_active else np.random.random() * 10
@@ -686,7 +617,6 @@ class DefenseEnvironmentSimulator:
         self.state[
             'bytes_transferred'] = np.random.random() * 1_000_000 if self.alert_active else np.random.random() * 10000
 
-        # Done condition
         done = self.step_count >= 500
 
         info = {'alert_active': self.alert_active, 'severity': self.attack_severity}
@@ -694,9 +624,6 @@ class DefenseEnvironmentSimulator:
         return self.state.copy(), reward, done, info
 
 
-# ============================================================
-# SHARD INTEGRATION
-# ============================================================
 
 class ShardRLDefenseIntegration:
     """Integration layer for SHARD Enterprise"""
@@ -748,7 +675,6 @@ class ShardRLDefenseIntegration:
         Returns:
             Tuple of (action_id, action_name)
         """
-        # Convert alert to state
         state = {
             'alert_score': alert.get('score', 0.0),
             'alert_count': 1,
@@ -800,9 +726,6 @@ class ShardRLDefenseIntegration:
         }
 
 
-# ============================================================
-# TESTING
-# ============================================================
 
 def test_rl_defense():
     """Test RL Defense Agent"""
@@ -814,7 +737,6 @@ def test_rl_defense():
         print("❌ TensorFlow not available")
         return
 
-    # Create agent
     config = RLDefenseConfig()
     config.episodes = 50
     config.steps_per_episode = 200
@@ -822,10 +744,8 @@ def test_rl_defense():
     agent = RLDefenseAgent(config)
     agent.start()
 
-    # Create simulator
     env = DefenseEnvironmentSimulator()
 
-    # Train
     print("\n🔄 Training agent...")
     total_rewards = []
 
@@ -851,7 +771,6 @@ def test_rl_defense():
         if episode % 10 == 0:
             print(f"   Episode {episode}: reward={episode_reward:.2f}, ε={agent.config.epsilon:.3f}")
 
-    # Test inference
     print("\n🔮 Testing inference...")
     test_state = {'alert_score': 0.8, 'alert_count': 5, 'connection_rate': 500}
     action, name = agent.act(test_state, training=False)

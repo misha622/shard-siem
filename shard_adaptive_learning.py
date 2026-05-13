@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 """
 SHARD Adaptive Learning Module - Production-Ready
@@ -10,7 +9,7 @@ SHARD Adaptive Learning Module - Production-Ready
 Author: SHARD Enterprise
 """
 
-from __future__ import annotations  # Safe for Docker without TF
+from __future__ import annotations
 import os
 import sys
 import time
@@ -27,26 +26,20 @@ import logging
 
 import numpy as np
 
-# Настройка логирования
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger("SHARD-Adaptive")
 
-# Подавление предупреждений
 warnings.filterwarnings('ignore')
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-# ============================================================
-# ИМПОРТ БИБЛИОТЕК С ПРОВЕРКОЙ
-# ============================================================
 
 TF_AVAILABLE = False
 TORCH_AVAILABLE = False
 SKLEARN_AVAILABLE = False
 
-# TensorFlow
 try:
     import tensorflow as tf
     from tensorflow import keras
@@ -56,7 +49,6 @@ try:
 except ImportError:
     logger.warning("⚠️ TensorFlow not installed. Deep feature extraction limited.")
 
-# PyTorch
 try:
     import torch
     import torch.nn as nn
@@ -67,7 +59,6 @@ try:
 except ImportError:
     logger.warning("⚠️ PyTorch not installed. Alternative models available.")
 
-# Scikit-learn
 try:
     from sklearn.preprocessing import StandardScaler, RobustScaler
     from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
@@ -78,20 +69,15 @@ except ImportError:
     logger.warning("⚠️ Scikit-learn not installed. Some metrics unavailable.")
 
 
-# ============================================================
-# КОНФИГУРАЦИЯ
-# ============================================================
 
 @dataclass
 class AdaptiveConfig:
     """Конфигурация адаптивного обучения"""
 
-    # Baseline Profiler
     forgetting_factor: float = 0.95
     anomaly_threshold: float = 3.0
     min_samples_for_profile: int = 10
 
-    # Deep Feature Extractor
     use_deep_features: bool = True
     input_dim: int = 156
     deep_feature_dims: List[int] = field(default_factory=lambda: [128, 64, 32])
@@ -100,22 +86,18 @@ class AdaptiveConfig:
     batch_size: int = 64
     learning_rate: float = 0.001
 
-    # Dynamic Ensemble
     ensemble_temperature: float = 2.0
     min_model_weight: float = 0.05
     ensemble_update_frequency: int = 100
     feedback_buffer_size: int = 1000
 
-    # Online Learning
     online_learning_enabled: bool = True
-    retrain_interval: int = 300  # секунд
+    retrain_interval: int = 300
     min_samples_retrain: int = 100
 
-    # Storage
     model_dir: str = './models/adaptive/'
     checkpoint_frequency: int = 1000
 
-    # Performance
     max_workers: int = 4
     cache_size: int = 10000
     cache_ttl: int = 60
@@ -134,9 +116,6 @@ class AdaptiveConfig:
         return cls(**data)
 
 
-# ============================================================
-# 1. ADAPTIVE BASELINE PROFILER (Production-Ready)
-# ============================================================
 
 class AdaptiveBaselineProfiler:
     """
@@ -152,22 +131,19 @@ class AdaptiveBaselineProfiler:
     def __init__(self, config: AdaptiveConfig = None):
         self.config = config or AdaptiveConfig()
 
-        # Профили устройств
         self.profiles: Dict[str, Dict] = defaultdict(lambda: {
-            'ewma': {},           # Экспоненциальное среднее
-            'ewmvar': {},         # Экспоненциальная дисперсия
-            'count': {},          # Количество наблюдений
+            'ewma': {},
+            'ewmvar': {},
+            'count': {},
             'first_seen': time.time(),
             'last_update': 0,
             'total_samples': 0,
             'anomaly_history': deque(maxlen=100)
         })
 
-        # Кэш предсказаний
         self._cache: Dict[str, Tuple[float, float]] = {}
         self._cache_lock = threading.RLock()
 
-        # Глобальная статистика
         self.stats = {
             'total_devices': 0,
             'total_updates': 0,
@@ -176,14 +152,11 @@ class AdaptiveBaselineProfiler:
             'avg_anomaly_score': 0.0
         }
 
-        # Блокировки
         self._profile_lock = threading.RLock()
         self._stats_lock = threading.RLock()
 
-        # Пул для асинхронных операций
         self._executor = ThreadPoolExecutor(max_workers=self.config.max_workers)
 
-        # Загружаем сохранённые профили
         self._load_profiles()
 
         logger.info(f"✅ AdaptiveBaselineProfiler initialized "
@@ -219,7 +192,6 @@ class AdaptiveBaselineProfiler:
         profile_path.parent.mkdir(parents=True, exist_ok=True)
 
         try:
-            # Подготавливаем данные для сохранения
             save_data = {}
             for device, profile in self.profiles.items():
                 save_data[device] = {
@@ -231,7 +203,6 @@ class AdaptiveBaselineProfiler:
                     'total_samples': profile['total_samples']
                 }
 
-            # Атомарное сохранение
             temp_path = profile_path.with_suffix('.tmp')
             with open(temp_path, 'w') as f:
                 json.dump(save_data, f, indent=2)
@@ -257,9 +228,8 @@ class AdaptiveBaselineProfiler:
             profile = self.profiles[device]
             now = time.time()
 
-            # Вычисляем вес забывания
             if profile['last_update'] > 0:
-                time_delta = min(now - profile['last_update'], 3600)  # Cap at 1 hour
+                time_delta = min(now - profile['last_update'], 3600)
                 weight = self.config.forgetting_factor ** time_delta
             else:
                 weight = 1.0
@@ -283,7 +253,6 @@ class AdaptiveBaselineProfiler:
 
                 value = float(value)
 
-                # Инициализация признака
                 if key not in profile['ewma']:
                     profile['ewma'][key] = value
                     profile['ewmvar'][key] = 0.01
@@ -293,10 +262,8 @@ class AdaptiveBaselineProfiler:
                 old_avg = profile['ewma'][key]
                 old_var = profile['ewmvar'][key]
 
-                # Exponential Moving Average с forgetting
                 new_avg = weight * old_avg + (1 - weight) * value
 
-                # Exponential Moving Variance (алгоритм Уэлфорда)
                 delta = value - old_avg
                 new_var = weight * old_var + (1 - weight) * delta * (value - new_avg)
 
@@ -304,7 +271,6 @@ class AdaptiveBaselineProfiler:
                 profile['ewmvar'][key] = max(new_var, 0.0001)
                 profile['count'][key] += 1
 
-                # Проверка аномалии (только если достаточно данных)
                 if profile['count'][key] >= self.config.min_samples_for_profile:
                     mean = new_avg
                     std = np.sqrt(max(new_var, 0.0001))
@@ -312,7 +278,6 @@ class AdaptiveBaselineProfiler:
                     if std > 0:
                         z_score = abs(value - mean) / std
 
-                        # Нормализованный score
                         normalized_score = min(1.0, z_score / self.config.anomaly_threshold)
                         anomaly_scores.append(normalized_score)
                         result['anomaly_scores'][key] = normalized_score
@@ -333,9 +298,7 @@ class AdaptiveBaselineProfiler:
             with self._stats_lock:
                 self.stats['total_updates'] += 1
 
-            # Общая оценка аномальности
             if anomaly_scores:
-                # Используем топ-3 наибольших score для robust оценки
                 top_scores = sorted(anomaly_scores, reverse=True)[:3]
                 result['overall_score'] = sum(top_scores) / len(top_scores)
                 result['is_anomaly'] = result['overall_score'] > 0.5
@@ -357,10 +320,8 @@ class AdaptiveBaselineProfiler:
                     'features': list(result['anomalies'])
                 })
 
-            # Инвалидация кэша
             self._invalidate_cache(device)
 
-            # Периодическое сохранение
             if self.stats['total_updates'] % self.config.checkpoint_frequency == 0:
                 self._executor.submit(self._save_profiles)
 
@@ -388,10 +349,8 @@ class AdaptiveBaselineProfiler:
         Returns:
             float: Оценка аномальности [0, 1]
         """
-        # Создаём ключ кэша
         cache_key = self._make_cache_key(device, features)
 
-        # Проверяем кэш
         with self._cache_lock:
             if cache_key in self._cache:
                 score, timestamp = self._cache[cache_key]
@@ -418,18 +377,14 @@ class AdaptiveBaselineProfiler:
                         scores.append(min(1.0, z_score / self.config.anomaly_threshold))
 
             if scores:
-                # Используем медиану для робастности
                 score = float(np.median(scores))
             else:
                 score = 0.5
 
-            # Кэшируем
             with self._cache_lock:
                 self._cache[cache_key] = (score, time.time())
 
-                # Ограничиваем размер кэша
                 if len(self._cache) > self.config.cache_size:
-                    # Удаляем 10% самых старых
                     sorted_keys = sorted(
                         self._cache.keys(),
                         key=lambda k: self._cache[k][1]
@@ -441,14 +396,12 @@ class AdaptiveBaselineProfiler:
 
     def _make_cache_key(self, device: str, features: Dict[str, float]) -> str:
         """Создаёт ключ кэша"""
-        # Сортируем ключи для детерминированности
         sorted_keys = sorted(features.keys())
         key_parts = [device]
 
-        for k in sorted_keys[:20]:  # Ограничиваем количество признаков
+        for k in sorted_keys[:20]:
             v = features[k]
             if isinstance(v, (int, float)):
-                # Квантуем значение для лучшего кэширования
                 quantized = round(float(v), 3)
                 key_parts.append(f"{k}={quantized}")
 
@@ -494,10 +447,8 @@ class AdaptiveBaselineProfiler:
             with self._stats_lock:
                 self.stats['false_positives'] += 1
 
-            # Адаптивно повышаем порог если много ложных срабатываний
             fp_rate = self.stats['false_positives'] / max(1, self.stats['anomalies_detected'])
             if fp_rate > 0.3:
-                # Повышаем порог
                 self.config.anomaly_threshold = min(5.0, self.config.anomaly_threshold * 1.1)
                 logger.info(f"Adjusted anomaly threshold to {self.config.anomaly_threshold:.2f} "
                             f"(FP rate: {fp_rate:.2%})")
@@ -524,9 +475,6 @@ class AdaptiveBaselineProfiler:
         logger.info("Baseline profiler shut down")
 
 
-# ============================================================
-# 2. DEEP FEATURE EXTRACTOR (Production-Ready)
-# ============================================================
 
 class DeepFeatureExtractor:
     """
@@ -546,11 +494,9 @@ class DeepFeatureExtractor:
         self.is_trained = False
         self.training_history = []
 
-        # Буфер для онлайн-обучения
         self.online_buffer = deque(maxlen=5000)
         self.online_labels = deque(maxlen=5000)
 
-        # Статистика
         self.stats = {
             'total_pretrain_epochs': 0,
             'total_fine_tune_epochs': 0,
@@ -561,7 +507,6 @@ class DeepFeatureExtractor:
 
         self._lock = threading.RLock()
 
-        # Создаём модель в зависимости от доступного фреймворка
         if TF_AVAILABLE:
             self._build_tensorflow_model()
             self.backend = 'tensorflow'
@@ -572,7 +517,6 @@ class DeepFeatureExtractor:
             logger.warning("⚠️ No deep learning backend available")
             self.backend = None
 
-        # Загружаем сохранённую модель
         self._load_model()
 
     def _build_tensorflow_model(self):
@@ -580,7 +524,6 @@ class DeepFeatureExtractor:
         current_dim = self.config.input_dim
 
         for i, h_dim in enumerate(self.config.deep_feature_dims):
-            # Энкодер
             encoder = keras.Sequential([
                 layers.Dense(h_dim * 2, activation='relu', name=f'enc_{i}_dense1'),
                 layers.BatchNormalization(name=f'enc_{i}_bn1'),
@@ -589,7 +532,6 @@ class DeepFeatureExtractor:
                 layers.BatchNormalization(name=f'enc_{i}_bn2')
             ], name=f'encoder_{i}')
 
-            # Декодер
             decoder = keras.Sequential([
                 layers.Dense(h_dim * 2, activation='relu', name=f'dec_{i}_dense1'),
                 layers.BatchNormalization(name=f'dec_{i}_bn1'),
@@ -597,7 +539,6 @@ class DeepFeatureExtractor:
                 layers.Dense(current_dim, activation='linear', name=f'dec_{i}_dense2')
             ], name=f'decoder_{i}')
 
-            # Полный автоэнкодер
             autoencoder = keras.Sequential([encoder, decoder], name=f'autoencoder_{i}')
             autoencoder.compile(
                 optimizer=optimizers.Adam(learning_rate=self.config.learning_rate),
@@ -731,7 +672,6 @@ class DeepFeatureExtractor:
                 logger.info(f"Training layer {i+1}/{len(self.autoencoders)} "
                             f"({ae['input_dim']} → {ae['hidden_dim']})")
 
-                # Callbacks
                 callbacks = [
                     keras.callbacks.EarlyStopping(
                         monitor='val_loss',
@@ -746,7 +686,6 @@ class DeepFeatureExtractor:
                     )
                 ]
 
-                # Обучение
                 layer_history = ae['model'].fit(
                     current_data, current_data,
                     epochs=epochs_per_layer,
@@ -770,7 +709,6 @@ class DeepFeatureExtractor:
                     float(layer_history.history['loss'][-1])
                 )
 
-                # Получаем сжатое представление
                 current_data = ae['encoder'].predict(current_data, verbose=0)
 
         self.is_trained = True
@@ -884,7 +822,6 @@ class DeepFeatureExtractor:
         else:
             return 0.5, 0.0, False
 
-        # Определяем порог
         if self.stats['reconstruction_loss']:
             avg_loss = np.mean(self.stats['reconstruction_loss'][-10:])
             threshold = avg_loss * 3
@@ -925,14 +862,12 @@ class DeepFeatureExtractor:
         """Дообучение на накопленных данных"""
         data = np.array(list(self.online_buffer))
 
-        # Фильтруем нормальные сэмплы
         normal_data = data
 
         if len(normal_data) >= 50:
             logger.info(f"Online retraining on {len(normal_data)} samples")
 
             if self.backend == 'tensorflow':
-                # Fine-tuning последнего слоя
                 last_ae = self.autoencoders[-1]
                 last_ae['model'].fit(
                     normal_data, normal_data,
@@ -955,7 +890,6 @@ class DeepFeatureExtractor:
                         loss.backward()
                         self.pytorch_optimizer.step()
 
-        # Очищаем буфер
         self.online_buffer.clear()
         self.online_labels.clear()
 
@@ -1023,9 +957,6 @@ class DeepFeatureExtractor:
             }
 
 
-# ============================================================
-# 3. DYNAMIC ENSEMBLE (Production-Ready)
-# ============================================================
 
 class DynamicEnsemble:
     """
@@ -1043,11 +974,9 @@ class DynamicEnsemble:
         self.models = models
         self.model_names = list(models.keys())
 
-        # Веса
         self.weights = {name: 1.0 / len(models) for name in self.model_names}
         self._weight_lock = threading.RLock()
 
-        # История производительности
         self.performance_history = {
             name: {
                 'f1_scores': deque(maxlen=100),
@@ -1058,11 +987,9 @@ class DynamicEnsemble:
             for name in self.model_names
         }
 
-        # Буфер обратной связи
         self.feedback_buffer: deque = deque(maxlen=self.config.feedback_buffer_size)
         self._feedback_lock = threading.RLock()
 
-        # Статистика
         self.stats = {
             'total_predictions': 0,
             'total_feedback': 0,
@@ -1070,10 +997,8 @@ class DynamicEnsemble:
             'avg_confidence': 0.0
         }
 
-        # Пул для асинхронных операций
         self._executor = ThreadPoolExecutor(max_workers=2)
 
-        # Кэш предсказаний
         self._prediction_cache: Dict[str, Tuple[Dict, float]] = {}
         self._cache_lock = threading.RLock()
 
@@ -1090,7 +1015,6 @@ class DynamicEnsemble:
         Returns:
             Dict с результатами
         """
-        # Проверяем кэш
         if use_cache:
             cache_key = self._make_cache_key(features)
             with self._cache_lock:
@@ -1117,7 +1041,6 @@ class DynamicEnsemble:
             try:
                 pred_start = time.time()
 
-                # Получаем предсказание
                 if hasattr(model, 'predict'):
                     pred = model.predict(features)
                 elif hasattr(model, 'get_anomaly_score'):
@@ -1147,7 +1070,6 @@ class DynamicEnsemble:
                 if is_anomaly:
                     anomaly_votes += weight
 
-                # Обновляем latency
                 self.performance_history[name]['latencies'].append(latency)
 
             except Exception as e:
@@ -1163,7 +1085,6 @@ class DynamicEnsemble:
             ensemble_confidence = 0.0
             is_ensemble_anomaly = False
 
-        # Калибровка уверенности
         calibrated_confidence = self._calibrate_confidence(ensemble_score, ensemble_confidence)
 
         result = {
@@ -1177,18 +1098,15 @@ class DynamicEnsemble:
             'inference_time_ms': (time.time() - start_time) * 1000
         }
 
-        # Обновляем статистику
         self.stats['avg_confidence'] = (
                 0.95 * self.stats['avg_confidence'] +
                 0.05 * ensemble_confidence
         )
 
-        # Кэшируем
         if use_cache:
             with self._cache_lock:
                 self._prediction_cache[cache_key] = (result, time.time())
 
-                # Ограничиваем размер кэша
                 if len(self._prediction_cache) > self.config.cache_size:
                     sorted_keys = sorted(
                         self._prediction_cache.keys(),
@@ -1201,19 +1119,15 @@ class DynamicEnsemble:
 
     def _make_cache_key(self, features: np.ndarray) -> str:
         """Создаёт ключ кэша"""
-        # Хешируем признаки
         features_flat = features.flatten()
-        # Квантуем для лучшего кэширования
         quantized = np.round(features_flat[:20], 3)
         return hashlib.md5(quantized.tobytes()).hexdigest()
 
     def _calibrate_confidence(self, score: float, raw_confidence: float) -> float:
         """Калибровка уверенности"""
-        # Platt scaling с температурой
         temperature = 1.5
         calibrated = 1.0 / (1.0 + np.exp(-(score - 0.5) / temperature))
 
-        # Комбинируем с raw confidence
         return 0.7 * calibrated + 0.3 * raw_confidence
 
     def add_feedback(self, features: np.ndarray, true_label: int,
@@ -1237,7 +1151,6 @@ class DynamicEnsemble:
             })
             self.stats['total_feedback'] += 1
 
-        # Автоматическое обновление при накоплении
         if len(self.feedback_buffer) >= self.config.ensemble_update_frequency:
             self._executor.submit(self.update_weights)
 
@@ -1259,7 +1172,6 @@ class DynamicEnsemble:
 
             feedback_samples = list(self.feedback_buffer)[-min_samples:]
 
-        # Оцениваем каждую модель
         f1_scores = {}
 
         for name in self.model_names:
@@ -1291,14 +1203,12 @@ class DynamicEnsemble:
                     continue
 
             if len(y_true) >= 10:
-                # Вычисляем метрики
                 f1 = f1_score(y_true, y_pred, zero_division=0)
                 precision = precision_score(y_true, y_pred, zero_division=0)
                 recall = recall_score(y_true, y_pred, zero_division=0)
 
                 f1_scores[name] = f1
 
-                # Обновляем историю
                 self.performance_history[name]['f1_scores'].append(f1)
                 self.performance_history[name]['precisions'].append(precision)
                 self.performance_history[name]['recalls'].append(recall)
@@ -1306,10 +1216,8 @@ class DynamicEnsemble:
         if not f1_scores:
             return False
 
-        # Вычисляем новые веса через softmax с температурой
         f1_values = np.array([f1_scores.get(name, 0.5) for name in self.model_names])
 
-        # Добавляем бонус за скорость
         avg_latencies = {
             name: np.mean(list(self.performance_history[name]['latencies']) or [100])
             for name in self.model_names
@@ -1321,18 +1229,14 @@ class DynamicEnsemble:
             for name in self.model_names
         ])
 
-        # Комбинированный score
         combined_scores = f1_values * latency_penalty
 
-        # Softmax
         exp_scores = np.exp(combined_scores / self.config.ensemble_temperature)
         new_weights = exp_scores / np.sum(exp_scores)
 
-        # Применяем минимальный вес
         new_weights = np.maximum(new_weights, self.config.min_model_weight)
         new_weights = new_weights / np.sum(new_weights)
 
-        # Плавное обновление
         with self._weight_lock:
             for i, name in enumerate(self.model_names):
                 old_weight = self.weights[name]
@@ -1369,9 +1273,6 @@ class DynamicEnsemble:
         self._executor.shutdown(wait=True)
 
 
-# ============================================================
-# 4. ИНТЕГРАЦИЯ (Production-Ready)
-# ============================================================
 
 class AdaptiveLearningEngine:
     """
@@ -1385,14 +1286,12 @@ class AdaptiveLearningEngine:
     """
 
     def __init__(self, config: Dict = None):
-        # Создаём конфигурацию
         self.config = AdaptiveConfig()
         if config:
             for key, value in config.items():
                 if hasattr(self.config, key):
                     setattr(self.config, key, value)
 
-        # Компоненты
         self.baseline_profiler = AdaptiveBaselineProfiler(self.config)
 
         if self.config.use_deep_features:
@@ -1402,19 +1301,15 @@ class AdaptiveLearningEngine:
 
         self.ensemble = None
 
-        # Буфер для предобучения
         self.pretrain_buffer: deque = deque(maxlen=5000)
         self.pretrain_threshold = 1000
 
-        # Состояние
         self._running = False
         self._lock = threading.RLock()
 
-        # Потоки
         self._retrain_thread = None
         self._save_thread = None
 
-        # Статистика
         self.stats = {
             'total_packets_processed': 0,
             'anomalies_detected': 0,
@@ -1422,7 +1317,6 @@ class AdaptiveLearningEngine:
             'start_time': time.time()
         }
 
-        # Создаём директорию моделей
         Path(self.config.model_dir).mkdir(parents=True, exist_ok=True)
 
         logger.info("✅ AdaptiveLearningEngine initialized")
@@ -1437,7 +1331,6 @@ class AdaptiveLearningEngine:
         """Запуск движка"""
         self._running = True
 
-        # Запускаем фоновые потоки
         self._retrain_thread = threading.Thread(
             target=self._retrain_loop,
             daemon=True,
@@ -1463,10 +1356,8 @@ class AdaptiveLearningEngine:
         if self._save_thread:
             self._save_thread.join(timeout=5)
 
-        # Сохраняем состояние
         self.save_models()
 
-        # Shutdown компонентов
         self.baseline_profiler.shutdown()
         if self.ensemble:
             self.ensemble.shutdown()
@@ -1482,14 +1373,12 @@ class AdaptiveLearningEngine:
                 break
 
             try:
-                # Дообучение feature extractor
                 if self.feature_extractor and len(self.pretrain_buffer) >= self.pretrain_threshold:
                     data = np.array(list(self.pretrain_buffer))
                     self.feature_extractor.pretrain(data, verbose=0)
                     self.pretrain_buffer.clear()
                     logger.info("🔄 Feature extractor retrained")
 
-                # Обновление весов ансамбля
                 if self.ensemble:
                     self.ensemble.update_weights()
 
@@ -1499,7 +1388,7 @@ class AdaptiveLearningEngine:
     def _save_loop(self):
         """Фоновое сохранение"""
         while self._running:
-            time.sleep(300)  # Каждые 5 минут
+            time.sleep(300)
 
             if not self._running:
                 break
@@ -1533,18 +1422,14 @@ class AdaptiveLearningEngine:
             'confidence': 0.0
         }
 
-        # 1. Преобразуем признаки для Baseline
         feature_dict = {f'f_{i}': float(v) for i, v in enumerate(raw_features[:50])}
 
-        # 2. Adaptive Baseline Profiler
         baseline_result = self.baseline_profiler.update(device, feature_dict)
         result['baseline'] = baseline_result
 
-        # 3. Deep Feature Extractor
         if self.feature_extractor and self.feature_extractor.is_trained:
             features_array = np.array(raw_features).reshape(1, -1)
 
-            # Дополняем или обрезаем до input_dim
             if features_array.shape[1] < self.config.input_dim:
                 padding = np.zeros((1, self.config.input_dim - features_array.shape[1]))
                 features_array = np.concatenate([features_array, padding], axis=1)
@@ -1559,10 +1444,8 @@ class AdaptiveLearningEngine:
                 'is_anomaly': deep_anomaly
             }
         else:
-            # Накапливаем для предобучения
             self.pretrain_buffer.append(raw_features[:self.config.input_dim])
 
-        # 4. Dynamic Ensemble
         if self.ensemble:
             features_array = np.array(raw_features)
             ensemble_result = self.ensemble.predict(features_array)
@@ -1571,7 +1454,6 @@ class AdaptiveLearningEngine:
             result['is_anomaly'] = ensemble_result['is_anomaly']
             result['confidence'] = ensemble_result['calibrated_confidence']
         else:
-            # Fallback на baseline
             result['overall_score'] = baseline_result['overall_score']
             result['is_anomaly'] = baseline_result['is_anomaly']
             result['confidence'] = 1.0 - abs(baseline_result['overall_score'] - 0.5) * 2
@@ -1589,8 +1471,7 @@ class AdaptiveLearningEngine:
         if self.ensemble:
             self.ensemble.add_feedback(features_array, true_label, alert_resolved, damage_prevented)
 
-        # Сообщаем baseline про false positive
-        if true_label == 0:  # Норма, но был алерт
+        if true_label == 0:
             self.stats['false_positives_reported'] += 1
 
     def save_models(self):
@@ -1623,9 +1504,6 @@ class AdaptiveLearningEngine:
         return stats
 
 
-# ============================================================
-# ТЕСТИРОВАНИЕ
-# ============================================================
 
 def test_adaptive_learning():
     """Тестирование модуля"""
@@ -1633,14 +1511,12 @@ def test_adaptive_learning():
     print("🧪 TESTING ADAPTIVE LEARNING ENGINE")
     print("=" * 60)
 
-    # Создаём движок
     engine = AdaptiveLearningEngine({
         'forgetting_factor': 0.95,
-        'use_deep_features': False,  # Отключаем для быстрого теста
+        'use_deep_features': False,
         'model_dir': './test_models/'
     })
 
-    # Регистрируем mock-модели
     class MockModel:
         def __init__(self, name, bias):
             self.name = name
@@ -1663,16 +1539,12 @@ def test_adaptive_learning():
     engine.register_models(models)
     engine.start()
 
-    # Тестируем
     print("\n📊 Processing packets...")
 
     for i in range(100):
-        # Генерируем признаки
         if i < 80:
-            # Нормальный трафик
             features = list(np.random.randn(156) * 0.1)
         else:
-            # Аномальный трафик
             features = list(np.random.randn(156) * 1.5)
 
         result = engine.process_packet(f'device_{i%5}', features)
@@ -1680,16 +1552,13 @@ def test_adaptive_learning():
         if result['is_anomaly']:
             print(f"   ⚠️ Packet {i}: anomaly detected (score={result['overall_score']:.3f})")
 
-    # Добавляем обратную связь
     print("\n📊 Adding feedback...")
     for _ in range(20):
         features = list(np.random.randn(156) * 1.5)
         engine.add_feedback(features, true_label=1)
 
-    # Обновляем веса
     engine.ensemble.update_weights()
 
-    # Статистика
     print("\n📊 Statistics:")
     stats = engine.get_stats()
     print(f"   Total packets: {stats['engine']['total_packets_processed']}")

@@ -12,7 +12,6 @@ from pathlib import Path
 app = Flask(__name__)
 CORS(app)
 
-# Глобальные ссылки (устанавливаются при интеграции)
 shard_instance = None
 
 @app.route('/api/docs')
@@ -32,7 +31,7 @@ def swagger_ui():
     <script>
         SwaggerUIBundle({
             url: "/api/openapi.json",
-            dom_id: "#swagger-ui",
+            dom_id: "
             deepLinking: true,
             presets: [SwaggerUIBundle.presets.apis],
         });
@@ -220,9 +219,6 @@ def openapi_spec():
         }
     })
 
-# ============================================================
-# API ENDPOINTS
-# ============================================================
 
 @app.route('/api/alerts')
 def get_alerts():

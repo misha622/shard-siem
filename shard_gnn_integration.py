@@ -19,7 +19,6 @@ class GCNLayer(nn.Module):
         src, dst = edge_index
         N = x.size(0)
         
-        # Нормализованная агрегация
         deg = torch.zeros(N, device=x.device)
         deg = deg.index_add(0, dst, torch.ones_like(dst, dtype=torch.float))
         deg = deg.clamp(min=1)
@@ -55,17 +54,14 @@ class GATLayer(nn.Module):
         h = self.W(x).view(N, self.heads, self.out_dim)
         h_src, h_dst = h[src], h[dst]
         
-        # Attention scores
         attn = self.a_src(h_src) + self.a_dst(h_dst)
         attn = self.leaky_relu(attn).squeeze(-1)
         
-        # Softmax per destination
         attn_max = torch.zeros(N, self.heads, device=x.device)
         attn_max = attn_max.index_add(0, dst, attn.exp()) + 1e-8
         alpha = attn / attn_max[dst]
         alpha = self.dropout(alpha)
         
-        # Aggregate
         out = torch.zeros(N, self.heads, self.out_dim, device=x.device)
         out = out.index_add(0, dst, h_src * alpha.unsqueeze(-1))
         out = out.view(N, -1)
