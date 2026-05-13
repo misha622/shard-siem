@@ -17,7 +17,7 @@
 
 ```bash
 # Клонирование репозитория
-git clone https://github.com/yourname/shard-enterprise.git
+git clone https://github.com/misha622/shard-siem.git
 cd shard-enterprise
 
 # Запуск всех сервисов
