@@ -42,3 +42,10 @@ shard_real_alerts.jsonl
 shard_training_data.jsonl
 ssl_model.pt
 ensemble_models.pkl
+
+# Structured folders (originals kept in root)
+core/
+ml/
+api/
+deploy/
+docs/
