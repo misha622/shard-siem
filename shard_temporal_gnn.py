@@ -80,10 +80,8 @@ except ImportError:
     logger.warning("⚠️ NetworkX not installed. Install: pip install networkx")
 
 
-
 @dataclass
 class TemporalGNNConfig:
-    """Конфигурация Temporal GNN"""
 
     max_nodes: int = 2000
     node_feature_dim: int = 64
@@ -127,30 +125,18 @@ class TemporalGNNConfig:
     checkpoint_frequency: int = 100
 
     def save(self, path: str):
-        """Сохранение конфигурации"""
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         with open(path, 'w') as f:
             json.dump(self.__dict__, f, indent=2)
 
     @classmethod
     def load(cls, path: str) -> 'TemporalGNNConfig':
-        """Загрузка конфигурации"""
         with open(path, 'r') as f:
             data = json.load(f)
         return cls(**data)
 
 
-
 class NetworkGraphBuilder:
-    """
-    Построитель и менеджер сетевых графов.
-
-    Особенности:
-    - Эффективное построение графов из потока
-    - Temporal snapshots с окном
-    - Feature extraction для GNN
-    - Автоматическая очистка устаревших данных
-    """
 
     def __init__(self, config: TemporalGNNConfig):
         self.config = config
@@ -198,19 +184,6 @@ class NetworkGraphBuilder:
     def add_connection(self, src_ip: str, dst_ip: str, src_port: int, dst_port: int,
                        protocol: int, bytes_count: int, packets_count: int = 1,
                        timestamp: float = None):
-        """
-        Добавление сетевого соединения в текущий граф.
-
-        Args:
-            src_ip: IP источника
-            dst_ip: IP назначения
-            src_port: Порт источника
-            dst_port: Порт назначения
-            protocol: Протокол (6=TCP, 17=UDP)
-            bytes_count: Количество байт
-            packets_count: Количество пакетов
-            timestamp: Временная метка
-        """
         timestamp = timestamp or time.time()
 
         with self._graph_lock:
@@ -302,7 +275,6 @@ class NetworkGraphBuilder:
                 self._executor.submit(self._create_snapshot, timestamp)
 
     def _get_node_type(self, ip: str) -> str:
-        """Определяет тип узла"""
         for net in self.local_networks:
             if ip.startswith(net):
                 return 'internal'
@@ -313,7 +285,6 @@ class NetworkGraphBuilder:
         return 'external'
 
     def _create_snapshot(self, timestamp: float):
-        """Создаёт снапшот текущего графа"""
         with self._graph_lock:
             snapshot = self.current_graph.copy()
 
@@ -331,7 +302,6 @@ class NetworkGraphBuilder:
                          f"(nodes={snapshot.number_of_nodes()}, edges={snapshot.number_of_edges()})")
 
     def _cleanup_current_graph(self, current_time: float):
-        """Очищает текущий граф от устаревших данных"""
         cutoff = current_time - self.config.temporal_window
 
         edges_to_remove = []
@@ -351,15 +321,6 @@ class NetworkGraphBuilder:
             self.current_graph.remove_node(node)
 
     def get_temporal_graphs(self, n: int = None) -> List[nx.DiGraph]:
-        """
-        Получить temporal графы.
-
-        Args:
-            n: Количество последних графов (None = все)
-
-        Returns:
-            Список графов
-        """
         with self._graph_lock:
             graphs = list(self.graph_snapshots)
             if n is not None:
@@ -367,10 +328,6 @@ class NetworkGraphBuilder:
             return graphs
 
     def extract_features(self, graph: nx.DiGraph = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Извлекает признаки из графа для GNN.
-        ИСПРАВЛЕНО: betweenness и pagerank вычисляются ОДИН раз для всего графа.
-        """
         if graph is None:
             graphs = self.get_temporal_graphs(1)
             if not graphs:
@@ -516,7 +473,6 @@ class NetworkGraphBuilder:
         return node_features, edge_index, edge_features
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         with self._graph_lock:
             return {
                 **self.stats,
@@ -527,7 +483,6 @@ class NetworkGraphBuilder:
             }
 
     def cleanup(self):
-        """Очистка старых данных"""
         with self._graph_lock:
             while len(self.graph_snapshots) > self.config.max_graphs_in_memory:
                 self.graph_snapshots.popleft()
@@ -540,15 +495,12 @@ class NetworkGraphBuilder:
                     del self.connection_stats[k]
 
     def shutdown(self):
-        """Graceful shutdown"""
         self._executor.shutdown(wait=True)
-
 
 
 if TORCH_AVAILABLE and TORCH_GEOMETRIC_AVAILABLE:
 
     class TemporalGNNModel(nn.Module):
-        """Temporal Graph Neural Network с attention и LSTM"""
 
         def __init__(self, config: TemporalGNNConfig):
             super().__init__()
@@ -705,17 +657,7 @@ if TORCH_AVAILABLE and TORCH_GEOMETRIC_AVAILABLE:
             return result['graph_embedding']
 
 
-
 class TemporalGNNEngine:
-    """
-    Production движок для Temporal GNN.
-
-    Особенности:
-    - Полное обучение с contrastive loss
-    - Temporal sequence processing
-    - Anomaly detection на уровне узлов и графов
-    - Мониторинг и алерты
-    """
 
     def __init__(self, config: TemporalGNNConfig = None):
         self.config = config or TemporalGNNConfig()
@@ -770,7 +712,6 @@ class TemporalGNNEngine:
         logger.info(f"✅ TemporalGNNEngine initialized on {self.device}")
 
     def _load_model(self):
-        """Загружает сохранённую модель"""
         model_path = Path(self.config.model_dir) / 'temporal_gnn.pt'
 
         if model_path.exists() and self.model is not None:
@@ -788,7 +729,6 @@ class TemporalGNNEngine:
                 logger.warning(f"⚠️ Failed to load model: {e}")
 
     def _save_model(self):
-        """Сохраняет модель"""
         if self.model is None:
             return
 
@@ -810,7 +750,6 @@ class TemporalGNNEngine:
             logger.error(f"❌ Failed to save model: {e}")
 
     def start(self):
-        """Запуск движка"""
         self._running = True
 
         self._cleanup_thread = threading.Thread(
@@ -823,7 +762,6 @@ class TemporalGNNEngine:
         logger.info("🚀 TemporalGNNEngine started")
 
     def stop(self):
-        """Остановка движка"""
         self._running = False
 
         if self._cleanup_thread:
@@ -836,7 +774,6 @@ class TemporalGNNEngine:
         logger.info("🛑 TemporalGNNEngine stopped")
 
     def _cleanup_loop(self):
-        """Фоновый цикл очистки"""
         while self._running:
             time.sleep(self.config.cleanup_interval)
 
@@ -847,30 +784,12 @@ class TemporalGNNEngine:
 
     def add_connection(self, src_ip: str, dst_ip: str, src_port: int, dst_port: int,
                        protocol: int, bytes_count: int, packets_count: int = 1):
-        """
-        Добавление сетевого соединения.
-
-        Args:
-            src_ip: IP источника
-            dst_ip: IP назначения
-            src_port: Порт источника
-            dst_port: Порт назначения
-            protocol: Протокол
-            bytes_count: Количество байт
-            packets_count: Количество пакетов
-        """
         self.graph_builder.add_connection(
             src_ip, dst_ip, src_port, dst_port,
             protocol, bytes_count, packets_count
         )
 
     def process_time_window(self) -> Optional[Dict]:
-        """
-        Обработка временного окна - создание снапшота и анализ.
-
-        Returns:
-            Dict с результатами анализа или None
-        """
         graphs = self.graph_builder.get_temporal_graphs(1)
         if not graphs:
             return None
@@ -949,19 +868,6 @@ class TemporalGNNEngine:
 
     def train(self, normal_graphs: List[nx.DiGraph], anomaly_graphs: List[nx.DiGraph] = None,
               epochs: int = None, batch_size: int = None, verbose: int = 1) -> Dict:
-        """
-        Обучение модели на графах.
-
-        Args:
-            normal_graphs: Список нормальных графов
-            anomaly_graphs: Список аномальных графов
-            epochs: Количество эпох
-            batch_size: Размер батча
-            verbose: Уровень логирования
-
-        Returns:
-            Dict с историей обучения
-        """
         if self.model is None:
             return {'error': 'PyTorch Geometric not available'}
 
@@ -1061,7 +967,6 @@ class TemporalGNNEngine:
         return history
 
     def _prepare_graph_data(self, graphs: List[nx.DiGraph]) -> List[Data]:
-        """Подготавливает графы для PyTorch Geometric"""
         data_list = []
 
         for graph in graphs:
@@ -1082,7 +987,6 @@ class TemporalGNNEngine:
         return data_list
 
     def _contrastive_loss(self, projections: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
-        """Supervised Contrastive Loss"""
         projections = F.normalize(projections, dim=1)
 
         sim_matrix = torch.matmul(projections, projections.T) / self.config.contrastive_temperature
@@ -1106,7 +1010,6 @@ class TemporalGNNEngine:
         return loss
 
     def _calibrate_thresholds(self, normal_graphs: List[nx.DiGraph]):
-        """Калибрует пороги на нормальных графах"""
         if not normal_graphs:
             return
 
@@ -1132,7 +1035,6 @@ class TemporalGNNEngine:
                     f"node={self.node_threshold:.3f}")
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         return {
             'model': {
                 'is_trained': self.is_trained,
@@ -1156,9 +1058,7 @@ class TemporalGNNEngine:
         }
 
 
-
 def test_temporal_gnn():
-    """Тестирование Temporal GNN"""
     print("=" * 60)
     print("🧪 TESTING TEMPORAL GNN")
     print("=" * 60)

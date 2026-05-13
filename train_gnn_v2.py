@@ -82,9 +82,7 @@ class ThreatGraphGenerator:
         return [self.generate_graph() for _ in range(batch_size)]
 
 
-
 class GCNLayer(nn.Module):
-    """Graph Convolutional Network layer"""
     def __init__(self, in_dim, out_dim):
         super().__init__()
         self.linear = nn.Linear(in_dim, out_dim)
@@ -109,7 +107,6 @@ class GCNLayer(nn.Module):
 
 
 class GATLayer(nn.Module):
-    """Graph Attention layer"""
     def __init__(self, in_dim, out_dim, heads=4, dropout=0.3):
         super().__init__()
         self.heads = heads
@@ -145,7 +142,6 @@ class GATLayer(nn.Module):
 
 
 class ThreatGNNv2(nn.Module):
-    """GCN + GAT гибрид с residual connections"""
     def __init__(self, in_dim=16, hidden_dim=128, num_layers=4, num_classes=3, dropout=0.3):
         super().__init__()
         
@@ -195,7 +191,6 @@ class ThreatGNNv2(nn.Module):
         return node_logits, graph_score
 
 
-
 class FocalLoss(nn.Module):
     def __init__(self, alpha=None, gamma=2.0):
         super().__init__()
@@ -212,7 +207,6 @@ class FocalLoss(nn.Module):
             focal_loss = alpha_t * focal_loss
         
         return focal_loss.mean()
-
 
 
 def train():

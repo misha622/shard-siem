@@ -27,9 +27,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import yaml
 
 
-
 class VulnerabilitySeverity(Enum):
-    """Уровни серьёзности уязвимостей"""
     CRITICAL = "CRITICAL"
     HIGH = "HIGH"
     MEDIUM = "MEDIUM"
@@ -38,7 +36,6 @@ class VulnerabilitySeverity(Enum):
 
 
 class VulnerabilityType(Enum):
-    """Типы уязвимостей"""
     SQL_INJECTION = "SQL Injection"
     COMMAND_INJECTION = "Command Injection"
     CODE_INJECTION = "Code Injection"
@@ -78,7 +75,6 @@ class VulnerabilityType(Enum):
 
 @dataclass
 class CodeSecurityConfig:
-    """Конфигурация анализатора кода"""
 
     enabled_languages: List[str] = field(default_factory=lambda: ['python', 'javascript', 'go', 'java', 'php', 'ruby'])
 
@@ -100,16 +96,13 @@ class CodeSecurityConfig:
     warn_on_severity: str = "HIGH"
 
 
-
 class VulnerabilityKnowledgeBase:
-    """База знаний уязвимостей для разных языков"""
 
     def __init__(self):
         self.rules: Dict[str, List[Dict]] = {}
         self._init_builtin_rules()
 
     def _init_builtin_rules(self):
-        """Инициализация встроенных правил"""
 
         self.rules['python'] = [
             {
@@ -634,17 +627,14 @@ class VulnerabilityKnowledgeBase:
         ]
 
     def get_rules(self, language: str) -> List[Dict]:
-        """Получить правила для языка"""
         return self.rules.get(language, [])
 
     def add_custom_rule(self, language: str, rule: Dict):
-        """Добавить кастомное правило"""
         if language not in self.rules:
             self.rules[language] = []
         self.rules[language].append(rule)
 
     def load_custom_rules(self, path: str):
-        """Загрузить кастомные правила из YAML"""
         try:
             with open(path, 'r') as f:
                 custom_rules = yaml.safe_load(f)
@@ -656,12 +646,7 @@ class VulnerabilityKnowledgeBase:
             print(f"Error loading custom rules: {e}")
 
 
-
 class CodeSecurityAnalyzer:
-    """
-    Анализатор безопасности кода
-    Поддерживает Python, JavaScript, Go, Java, PHP, Ruby
-    """
 
     def __init__(self, config: CodeSecurityConfig = None):
         self.config = config or CodeSecurityConfig()
@@ -686,16 +671,6 @@ class CodeSecurityAnalyzer:
         self._lock = threading.RLock()
 
     def analyze_file(self, filepath: str, force_rescan: bool = False) -> List[Dict]:
-        """
-        Анализ одного файла на уязвимости
-
-        Args:
-            filepath: Путь к файлу
-            force_rescan: Принудительное пересканирование
-
-        Returns:
-            Список найденных уязвимостей
-        """
         filepath = str(filepath)
 
         if not force_rescan and filepath in self.scan_cache:
@@ -797,7 +772,6 @@ class CodeSecurityAnalyzer:
         return findings
 
     def _analyze_python_ast(self, filepath: str, code: str) -> List[Dict]:
-        """AST-анализ Python кода"""
         findings = []
 
         try:
@@ -866,7 +840,6 @@ class CodeSecurityAnalyzer:
         return findings
 
     def _analyze_package_json(self, filepath: str, code: str) -> List[Dict]:
-        """Анализ package.json на уязвимые зависимости"""
         findings = []
 
         try:
@@ -906,12 +879,6 @@ class CodeSecurityAnalyzer:
 
     def analyze_directory(self, directory: str, recursive: bool = True,
                           exclude_dirs: List[str] = None) -> Dict[str, List[Dict]]:
-        """
-        Анализ директории
-
-        Returns:
-            Словарь {filepath: findings}
-        """
         exclude_dirs = exclude_dirs or ['.git', '__pycache__', 'node_modules', 'venv', '.venv', 'dist', 'build']
         results = {}
 
@@ -948,12 +915,6 @@ class CodeSecurityAnalyzer:
         return results
 
     def analyze_on_commit(self, changed_files: List[str]) -> Dict[str, List[Dict]]:
-        """
-        Анализ изменённых файлов при коммите
-
-        Returns:
-            Словарь с находками и блокировкой критических уязвимостей
-        """
         results = {}
         critical_found = False
 
@@ -973,7 +934,6 @@ class CodeSecurityAnalyzer:
         }
 
     def generate_report(self, findings: Dict[str, List[Dict]], format: str = 'json') -> str:
-        """Генерация отчёта"""
         report_data = {
             'timestamp': time.time(),
             'summary': {
@@ -995,7 +955,6 @@ class CodeSecurityAnalyzer:
             return self._to_text(report_data)
 
     def _to_sarif(self, report_data: Dict) -> str:
-        """Конвертация в SARIF формат"""
         sarif = {
             "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
             "version": "2.1.0",
@@ -1043,7 +1002,6 @@ class CodeSecurityAnalyzer:
         return json.dumps(sarif, indent=2)
 
     def _to_text(self, report_data: Dict) -> str:
-        """Текстовый отчёт"""
         lines = []
         lines.append("=" * 80)
         lines.append("SHARD CODE SECURITY REPORT")
@@ -1070,7 +1028,6 @@ class CodeSecurityAnalyzer:
         return '\n'.join(lines)
 
     def save_report(self, findings: Dict[str, List[Dict]], filename: str = None):
-        """Сохранение отчёта"""
         if not filename:
             timestamp = time.strftime('%Y%m%d_%H%M%S')
             filename = f"code_security_report_{timestamp}.json"
@@ -1085,7 +1042,6 @@ class CodeSecurityAnalyzer:
         return str(report_path)
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         with self._lock:
             return {
                 **self.stats,
@@ -1096,7 +1052,6 @@ class CodeSecurityAnalyzer:
             }
 
     def reset_stats(self):
-        """Сброс статистики"""
         with self._lock:
             self.stats = {
                 'total_files_scanned': 0,
@@ -1110,9 +1065,7 @@ class CodeSecurityAnalyzer:
             self.scan_cache.clear()
 
 
-
 class ShardCodeSecurityIntegration:
-    """Интеграция анализатора кода в SHARD"""
 
     def __init__(self, config: Dict = None):
         self.config = CodeSecurityConfig()
@@ -1123,7 +1076,6 @@ class ShardCodeSecurityIntegration:
         self._running = False
 
     def setup(self, event_bus, logger):
-        """Настройка интеграции"""
         self.event_bus = event_bus
         self.logger = logger
 
@@ -1133,7 +1085,6 @@ class ShardCodeSecurityIntegration:
             event_bus.subscribe('code.scan.commit', self.on_scan_commit)
 
     def start(self):
-        """Запуск интеграции"""
         self._running = True
 
         for directory in self.config.watch_directories:
@@ -1145,11 +1096,9 @@ class ShardCodeSecurityIntegration:
             self.logger.info(f"🚀 Code Security запущен (следит за {len(self.config.watch_directories)} директориями)")
 
     def stop(self):
-        """Остановка интеграции"""
         self._running = False
 
     def _watch_directory(self, directory: str):
-        """Отслеживание изменений в директории"""
         import time
         from pathlib import Path
 
@@ -1184,7 +1133,6 @@ class ShardCodeSecurityIntegration:
                     self.logger.error(f"Ошибка вотчера: {e}")
 
     def _publish_findings(self, filepath: str, findings: List[Dict]):
-        """Публикация находок как алертов"""
         critical_findings = [f for f in findings if f.get('severity') in ['CRITICAL', 'HIGH']]
 
         for finding in critical_findings:
@@ -1202,7 +1150,6 @@ class ShardCodeSecurityIntegration:
             self.logger.warning(f"🔴 Найдено {len(critical_findings)} уязвимостей в {filepath}")
 
     def on_scan_file(self, data: Dict):
-        """Обработка события сканирования файла"""
         filepath = data.get('filepath', '')
         findings = self.analyzer.analyze_file(filepath, force_rescan=True)
 
@@ -1216,7 +1163,6 @@ class ShardCodeSecurityIntegration:
         self._publish_findings(filepath, findings)
 
     def on_scan_directory(self, data: Dict):
-        """Обработка события сканирования директории"""
         directory = data.get('directory', '')
         recursive = data.get('recursive', True)
 
@@ -1243,7 +1189,6 @@ class ShardCodeSecurityIntegration:
             self.logger.info(f"📊 Сканирование {directory}: {len(findings)} файлов, {critical_count} критических")
 
     def on_scan_commit(self, data: Dict):
-        """Обработка события pre-commit сканирования"""
         changed_files = data.get('files', [])
         result = self.analyzer.analyze_on_commit(changed_files)
 
@@ -1258,7 +1203,6 @@ class ShardCodeSecurityIntegration:
                 self.logger.critical("🚫 Коммит заблокирован из-за критических уязвимостей!")
 
     def scan_repository(self, repo_path: str) -> Dict:
-        """Полное сканирование репозитория"""
         findings = self.analyzer.analyze_directory(repo_path, recursive=True)
         report_path = self.analyzer.save_report(findings)
 
@@ -1269,13 +1213,10 @@ class ShardCodeSecurityIntegration:
         }
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         return self.analyzer.get_stats()
 
 
-
 def test_code_security():
-    """Тестирование анализатора кода"""
     print("=" * 60)
     print("🧪 ТЕСТИРОВАНИЕ CODE SECURITY ANALYZER")
     print("=" * 60)

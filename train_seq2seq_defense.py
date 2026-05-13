@@ -36,7 +36,6 @@ CONFIG = {
 
 
 class SimpleTokenizer:
-    """Простой токенизатор для кода iptables/WAF"""
     
     def __init__(self, max_vocab=500):
         self.max_vocab = max_vocab
@@ -45,7 +44,6 @@ class SimpleTokenizer:
         self.fitted = False
         
     def fit(self, texts):
-        """Обучение словаря на текстах"""
         counter = Counter()
         for text in texts:
             tokens = self._tokenize(text)
@@ -60,13 +58,11 @@ class SimpleTokenizer:
         logger.info(f"Tokenizer fitted: {len(self.word2idx)} tokens")
     
     def _tokenize(self, text):
-        """Токенизация: слова + спецсимволы iptables"""
         text = text.replace('\n', ' <NL> ')
         tokens = re.findall(r'[a-zA-Z0-9_\-\./]+|[<>|&;]', text.lower())
         return tokens
     
     def encode(self, text, max_len=None):
-        """Текст → индексы"""
         if not self.fitted:
             raise ValueError("Tokenizer not fitted!")
         
@@ -84,7 +80,6 @@ class SimpleTokenizer:
         return torch.tensor(indices[:max_len], dtype=torch.long)
     
     def decode(self, indices, skip_special=True):
-        """Индексы → текст"""
         words = []
         for idx in indices:
             if skip_special and idx in [0, 1, 2, 3]:
@@ -99,9 +94,7 @@ class SimpleTokenizer:
         return ' '.join(words)
 
 
-
 def create_dataset() -> list:
-    """Создание расширенного датасета атака → защитный код"""
     
     defense_rules = {
         'SQL Injection': [
@@ -196,9 +189,7 @@ def create_dataset() -> list:
     return samples
 
 
-
 class PositionalEncoding(nn.Module):
-    """Позиционное кодирование для Transformer"""
     
     def __init__(self, d_model, max_len=100):
         super().__init__()
@@ -214,7 +205,6 @@ class PositionalEncoding(nn.Module):
 
 
 class Seq2SeqTransformer(nn.Module):
-    """Transformer Encoder-Decoder для генерации защитного кода"""
     
     def __init__(self, vocab_size, embed_dim=128, num_heads=4, num_layers=2, hidden_dim=256, dropout=0.1, max_len=100):
         super().__init__()
@@ -265,7 +255,6 @@ class Seq2SeqTransformer(nn.Module):
         return self.output_proj(output)
     
     def generate(self, src, tokenizer, max_len=None, temperature=0.7):
-        """Генерация кода защиты"""
         self.eval()
         max_len = max_len or self.max_len
         
@@ -295,7 +284,6 @@ class Seq2SeqTransformer(nn.Module):
                 tgt_indices.append(next_token)
             
             return tokenizer.decode(tgt_indices)
-
 
 
 class DefenseDataset(Dataset):

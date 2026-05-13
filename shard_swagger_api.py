@@ -16,7 +16,6 @@ shard_instance = None
 
 @app.route('/api/docs')
 def swagger_ui():
-    """Swagger UI"""
     return '''
 <!DOCTYPE html>
 <html>
@@ -41,7 +40,6 @@ def swagger_ui():
 
 @app.route('/api/openapi.json')
 def openapi_spec():
-    """OpenAPI 3.0 спецификация"""
     return jsonify({
         "openapi": "3.0.0",
         "info": {
@@ -340,7 +338,6 @@ def health():
 
 
 def start_api_server(port=5000, shard=None):
-    """Запуск API сервера"""
     global shard_instance
     shard_instance = shard
     threading.Thread(target=lambda: app.run(host='0.0.0.0', port=port, debug=False), daemon=True).start()

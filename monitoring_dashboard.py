@@ -6,15 +6,12 @@ import time
 from datetime import datetime
 
 
-
 class MetricsExporter:
-    """Экспорт метрик в Prometheus формат"""
 
     def __init__(self):
         self.metrics = {}
 
     def export(self) -> str:
-        """Экспорт всех метрик"""
         lines = [
             '
             '
@@ -43,7 +40,6 @@ class MetricsExporter:
             f'shard_memory_percent {self.metrics.get("memory", 0)}',
         ]
         return '\n'.join(lines) + '\n'
-
 
 
 GRAFANA_DASHBOARD = {

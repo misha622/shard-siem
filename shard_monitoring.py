@@ -42,10 +42,8 @@ except ImportError:
     logger.warning("⚠️ prometheus_client не установлен. pip install prometheus-client")
 
 
-
 @dataclass
 class MonitoringConfig:
-    """Конфигурация мониторинга"""
 
     prometheus_enabled: bool = True
     prometheus_port: int = 9090
@@ -71,18 +69,7 @@ class MonitoringConfig:
     dashboard_dir: str = '/etc/shard/grafana/dashboards/'
 
 
-
 class MetricsCollector:
-    """
-    Сборщик метрик со всех модулей SHARD.
-
-    Отслеживает:
-    - Количество алертов по модулям
-    - Время обработки
-    - Использование памяти
-    - Статус модулей (up/down)
-    - Ошибки
-    """
 
     def __init__(self, config: MonitoringConfig):
         self.config = config
@@ -106,7 +93,6 @@ class MetricsCollector:
             self._start_prometheus_server()
 
     def _init_prometheus_metrics(self):
-        """Инициализация Prometheus метрик для всех модулей"""
         if not PROMETHEUS_AVAILABLE:
             return
 
@@ -193,7 +179,6 @@ class MetricsCollector:
         )
 
     def _start_prometheus_server(self):
-        """Запуск Prometheus HTTP сервера"""
         if not PROMETHEUS_AVAILABLE:
             return
 
@@ -215,7 +200,6 @@ class MetricsCollector:
                 logger.error(f"Failed to start Prometheus server: {e}")
 
     def setup(self, event_bus, logger_instance=None):
-        """Подключение к EventBus"""
         self.event_bus = event_bus
         if logger_instance:
             global logger
@@ -229,7 +213,6 @@ class MetricsCollector:
             event_bus.subscribe('investigation.completed', self._on_investigation)
 
     def start(self):
-        """Запуск сборщика метрик"""
         self._running = True
         self._collector_thread = threading.Thread(
             target=self._collection_loop,
@@ -240,7 +223,6 @@ class MetricsCollector:
         logger.info("📊 Metrics Collector started")
 
     def stop(self):
-        """Остановка сборщика"""
         self._running = False
         if self._collector_thread:
             self._collector_thread.join(timeout=5)
@@ -248,7 +230,6 @@ class MetricsCollector:
         logger.info("📊 Metrics Collector stopped")
 
     def _collection_loop(self):
-        """Основной цикл сбора метрик"""
         while self._running:
             time.sleep(self.config.collection_interval)
             try:
@@ -258,7 +239,6 @@ class MetricsCollector:
                 logger.debug(f"Metrics collection error: {e}")
 
     def _collect_system_metrics(self):
-        """Сбор системных метрик"""
         try:
             cpu_percent = psutil.cpu_percent(interval=1)
             self.system_stats['cpu_percent'] = cpu_percent
@@ -300,7 +280,6 @@ class MetricsCollector:
             logger.debug(f"System metrics collection error: {e}")
 
     def _on_alert(self, alert: Dict):
-        """Обработка алерта"""
         module = alert.get('source_module', 'unknown')
         severity = alert.get('severity', 'MEDIUM')
 
@@ -314,7 +293,6 @@ class MetricsCollector:
             ).inc()
 
     def _on_packet(self, data: Dict):
-        """Обработка пакета"""
         with self._lock:
             self.counters['packets_total'] += 1
 
@@ -325,7 +303,6 @@ class MetricsCollector:
             ).inc(data.get('size', 0))
 
     def _on_model_prediction(self, data: Dict):
-        """Обработка предсказания модели"""
         model = data.get('model', 'unknown')
 
         if PROMETHEUS_AVAILABLE and 'model_predictions_total' in self.prometheus_metrics:
@@ -340,21 +317,18 @@ class MetricsCollector:
                 ).observe(data['confidence'])
 
     def _on_block(self, data: Dict):
-        """Обработка блокировки"""
         if PROMETHEUS_AVAILABLE and 'threats_blocked_total' in self.prometheus_metrics:
             self.prometheus_metrics['threats_blocked_total'].labels(
                 action=data.get('action', 'block')
             ).inc()
 
     def _on_investigation(self, data: Dict):
-        """Обработка расследования"""
         if PROMETHEUS_AVAILABLE and 'investigations_total' in self.prometheus_metrics:
             self.prometheus_metrics['investigations_total'].labels(
                 status=data.get('status', 'completed')
             ).inc()
 
     def update_module_status(self, module_name: str, is_up: bool, stats: Dict = None):
-        """Обновление статуса модуля"""
         with self._lock:
             if module_name not in self.module_stats:
                 self.module_stats[module_name] = {}
@@ -383,7 +357,6 @@ class MetricsCollector:
                 })
 
     def record_error(self, module_name: str, error_type: str):
-        """Запись ошибки"""
         with self._lock:
             self.counters[f'errors:{module_name}:{error_type}'] += 1
 
@@ -393,7 +366,6 @@ class MetricsCollector:
             ).inc()
 
     def record_latency(self, module_name: str, operation: str, latency_ms: float):
-        """Запись задержки"""
         if PROMETHEUS_AVAILABLE and 'processing_time_ms' in self.prometheus_metrics:
             self.prometheus_metrics['processing_time_ms'].labels(
                 module=module_name, operation=operation
@@ -403,7 +375,6 @@ class MetricsCollector:
             logger.warning(f"⚠️ High latency: {module_name}/{operation} = {latency_ms:.0f}ms")
 
     def _update_gauges(self):
-        """Обновление gauge метрик"""
         if PROMETHEUS_AVAILABLE and 'iocs_total' in self.prometheus_metrics:
             for key, value in self.gauges.items():
                 if key.startswith('ioc:'):
@@ -412,7 +383,6 @@ class MetricsCollector:
                     ).set(value)
 
     def _flush_metrics(self):
-        """Сохранение метрик на диск"""
         metrics_path = Path(self.config.metrics_dir)
         metrics_path.mkdir(parents=True, exist_ok=True)
 
@@ -439,7 +409,6 @@ class MetricsCollector:
         logger.debug(f"Metrics flushed to {filename}")
 
     def get_current_metrics(self) -> Dict:
-        """Получить текущие метрики"""
         with self._lock:
             return {
                 'timestamp': time.time(),
@@ -450,29 +419,22 @@ class MetricsCollector:
             }
 
     def get_module_health(self) -> Dict[str, bool]:
-        """Проверка здоровья всех модулей"""
         return {
             name: stats.get('is_up', False)
             for name, stats in self.module_stats.items()
         }
 
 
-
 class GrafanaDashboardGenerator:
-    """
-    Генератор Grafana дашборда для SHARD Enterprise.
-    """
 
     def __init__(self, config: MonitoringConfig):
         self.config = config
 
     def generate_dashboard_json(self) -> Dict:
-        """Генерация JSON модели для Grafana dashboard."""
         dashboard = self._build_dashboard_structure()
         return dashboard
 
     def _build_dashboard_structure(self) -> Dict:
-        """Построение структуры дашборда"""
         dashboard = {
             "annotations": {
                 "list": [
@@ -540,7 +502,6 @@ class GrafanaDashboardGenerator:
         return dashboard
 
     def _build_template_variable(self, name: str, label: str, query: str) -> Dict:
-        """Построение template variable"""
         return {
             "allValue": None,
             "current": {"selected": False, "text": "All", "value": "$__all"},
@@ -561,7 +522,6 @@ class GrafanaDashboardGenerator:
         }
 
     def _generate_overview_row(self, y_position: int) -> List[Dict]:
-        """Панели общего обзора"""
         return [
             self._build_stat_panel(
                 "Total Alerts (24h)", 0, y_position, 6, 8,
@@ -584,7 +544,6 @@ class GrafanaDashboardGenerator:
         ]
 
     def _generate_alerts_row(self, y_position: int) -> List[Dict]:
-        """Панели алертов"""
         return [
             self._build_timeseries_panel(
                 "Alerts Rate by Module", 0, y_position, 12, 12,
@@ -604,7 +563,6 @@ class GrafanaDashboardGenerator:
         ]
 
     def _generate_module_health_row(self, y_position: int) -> List[Dict]:
-        """Панели здоровья модулей"""
         modules = [
             ("Super AI", "super_ai"), ("Adaptive Learning", "adaptive_learning"),
             ("Temporal GNN", "temporal_gnn"), ("Contrastive VAE", "contrastive_vae"),
@@ -661,7 +619,6 @@ class GrafanaDashboardGenerator:
         return panels
 
     def _generate_system_row(self, y_position: int) -> List[Dict]:
-        """Системные метрики"""
         return [
             self._build_timeseries_panel(
                 "CPU Usage", 0, y_position, 8, 8,
@@ -678,7 +635,6 @@ class GrafanaDashboardGenerator:
         ]
 
     def _generate_ml_row(self, y_position: int) -> List[Dict]:
-        """ML метрики"""
         return [
             self._build_timeseries_panel(
                 "Model Predictions", 0, y_position, 12, 8,
@@ -691,7 +647,6 @@ class GrafanaDashboardGenerator:
         ]
 
     def _generate_threat_intel_row(self, y_position: int) -> List[Dict]:
-        """Threat Intelligence метрики"""
         return [
             self._build_piechart_panel(
                 "IOCs by Type", 0, y_position, 12, 8,
@@ -710,7 +665,6 @@ class GrafanaDashboardGenerator:
 
     def _build_stat_panel(self, title: str, x: int, y: int, w: int, h: int,
                           expr: str, thresholds: List[Tuple]) -> Dict:
-        """Построение stat панели"""
         steps = []
         for idx, (color, value) in enumerate(thresholds):
             steps.append({"color": color, "value": value})
@@ -739,7 +693,6 @@ class GrafanaDashboardGenerator:
 
     def _build_gauge_panel(self, title: str, x: int, y: int, w: int, h: int,
                            expr: str, max_value: float) -> Dict:
-        """Построение gauge панели"""
         return {
             "datasource": "Prometheus",
             "fieldConfig": {
@@ -767,7 +720,6 @@ class GrafanaDashboardGenerator:
 
     def _build_timeseries_panel(self, title: str, x: int, y: int, w: int, h: int,
                                 expr: str, legend_format: str) -> Dict:
-        """Построение timeseries панели"""
         return {
             "datasource": "Prometheus",
             "gridPos": {"h": h, "w": w, "x": x, "y": y},
@@ -786,7 +738,6 @@ class GrafanaDashboardGenerator:
 
     def _build_piechart_panel(self, title: str, x: int, y: int, w: int, h: int,
                               expr: str, legend_format: str) -> Dict:
-        """Построение piechart панели"""
         return {
             "datasource": "Prometheus",
             "gridPos": {"h": h, "w": w, "x": x, "y": y},
@@ -804,7 +755,6 @@ class GrafanaDashboardGenerator:
 
     def _build_heatmap_panel(self, title: str, x: int, y: int, w: int, h: int,
                              expr: str, legend_format: str) -> Dict:
-        """Построение heatmap панели"""
         return {
             "datasource": "Prometheus",
             "gridPos": {"h": h, "w": w, "x": x, "y": y},
@@ -820,7 +770,6 @@ class GrafanaDashboardGenerator:
         }
 
     def save_dashboard(self, filepath: str = None) -> str:
-        """Сохранение дашборда в файл"""
         if not filepath:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             filepath = str(
@@ -839,7 +788,6 @@ class GrafanaDashboardGenerator:
         return str(filepath)
 
     def provision_to_grafana(self) -> bool:
-        """Автоматическая загрузка дашборда в Grafana API"""
         if not self.config.auto_provision_dashboard:
             return False
 
@@ -878,9 +826,7 @@ class GrafanaDashboardGenerator:
             return False
 
 
-
 class ShardMonitoringIntegration:
-    """Интеграция мониторинга в SHARD Enterprise"""
 
     def __init__(self, config: Dict = None):
         self.config = MonitoringConfig()
@@ -895,7 +841,6 @@ class ShardMonitoringIntegration:
         self.logger = logger
 
     def setup(self, event_bus, logger_instance=None):
-        """Настройка интеграции"""
         self.event_bus = event_bus
         if logger_instance:
             self.logger = logger_instance
@@ -905,7 +850,6 @@ class ShardMonitoringIntegration:
         self.collector.setup(event_bus, logger_instance)
 
     def start(self):
-        """Запуск мониторинга"""
         self.collector.start()
 
         try:
@@ -919,44 +863,34 @@ class ShardMonitoringIntegration:
         self.logger.info("📊 Monitoring started")
 
     def stop(self):
-        """Остановка мониторинга"""
         self.collector.stop()
 
     def update_module_health(self, module_name: str, is_up: bool, stats: Dict = None):
-        """Обновить здоровье модуля"""
         self.collector.update_module_status(module_name, is_up, stats)
 
     def record_alert(self, module_name: str, severity: str):
-        """Записать алерт в метрики"""
         self.collector._on_alert({
             'source_module': module_name,
             'severity': severity
         })
 
     def record_error(self, module_name: str, error_type: str):
-        """Записать ошибку"""
         self.collector.record_error(module_name, error_type)
 
     def record_latency(self, module_name: str, operation: str, latency_ms: float):
-        """Записать задержку"""
         self.collector.record_latency(module_name, operation, latency_ms)
 
     def get_current_metrics(self) -> Dict:
-        """Получить текущие метрики"""
         return self.collector.get_current_metrics()
 
     def get_module_health(self) -> Dict[str, bool]:
-        """Получить здоровье всех модулей"""
         return self.collector.get_module_health()
 
     def export_dashboard(self, filepath: str = None) -> str:
-        """Экспортировать дашборд"""
         return self.dashboard_generator.save_dashboard(filepath)
 
 
-
 def test_monitoring():
-    """Тестирование мониторинга"""
     print("=" * 60)
     print("🧪 ТЕСТИРОВАНИЕ UNIFIED MONITORING")
     print("=" * 60)

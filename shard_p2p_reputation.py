@@ -21,16 +21,12 @@ logger = logging.getLogger("SHARD-P2P")
 
 
 class IPFSClient:
-    """
-    Простой клиент для IPFS
-    """
 
     def __init__(self, api_url: str = "http://localhost:5001"):
         self.api_url = api_url
         self.connected = self._check_connection()
 
     def _check_connection(self) -> bool:
-        """Проверка соединения с IPFS"""
         try:
             response = requests.post(f"{self.api_url}/api/v0/version", timeout=5)
             return response.status_code == 200
@@ -39,7 +35,6 @@ class IPFSClient:
             return False
 
     def add(self, data: Dict) -> Optional[str]:
-        """Добавление данных в IPFS"""
         if not self.connected:
             content = json.dumps(data, sort_keys=True)
             return hashlib.sha256(content.encode()).hexdigest()[:16]
@@ -56,7 +51,6 @@ class IPFSClient:
         return None
 
     def get(self, hash_value: str) -> Optional[Dict]:
-        """Получение данных из IPFS"""
         if not self.connected:
             return None
 
@@ -70,7 +64,6 @@ class IPFSClient:
         return None
 
     def publish(self, topic: str, data: Dict) -> bool:
-        """Публикация в pubsub"""
         if not self.connected:
             return False
 
@@ -86,7 +79,6 @@ class IPFSClient:
             return False
 
     def subscribe(self, topic: str, callback) -> bool:
-        """Подписка на pubsub (упрощённо - через polling)"""
         if not self.connected:
             return False
 
@@ -119,9 +111,6 @@ class IPFSClient:
 
 
 class ReputationManager:
-    """
-    Менеджер репутации IP/доменов
-    """
 
     def __init__(self):
         self.reputation: Dict[str, Dict] = {}
@@ -140,7 +129,6 @@ class ReputationManager:
         self._load_local_db()
 
     def _load_local_db(self):
-        """Загрузка локальной базы репутации"""
         db_path = "data/reputation.json"
         if os.path.exists(db_path):
             try:
@@ -150,19 +138,12 @@ class ReputationManager:
                 pass
 
     def _save_local_db(self):
-        """Сохранение локальной базы"""
         os.makedirs("data", exist_ok=True)
         with open("data/reputation.json", 'w') as f:
             json.dump(self.reputation, f, indent=2)
 
     def add_threat(self, indicator: str, indicator_type: str, threat_type: str,
                    confidence: float, source: str = "local", evidence: Dict = None) -> Dict:
-        """
-        Добавление угрозы в базу репутации
-
-        Returns:
-            Запись о репутации
-        """
         now = datetime.now().isoformat()
 
         if indicator not in self.reputation:
@@ -213,7 +194,6 @@ class ReputationManager:
         return record
 
     def _calculate_score(self, record: Dict) -> float:
-        """Расчёт скора репутации"""
         base_score = min(1.0, record['reports'] * 0.2)
 
         source_bonus = min(0.3, len(record['sources']) * 0.1)
@@ -224,7 +204,6 @@ class ReputationManager:
         return min(1.0, (base_score + source_bonus) * freshness)
 
     def get_reputation(self, indicator: str) -> Optional[Dict]:
-        """Получение репутации индикатора"""
         if indicator in self.reputation:
             record = self.reputation[indicator].copy()
             record['sources'] = list(record['sources'])
@@ -232,14 +211,12 @@ class ReputationManager:
         return None
 
     def is_malicious(self, indicator: str, threshold: float = 0.6) -> Tuple[bool, float]:
-        """Проверка, является ли индикатор вредоносным"""
         record = self.reputation.get(indicator)
         if record:
             return record['score'] >= threshold, record['score']
         return False, 0.0
 
     def merge_external(self, data: Dict):
-        """Объединение с внешними данными"""
         indicator = data.get('indicator')
         if not indicator:
             return
@@ -256,7 +233,6 @@ class ReputationManager:
         self.stats['received'] += 1
 
     def get_top_threats(self, limit: int = 100) -> List[Dict]:
-        """Получение топ угроз для обмена"""
         threats = []
         for indicator, record in self.reputation.items():
             if record['score'] > 0.5 and record['reports'] >= 2:
@@ -272,7 +248,6 @@ class ReputationManager:
         return threats[:limit]
 
     def get_stats(self) -> Dict:
-        """Статистика"""
         return {
             **self.stats,
             'total_indicators': len(self.reputation),
@@ -283,9 +258,6 @@ class ReputationManager:
 
 
 class SHARDP2PNetwork:
-    """
-    Децентрализованная P2P сеть для обмена репутацией
-    """
 
     def __init__(self, node_id: str = None):
         self.node_id = node_id or hashlib.sha256(str(time.time()).encode()).hexdigest()[:8]
@@ -311,7 +283,6 @@ class SHARDP2PNetwork:
         logger.info(f"🌐 SHARD P2P Network запущена (node: {self.node_id})")
 
     def _setup_subscriptions(self):
-        """Настройка подписок"""
 
         def on_threat(data):
             try:
@@ -336,7 +307,6 @@ class SHARDP2PNetwork:
         self.ipfs.subscribe(self.PEER_DISCOVERY, on_peer)
 
     def _start_announce(self):
-        """Периодическое анонсирование"""
 
         def announcer():
             while self.running:
@@ -351,7 +321,6 @@ class SHARDP2PNetwork:
         self.announce_thread.start()
 
     def _start_publisher(self):
-        """Публикация угроз из очереди"""
 
         def publisher():
             while self.running:
@@ -376,9 +345,6 @@ class SHARDP2PNetwork:
 
     def share_threat(self, indicator: str, indicator_type: str, threat_type: str,
                      confidence: float, evidence: Dict = None) -> Dict:
-        """
-        Поделиться угрозой с сетью
-        """
         record = self.reputation.add_threat(
             indicator=indicator,
             indicator_type=indicator_type,
@@ -391,9 +357,6 @@ class SHARDP2PNetwork:
         return record
 
     def check_reputation(self, indicator: str) -> Dict:
-        """
-        Проверка репутации индикатора
-        """
         is_malicious, score = self.reputation.is_malicious(indicator)
         record = self.reputation.get_reputation(indicator)
 
@@ -405,7 +368,6 @@ class SHARDP2PNetwork:
         }
 
     def get_network_stats(self) -> Dict:
-        """Статистика сети"""
         return {
             'node_id': self.node_id,
             'peers': len(self.reputation.peers),
@@ -414,20 +376,14 @@ class SHARDP2PNetwork:
         }
 
     def export_for_sharing(self) -> List[Dict]:
-        """Экспорт угроз для обмена"""
         return self.reputation.get_top_threats(100)
 
     def stop(self):
-        """Остановка"""
         self.running = False
         logger.info("🛑 P2P Network остановлена")
 
 
-
 class SHARDP2PIntegration:
-    """
-    Интеграция P2P репутации с SHARD
-    """
 
     def __init__(self):
         self.p2p = SHARDP2PNetwork()
@@ -436,11 +392,9 @@ class SHARDP2PIntegration:
         logger.info("🌐 SHARD P2P Integration готов!")
 
     def check_ip(self, ip: str) -> Dict:
-        """Проверка IP через P2P сеть"""
         return self.p2p.check_reputation(ip)
 
     def report_threat(self, alert: Dict):
-        """Отправка угрозы в P2P сеть"""
         src_ip = alert.get('src_ip')
         if not src_ip or src_ip in ['127.0.0.1', '::1', 'localhost']:
             return
@@ -457,11 +411,9 @@ class SHARDP2PIntegration:
         )
 
     def get_stats(self) -> Dict:
-        """Статистика"""
         return self.p2p.get_network_stats()
 
     def stop(self):
-        """Остановка"""
         self.p2p.stop()
 
 

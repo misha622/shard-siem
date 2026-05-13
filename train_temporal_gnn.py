@@ -27,7 +27,6 @@ CONFIG = {
 
 
 class TemporalAttackSimulator:
-    """Симулирует реалистичные цепочки атак во времени"""
     
     ATTACK_CHAINS = [
         ['Port Scan', 'SQL Injection', 'C2 Beacon', 'Data Exfiltration'],
@@ -49,7 +48,6 @@ class TemporalAttackSimulator:
         self._init_nodes()
     
     def _init_nodes(self):
-        """Инициализация узлов графа"""
         for i in range(self.num_nodes):
             if random.random() < 0.3:
                 self.attacker_nodes.add(i)
@@ -57,13 +55,6 @@ class TemporalAttackSimulator:
                 self.victim_nodes.add(i)
     
     def generate_temporal_graph(self) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Генерирует временной граф: последовательность снимков графа атак
-        Returns:
-            node_features: [time_steps, num_nodes, node_features]
-            edge_index: [time_steps, 2, num_edges]
-            targets: [num_nodes] — какая атака будет на следующем шаге
-        """
         chain = random.choice(self.ATTACK_CHAINS)
         attacker = random.choice(list(self.attacker_nodes))
         victim = random.choice(list(self.victim_nodes))
@@ -122,19 +113,13 @@ class TemporalAttackSimulator:
                 targets)
     
     def generate_batch(self, batch_size=32):
-        """Генерирует батч временных графов"""
         batch = []
         for _ in range(batch_size):
             batch.append(self.generate_temporal_graph())
         return batch
 
 
-
 class TemporalGNN(nn.Module):
-    """
-    GNN + LSTM для анализа временных последовательностей графов атак
-    Предсказывает следующую атаку для каждого узла
-    """
     
     def __init__(self, node_features=8, hidden_dim=64, num_classes=13):
         super().__init__()
@@ -169,11 +154,6 @@ class TemporalGNN(nn.Module):
         )
     
     def forward(self, node_features, edge_index_seq):
-        """
-        node_features: [batch, time_steps, num_nodes, node_features]
-        edge_index_seq: list of [batch, 2, num_edges] per time step
-        Returns: [batch, num_nodes, num_classes]
-        """
         batch_size, time_steps, num_nodes, nf = node_features.shape
         
         spatial_embeddings = []
@@ -211,7 +191,6 @@ class TemporalGNN(nn.Module):
         logits = logits.reshape(batch_size, num_nodes, -1)
         
         return logits
-
 
 
 def train():

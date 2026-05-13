@@ -39,7 +39,6 @@ TOTAL_TESTS = 0
 
 
 def test(name: str):
-    """Декоратор для тестов"""
     global TOTAL_TESTS
     TOTAL_TESTS += 1
 
@@ -61,10 +60,8 @@ def test(name: str):
     return decorator
 
 
-
 @test("EventBus: per-subscriber очереди")
 def test_eventbus_per_subscriber():
-    """Проверка что EventBus использует per-subscriber очереди"""
     from shard_enterprise_complete import EventBus
 
     bus = EventBus()
@@ -90,10 +87,8 @@ def test_eventbus_per_subscriber():
     bus.shutdown()
 
 
-
 @test("Temporal GNN: betweenness/pagerank один вызов")
 def test_temporal_gnn_single_call():
-    """Проверка что betweenness и pagerank вызываются один раз"""
     import networkx as nx
     from shard_temporal_gnn import NetworkGraphBuilder, TemporalGNNConfig
 
@@ -127,10 +122,8 @@ def test_temporal_gnn_single_call():
     logger.info(f"      Graph: {node_feat.shape[0]} nodes, {edge_idx.shape[1]} edges, {elapsed * 1000:.0f}ms")
 
 
-
 @test("AgenticAI: TTLSet FIFO удаление")
 def test_agenticai_ttlset():
-    """Проверка что TTLSet удаляет самые старые элементы (FIFO)"""
     from collections import OrderedDict
 
     class TTLSet:
@@ -170,10 +163,8 @@ def test_agenticai_ttlset():
     assert "alert_2" in ttl, "FIFO failed: alert_2 should remain"
 
 
-
 @test("ContrastiveVAE: LayerNorm при batch_size=1")
 def test_contrastive_vae_layernorm():
-    """Проверка что модель работает при batch_size=1 (LayerNorm)"""
     try:
         import torch
         import torch.nn as nn
@@ -215,10 +206,8 @@ def test_contrastive_vae_layernorm():
         logger.warning("      PyTorch not installed, skipping")
 
 
-
 @test("SQLite: партиции по датам")
 def test_sqlite_partitioning():
-    """Проверка что таблица alerts имеет колонку date"""
     import sqlite3
 
     conn = sqlite3.connect(':memory:')
@@ -263,11 +252,8 @@ def test_sqlite_partitioning():
     logger.info(f"      Date partitioning works: today={today}, old={old_date}")
 
 
-
-
 @test("Super AI: реальные признаки вместо hash-заглушек")
 def test_super_ai_real_features():
-    """Проверка что _extract_network_features возвращает реальные признаки"""
 
     class TestSuperAI:
         def __init__(self):
@@ -307,10 +293,8 @@ def test_super_ai_real_features():
     assert non_zero >= 5, f"Only {non_zero} non-zero features (expected >= 5)"
 
 
-
 @test("EventBus: нагрузочный тест 10K событий/сек")
 def test_eventbus_load():
-    """Проверка что EventBus держит нагрузку"""
     from shard_enterprise_complete import EventBus
 
     bus = EventBus()
@@ -334,10 +318,8 @@ def test_eventbus_load():
     bus.shutdown()
 
 
-
 @test("RL Defense: reward shaping")
 def test_rl_defense_reward():
-    """Проверка что reward shaping работает правильно"""
 
     def calculate_reward(action, alert_resolved, damage_prevented, resolution_time):
         reward = 0.0
@@ -375,7 +357,6 @@ def test_rl_defense_reward():
     assert r3 < 0, f"Expected negative reward for FP, got {r3}"
 
     logger.info(f"      Rewards: block={r1:.1f}, noop={r2:.1f}, fp={r3:.1f}")
-
 
 
 def main():

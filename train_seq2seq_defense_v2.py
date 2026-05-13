@@ -89,9 +89,7 @@ class SimpleTokenizer:
         return ' '.join(words)
 
 
-
 def create_dataset() -> list:
-    """10 000+ уникальных сэмплов атака→защита"""
     
     internal_ips = [f'192.168.{i}.{j}' for i in range(0, 4) for j in range(1, 50)]
     dmz_ips = [f'10.0.{i}.{j}' for i in range(0, 4) for j in range(1, 50)]
@@ -113,7 +111,6 @@ def create_dataset() -> list:
     seen_hashes = set()
     
     def add_sample(attack_text, defense_text):
-        """Добавить уникальный сэмпл (без дубликатов)"""
         h = hashlib.md5((attack_text + defense_text).encode()).hexdigest()
         if h not in seen_hashes:
             seen_hashes.add(h)
@@ -347,7 +344,6 @@ def create_dataset() -> list:
     return samples
 
 
-
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, max_len=200):
         super().__init__()
@@ -428,7 +424,6 @@ class Seq2SeqTransformer(nn.Module):
                 tgt_indices.append(next_token)
             
             return tokenizer.decode(tgt_indices)
-
 
 
 class DefenseDataset(Dataset):

@@ -64,10 +64,8 @@ except ImportError:
     REQUESTS_AVAILABLE = False
 
 
-
 @dataclass
 class SecureFederatedConfig:
-    """Production конфигурация Federated Learning"""
 
     server_url: str = 'https://federated.shard.siem:8443'
     server_auth_token: str = ''
@@ -112,19 +110,7 @@ class SecureFederatedConfig:
     metrics_dir: str = '/var/lib/shard/federated/metrics/'
 
 
-
 class SecureAggregationProtocol:
-    """
-    Secure Aggregation Protocol (по мотивам Google SecAgg).
-
-    Гарантирует что сервер видит только агрегированную модель,
-    но не индивидуальные обновления клиентов.
-
-    Phase 1: Key Exchange (Diffie-Hellman)
-    Phase 2: Secret Sharing
-    Phase 3: Masked Model Upload
-    Phase 4: Unmasking
-    """
 
     def __init__(self, config: SecureFederatedConfig):
         self.config = config
@@ -146,7 +132,6 @@ class SecureAggregationProtocol:
             self._generate_keys()
 
     def _generate_keys(self):
-        """Генерация ключей для Secure Aggregation"""
         self.private_key = x25519.X25519PrivateKey.generate()
         self.public_key = self.private_key.public_key()
 
@@ -154,23 +139,16 @@ class SecureAggregationProtocol:
         self.verify_key = self.signing_key.public_key()
 
     def get_public_key_bytes(self) -> bytes:
-        """Серийный публичный ключ"""
         if not CRYPTO_AVAILABLE:
             return b''
         return self.public_key.public_bytes(Encoding.Raw, PublicFormat.Raw)
 
     def get_verify_key_bytes(self) -> bytes:
-        """Ключ верификации"""
         if not CRYPTO_AVAILABLE:
             return b''
         return self.verify_key.public_bytes(Encoding.Raw, PublicFormat.Raw)
 
     def compute_shared_secret(self, peer_public_key_bytes: bytes, peer_id: str) -> bytes:
-        """
-        Вычисление общего секрета через Diffie-Hellman.
-
-        Используется для генерации pairwise масок.
-        """
         if not CRYPTO_AVAILABLE:
             return secrets.token_bytes(32)
 
@@ -186,11 +164,6 @@ class SecureAggregationProtocol:
         return hkdf.derive(shared)
 
     def generate_mask(self, shared_secret: bytes, model_shape: Tuple[int, ...]) -> np.ndarray:
-        """
-        Генерация маски из общего секрета.
-
-        Используется PRNG для генерации маски того же размера что и модель.
-        """
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.kdf.concatkdf import ConcatKDFHash
 
@@ -210,13 +183,11 @@ class SecureAggregationProtocol:
         return mask
 
     def sign_message(self, message: bytes) -> bytes:
-        """Подпись сообщения Ed25519"""
         if not CRYPTO_AVAILABLE:
             return b''
         return self.signing_key.sign(message)
 
     def verify_signature(self, message: bytes, signature: bytes, public_key_bytes: bytes) -> bool:
-        """Проверка подписи"""
         if not CRYPTO_AVAILABLE:
             return True
         try:
@@ -227,16 +198,7 @@ class SecureAggregationProtocol:
             return False
 
 
-
 class DifferentialPrivacyEngine:
-    """
-    Differential Privacy для Federated Learning.
-
-    Реализует:
-    - Gaussian Mechanism для добавления шума
-    - Moments Accountant для отслеживания privacy budget
-    - Adaptive clipping для стабильности
-    """
 
     def __init__(self, config: SecureFederatedConfig):
         self.config = config
@@ -254,11 +216,6 @@ class DifferentialPrivacyEngine:
         }
 
     def clip_gradients(self, gradients: List[np.ndarray]) -> List[np.ndarray]:
-        """
-        Clipping градиентов для ограничения чувствительности.
-
-        Использует адаптивный порог на основе медианы норм градиентов.
-        """
         norms = [np.linalg.norm(g) for g in gradients]
         median_norm = np.median(norms) if norms else 1.0
 
@@ -275,11 +232,6 @@ class DifferentialPrivacyEngine:
         return clipped
 
     def add_noise(self, gradients: List[np.ndarray]) -> List[np.ndarray]:
-        """
-        Добавление гауссова шума (Gaussian Mechanism).
-
-        Шкала шума калибруется для достижения (ε, δ)-DP.
-        """
         noisy = []
         for grad in gradients:
             noise_stddev = self.noise_scale * self.l2_norm_clip
@@ -291,7 +243,6 @@ class DifferentialPrivacyEngine:
         return noisy
 
     def _update_privacy_accountant(self, batch_size: int):
-        """Обновление Moments Accountant"""
         self.moments_accountant['steps'] += 1
 
         for i, alpha in enumerate(self.moments_accountant['orders']):
@@ -308,7 +259,6 @@ class DifferentialPrivacyEngine:
         self.privacy_spent = self.moments_accountant['epsilon']
 
     def get_privacy_budget(self) -> Dict:
-        """Текущий privacy budget"""
         return {
             'epsilon': self.privacy_spent,
             'delta': self.config.dp_delta,
@@ -320,9 +270,7 @@ class DifferentialPrivacyEngine:
         }
 
     def can_continue_training(self) -> bool:
-        """Можно ли продолжать обучение в рамках бюджета"""
         return self.privacy_spent < self.config.dp_epsilon
-
 
 
 class ByzantineResilience:
@@ -333,84 +281,10 @@ class ByzantineResilience:
     - Median: Использует медиану вместо среднего
     - Multi-Krum: Выбирает подмножество "честных" клиентов
     - Trimmed Mean: Отбрасывает экстремальные значения
-    """
-
-    def __init__(self, config: SecureFederatedConfig):
-        self.config = config
-
-    def aggregate_median(self, client_updates: List[List[np.ndarray]],
-                         sample_sizes: List[int] = None) -> List[np.ndarray]:
-        """
         Median aggregation - устойчиво к до Byzantine клиентов.
-        """
-        num_clients = len(client_updates)
-        if num_clients == 0:
-            return []
-
-        aggregated = []
-        for layer_idx in range(len(client_updates[0])):
-            layer_updates = np.stack([c[layer_idx] for c in client_updates])
-            median_update = np.median(layer_updates, axis=0)
-            aggregated.append(median_update)
-
-        return aggregated
-
-    def aggregate_multi_krum(self, client_updates: List[List[np.ndarray]],
-                             f: int = None, m: int = None) -> List[np.ndarray]:
-        """
         Multi-Krum: Выбирает m клиентов с наименьшими суммарными расстояниями
         до ближайших соседей, отбрасывая Byzantine клиентов.
-        """
-        if f is None:
-            f = self.config.byzantine_threshold
-        if m is None:
-            m = self.config.byzantine_m
-
-        num_clients = len(client_updates)
-        if num_clients <= 2 * f + m:
-            return self.aggregate_median(client_updates)
-
-        distances = np.zeros((num_clients, num_clients))
-        for i in range(num_clients):
-            for j in range(i + 1, num_clients):
-                dist = self._compute_distance(client_updates[i], client_updates[j])
-                distances[i, j] = dist
-                distances[j, i] = dist
-
-        scores = np.zeros(num_clients)
-        for i in range(num_clients):
-            sorted_dists = np.sort(distances[i])
-            scores[i] = np.sum(sorted_dists[1:num_clients - f])
-
-        best_clients = np.argsort(scores)[:m]
-
-        selected_updates = [client_updates[i] for i in best_clients]
-        selected_sizes = [1] * m
-
-        return self._fedavg(selected_updates, selected_sizes)
-
-    def aggregate_trimmed_mean(self, client_updates: List[List[np.ndarray]],
-                               trim_ratio: float = 0.1) -> List[np.ndarray]:
-        """
-        Trimmed Mean: Отбрасывает trim_ratio долю экстремальных значений.
-        """
-        num_clients = len(client_updates)
-        trim_count = int(num_clients * trim_ratio)
-
-        aggregated = []
-        for layer_idx in range(len(client_updates[0])):
-            layer_updates = np.stack([c[layer_idx] for c in client_updates])
-            sorted_updates = np.sort(layer_updates, axis=0)
-
-            trimmed = sorted_updates[trim_count:num_clients - trim_count]
-            mean_update = np.mean(trimmed, axis=0)
-            aggregated.append(mean_update)
-
-        return aggregated
-
-    def _compute_distance(self, update_a: List[np.ndarray],
-                          update_b: List[np.ndarray]) -> float:
-        """Евклидово расстояние между обновлениями"""
+        Trimmed Mean: Отбрасывает trim_ratio долю экстремальных значений.Евклидово расстояние между обновлениями"""
         total_dist = 0.0
         for a, b in zip(update_a, update_b):
             total_dist += np.linalg.norm(a - b)
@@ -418,7 +292,6 @@ class ByzantineResilience:
 
     def _fedavg(self, updates: List[List[np.ndarray]],
                 sizes: List[int]) -> List[np.ndarray]:
-        """Базовый FedAvg"""
         total = sum(sizes)
         aggregated = []
         for layer_weights in zip(*updates):
@@ -429,17 +302,7 @@ class ByzantineResilience:
         return aggregated
 
 
-
 class ClientReputation:
-    """
-    Система репутации клиентов.
-
-    Отслеживает качество обновлений каждого клиента и
-    использует репутацию для:
-    - Селекции клиентов в раунде
-    - Взвешивания их обновлений
-    - Обнаружения вредоносных клиентов
-    """
 
     def __init__(self, config: SecureFederatedConfig):
         self.config = config
@@ -448,17 +311,10 @@ class ClientReputation:
         self.strikes: Dict[str, int] = defaultdict(int)
 
     def get_reputation(self, client_id: str) -> float:
-        """Получить репутацию клиента"""
         return self.reputations.get(client_id, 1.0)
 
     def update_reputation(self, client_id: str, contribution_score: float,
                           update_quality: float, is_byzantine: bool = False):
-        """
-        Обновление репутации на основе качества обновления.
-
-        contribution_score: насколько обновление улучшило модель (0-1)
-        update_quality: качество обновления (норма gradient, consistency)
-        """
         current = self.reputations[client_id]
 
         if is_byzantine:
@@ -482,12 +338,6 @@ class ClientReputation:
 
     def select_clients(self, available_clients: List[str],
                        num_to_select: int) -> List[str]:
-        """
-        Селекция клиентов на основе репутации.
-
-        Клиенты с репутацией ниже порога исключаются.
-        Остальные выбираются с вероятностью пропорциональной репутации.
-        """
         eligible = [
             c for c in available_clients
             if self.reputations[c] >= self.config.min_reputation_for_selection
@@ -510,11 +360,9 @@ class ClientReputation:
         return list(selected)
 
     def flag_byzantine(self, client_id: str):
-        """Пометить клиента как Byzantine"""
         self.update_reputation(client_id, 0.0, 0.0, is_byzantine=True)
 
     def get_stats(self) -> Dict:
-        """Статистика репутации"""
         if not self.reputations:
             return {}
         return {
@@ -530,16 +378,7 @@ class ClientReputation:
         }
 
 
-
 class SecureFederatedClient:
-    """
-    Production Federated Learning Client с:
-    - Secure Aggregation
-    - Differential Privacy
-    - mTLS аутентификацией
-    - Circuit breaker
-    - Graceful degradation
-    """
 
     def __init__(self, config: SecureFederatedConfig,
                  model_builder: Callable[[], tf.keras.Model]):
@@ -572,7 +411,6 @@ class SecureFederatedClient:
         self._init_model()
 
     def _create_session(self) -> 'requests.Session':
-        """Создание HTTP сессии с mTLS"""
         session = requests.Session()
         session.headers.update({
             'Authorization': f'Bearer {self.config.server_auth_token}',
@@ -590,13 +428,11 @@ class SecureFederatedClient:
         return session
 
     def _init_model(self):
-        """Инициализация локальной модели"""
         if TF_AVAILABLE:
             self.model = self.model_builder()
             self.global_weights = self.model.get_weights()
 
     def start(self):
-        """Запуск клиента"""
         self._running = True
         self._sync_thread = threading.Thread(target=self._sync_loop, daemon=True, name="FedSync")
         self._sync_thread.start()
@@ -605,7 +441,6 @@ class SecureFederatedClient:
         self._register()
 
     def stop(self):
-        """Остановка клиента"""
         self._running = False
         self._unregister()
         if self._sync_thread:
@@ -614,7 +449,6 @@ class SecureFederatedClient:
             self._health_thread.join(timeout=5)
 
     def _register(self):
-        """Регистрация на сервере"""
         if not self.session:
             return
 
@@ -640,7 +474,6 @@ class SecureFederatedClient:
             self.stats['connection_errors'] += 1
 
     def _unregister(self):
-        """Отмена регистрации"""
         if not self.session:
             return
         try:
@@ -653,7 +486,6 @@ class SecureFederatedClient:
             pass
 
     def _health_loop(self):
-        """Health check loop"""
         while self._running:
             time.sleep(self.config.heartbeat_interval)
             if not self.session:
@@ -673,7 +505,6 @@ class SecureFederatedClient:
                 self.stats['connection_errors'] += 1
 
     def _sync_loop(self):
-        """Основной цикл синхронизации"""
         while self._running:
             time.sleep(self.config.aggregation_interval)
 
@@ -688,7 +519,6 @@ class SecureFederatedClient:
                 self.stats['connection_errors'] += 1
 
     def _sync_round(self):
-        """Один раунд синхронизации"""
         if not self.session:
             return
 
@@ -747,7 +577,6 @@ class SecureFederatedClient:
             self.stats['last_sync'] = time.time()
 
     def _local_training(self) -> Optional[List[np.ndarray]]:
-        """Локальное обучение на приватных данных"""
         if len(self.local_data) < self.config.min_local_samples:
             return None
 
@@ -796,7 +625,6 @@ class SecureFederatedClient:
 
     def _apply_secure_aggregation(self, updates: List[np.ndarray],
                                   global_data: Dict) -> List[np.ndarray]:
-        """Применение масок Secure Aggregation"""
         if 'server_public_key' in global_data:
             shared_secret = self.secagg.compute_shared_secret(
                 base64.b64decode(global_data['server_public_key']),
@@ -817,13 +645,11 @@ class SecureFederatedClient:
         return updates
 
     def add_local_data(self, features: List[float], label: Optional[int] = None):
-        """Добавление данных для локального обучения"""
         self.local_data.append(features)
         if label is not None:
             self.local_labels.append(label)
 
     def get_stats(self) -> Dict:
-        """Статистика клиента"""
         return {
             'client_id': self.config.client_id,
             'running': self._running,
@@ -840,16 +666,7 @@ class SecureFederatedClient:
         return [np.array(w) for w in pickle.loads(base64.b64decode(data))]
 
 
-
 class CircuitBreaker:
-    """
-    Circuit Breaker для защиты от каскадных отказов.
-
-    Состояния:
-    - CLOSED: нормальная работа
-    - OPEN: запросы блокируются
-    - HALF_OPEN: тестовые запросы для проверки восстановления
-    """
 
     def __init__(self, failure_threshold: int = 5,
                  recovery_timeout: int = 60,
@@ -866,7 +683,6 @@ class CircuitBreaker:
         self._lock = threading.RLock()
 
     def allow_request(self) -> bool:
-        """Проверка можно ли отправить запрос"""
         with self._lock:
             if self.state == 'CLOSED':
                 return True
@@ -881,7 +697,6 @@ class CircuitBreaker:
             return False
 
     def record_success(self):
-        """Запись успешного запроса"""
         with self._lock:
             self.failure_count = 0
             if self.state == 'HALF_OPEN':
@@ -890,7 +705,6 @@ class CircuitBreaker:
                     self.state = 'CLOSED'
 
     def record_failure(self):
-        """Запись неудачного запроса"""
         with self._lock:
             self.failure_count += 1
             self.last_failure_time = time.time()
@@ -906,18 +720,7 @@ class CircuitBreaker:
             }
 
 
-
 class SecureFederatedServer:
-    """
-    Production Federated Learning Server.
-
-    Особенности:
-    - Secure Aggregation координация
-    - Byzantine Resilience
-    - Client Reputation tracking
-    - Метрики Prometheus
-    - Checkpointing
-    """
 
     def __init__(self, config: SecureFederatedConfig,
                  model_builder: Callable[[], tf.keras.Model]):
@@ -962,13 +765,11 @@ class SecureFederatedServer:
         self._save_checkpoint()
 
     def _aggregation_loop(self):
-        """Цикл агрегации"""
         while self._running:
             time.sleep(self.config.aggregation_interval)
             self._perform_aggregation()
 
     def _perform_aggregation(self):
-        """Выполнение раунда агрегации"""
         with self._lock:
             if len(self.client_updates) < self.config.secagg_threshold:
                 return
@@ -1044,7 +845,6 @@ class SecureFederatedServer:
             self._save_checkpoint()
 
     def _save_checkpoint(self):
-        """Сохранение чекпоинта"""
         checkpoint_path = Path(self.config.checkpoint_dir) / f'round_{self.current_round}'
         checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -1064,7 +864,6 @@ class SecureFederatedServer:
             }, f, indent=2)
 
     def get_model_weights_serialized(self) -> str:
-        """Сериализация весов для передачи клиентам"""
         if self.global_weights:
             return base64.b64encode(
                 pickle.dumps([w.tolist() for w in self.global_weights])
@@ -1072,7 +871,6 @@ class SecureFederatedServer:
         return ''
 
     def get_stats(self) -> Dict:
-        """Статистика сервера"""
         return {
             'current_round': self.current_round,
             'total_clients': len(self.clients),
@@ -1083,9 +881,7 @@ class SecureFederatedServer:
         }
 
 
-
 class FederatedMetrics:
-    """Метрики для Prometheus"""
 
     def __init__(self):
         self.rounds_total = 0
@@ -1113,7 +909,6 @@ class FederatedMetrics:
         }
 
     def prometheus_format(self) -> str:
-        """Формат для Prometheus metrics endpoint"""
         lines = [
             f'shard_federated_rounds_total {self.rounds_total}',
             f'shard_federated_uptime_seconds {time.time() - self.start_time:.0f}',
@@ -1125,9 +920,7 @@ class FederatedMetrics:
         return '\n'.join(lines) + '\n'
 
 
-
 class ShardFederatedV2Integration:
-    """Production интеграция Federated Learning v2 в SHARD"""
 
     def __init__(self, config: Dict = None, mode: str = 'client'):
         self.config = SecureFederatedConfig()
@@ -1182,7 +975,6 @@ class ShardFederatedV2Integration:
         return {}
 
     def get_prometheus_metrics(self) -> str:
-        """Метрики для Prometheus"""
         if self.server:
             return self.server.metrics.prometheus_format()
         return ''

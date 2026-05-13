@@ -29,9 +29,7 @@ import requests
 import yaml
 
 
-
 class PlaybookStatus(Enum):
-    """Статус выполнения playbook"""
     PENDING = "PENDING"
     RUNNING = "RUNNING"
     COMPLETED = "COMPLETED"
@@ -40,7 +38,6 @@ class PlaybookStatus(Enum):
 
 
 class ActionType(Enum):
-    """Типы действий в playbook"""
     NOTIFICATION = "notification"
     BLOCK_IP = "block_ip"
     BLOCK_DOMAIN = "block_domain"
@@ -60,7 +57,6 @@ class ActionType(Enum):
 
 @dataclass
 class SOARConfig:
-    """Конфигурация SOAR"""
 
     thehive_enabled: bool = False
     thehive_url: str = "http://localhost:9000"
@@ -90,9 +86,7 @@ class SOARConfig:
     db_path: str = "./data/soar/soar.db"
 
 
-
 class BaseAction:
-    """Базовый класс для всех действий"""
 
     def __init__(self, name: str, config: Dict, logger=None):
         self.name = name
@@ -100,16 +94,13 @@ class BaseAction:
         self.logger = logger
 
     def execute(self, context: Dict) -> Dict:
-        """Выполнение действия"""
         raise NotImplementedError
 
     def rollback(self, context: Dict) -> Dict:
-        """Откат действия"""
         return {'status': 'not_implemented'}
 
 
 class BlockIPAction(BaseAction):
-    """Блокировка IP адреса"""
 
     def __init__(self, config: Dict, logger=None):
         super().__init__("block_ip", config, logger)
@@ -149,7 +140,6 @@ class BlockIPAction(BaseAction):
 
 
 class IsolateHostAction(BaseAction):
-    """Изоляция хоста"""
 
     def execute(self, context: Dict) -> Dict:
         host = context.get('host') or context.get('alert', {}).get('dst_ip')
@@ -176,7 +166,6 @@ class IsolateHostAction(BaseAction):
 
 
 class NotificationAction(BaseAction):
-    """Отправка уведомления"""
 
     def __init__(self, config: Dict, logger=None):
         super().__init__("notification", config, logger)
@@ -243,7 +232,6 @@ class NotificationAction(BaseAction):
 
 
 class EnrichAlertAction(BaseAction):
-    """Обогащение алерта данными"""
 
     def execute(self, context: Dict) -> Dict:
         alert = context.get('alert', {})
@@ -292,7 +280,6 @@ class EnrichAlertAction(BaseAction):
 
 
 class CreateTicketAction(BaseAction):
-    """Создание тикета в TheHive"""
 
     def __init__(self, config: Dict, logger=None):
         super().__init__("create_ticket", config, logger)
@@ -340,7 +327,6 @@ class CreateTicketAction(BaseAction):
             return {'status': 'failed', 'error': str(e)}
 
     def _format_description(self, alert: Dict) -> str:
-        """Форматирование описания"""
         lines = [
             f"**Alert Type:** {alert.get('attack_type', 'Unknown')}",
             f"**Severity:** {alert.get('severity', 'MEDIUM')}",
@@ -367,12 +353,10 @@ class CreateTicketAction(BaseAction):
         return '\n'.join(lines)
 
     def _map_severity(self, severity: str) -> int:
-        """Маппинг серьёзности на TheHive"""
         return {'CRITICAL': 4, 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1}.get(severity, 2)
 
 
 class WebhookAction(BaseAction):
-    """Вызов внешнего вебхука"""
 
     def execute(self, context: Dict) -> Dict:
         url = self.config.get('url')
@@ -404,7 +388,6 @@ class WebhookAction(BaseAction):
             return {'status': 'failed', 'error': str(e)}
 
     def _interpolate(self, obj: Any, context: Dict) -> Any:
-        """Подстановка переменных вида {alert.src_ip}"""
         if isinstance(obj, dict):
             return {k: self._interpolate(v, context) for k, v in obj.items()}
         elif isinstance(obj, list):
@@ -420,7 +403,6 @@ class WebhookAction(BaseAction):
             return obj
 
     def _get_nested(self, obj: Dict, path: str) -> Any:
-        """Получение вложенного значения по пути"""
         keys = path.split('.')
         value = obj
         for key in keys:
@@ -432,7 +414,6 @@ class WebhookAction(BaseAction):
 
 
 class ConditionAction(BaseAction):
-    """Условное ветвление"""
 
     def execute(self, context: Dict) -> Dict:
         condition = self.config.get('condition', '')
@@ -448,7 +429,6 @@ class ConditionAction(BaseAction):
         }
 
     def _evaluate(self, condition: str, context: Dict) -> bool:
-        """Простая оценка условий"""
         try:
             for match in re.finditer(r'([\w\.]+)', condition):
                 path = match.group(1)
@@ -475,9 +455,7 @@ class ConditionAction(BaseAction):
         return value
 
 
-
 class Playbook:
-    """Playbook для автоматизации реагирования"""
 
     def __init__(self, playbook_id: str, name: str, config: Dict, actions: List[BaseAction]):
         self.id = playbook_id
@@ -494,7 +472,6 @@ class Playbook:
         self.error: Optional[str] = None
 
     def execute(self, initial_context: Dict) -> Dict:
-        """Выполнение playbook"""
         self.status = PlaybookStatus.RUNNING
         self.start_time = time.time()
         self.context = initial_context.copy()
@@ -552,7 +529,6 @@ class Playbook:
         }
 
     def should_trigger(self, alert: Dict) -> bool:
-        """Проверка, должен ли playbook запуститься для алерта"""
         if not self.enabled:
             return False
 
@@ -563,7 +539,6 @@ class Playbook:
         return False
 
     def _match_trigger(self, trigger: Dict, alert: Dict) -> bool:
-        """Проверка соответствия триггера"""
         trigger_type = trigger.get('type')
 
         if trigger_type == 'attack_type':
@@ -581,9 +556,7 @@ class Playbook:
         return False
 
 
-
 class PlaybookLoader:
-    """Загрузчик playbook'ов из YAML"""
 
     def __init__(self, config: SOARConfig, logger=None):
         self.config = config
@@ -591,7 +564,6 @@ class PlaybookLoader:
         self.action_factory = ActionFactory(config, logger)
 
     def load_all(self) -> List[Playbook]:
-        """Загрузка всех playbook'ов"""
         playbooks = []
         playbooks_dir = Path(self.config.playbooks_dir)
 
@@ -613,7 +585,6 @@ class PlaybookLoader:
         return playbooks
 
     def _parse_playbook(self, config: Dict, playbook_id: str) -> Optional[Playbook]:
-        """Парсинг playbook из конфига"""
         name = config.get('name', playbook_id)
         actions = []
 
@@ -630,7 +601,6 @@ class PlaybookLoader:
         )
 
     def _create_embedded_playbooks(self) -> List[Playbook]:
-        """Создание встроенных playbook'ов"""
         playbooks = []
 
         pb1_config = {
@@ -682,16 +652,13 @@ class PlaybookLoader:
         return playbooks
 
 
-
 class ActionFactory:
-    """Фабрика для создания действий"""
 
     def __init__(self, config: SOARConfig, logger=None):
         self.config = config
         self.logger = logger
 
     def create_action(self, action_config: Dict) -> Optional[BaseAction]:
-        """Создание действия по конфигурации"""
         action_type = action_config.get('type')
 
         if action_type == 'block_ip':
@@ -718,12 +685,7 @@ class ActionFactory:
             return None
 
 
-
 class SOAREngine:
-    """
-    Основной движок SOAR
-    Управляет playbook'ами и оркестрирует реагирование
-    """
 
     def __init__(self, config: SOARConfig = None, logger=None):
         self.config = config or SOARConfig()
@@ -746,7 +708,6 @@ class SOAREngine:
         self._load_playbooks()
 
     def _load_playbooks(self):
-        """Загрузка playbook'ов"""
         loader = PlaybookLoader(self.config, self.logger)
         for pb in loader.load_all():
             self.playbooks[pb.id] = pb
@@ -755,20 +716,17 @@ class SOAREngine:
             self.logger.info(f"✅ Loaded {len(self.playbooks)} playbooks")
 
     def start(self):
-        """Запуск движка"""
         self._running = True
         if self.logger:
             self.logger.info("🚀 SOAR Engine started")
 
     def stop(self):
-        """Остановка движка"""
         self._running = False
         self.executor.shutdown(wait=True, timeout=30)
         if self.logger:
             self.logger.info("🛑 SOAR Engine stopped")
 
     def on_alert(self, alert: Dict) -> List[str]:
-        """Обработка алерта - запуск подходящих playbook'ов"""
         triggered_playbooks = []
 
         for pb_id, pb in self.playbooks.items():
@@ -785,7 +743,6 @@ class SOAREngine:
         return triggered_playbooks
 
     def execute_playbook_async(self, playbook_id: str, context: Dict) -> str:
-        """Асинхронное выполнение playbook"""
         execution_id = f"exec_{int(time.time())}_{hash(str(context)) % 10000}"
 
         def run():
@@ -802,7 +759,6 @@ class SOAREngine:
         return execution_id
 
     def execute_playbook(self, playbook_id: str, context: Dict) -> Dict:
-        """Синхронное выполнение playbook"""
         pb = self.playbooks.get(playbook_id)
         if not pb:
             return {'status': 'failed', 'error': f'Playbook {playbook_id} not found'}
@@ -828,11 +784,9 @@ class SOAREngine:
         return result
 
     def get_playbook(self, playbook_id: str) -> Optional[Playbook]:
-        """Получить playbook по ID"""
         return self.playbooks.get(playbook_id)
 
     def list_playbooks(self) -> List[Dict]:
-        """Список всех playbook'ов"""
         return [
             {
                 'id': pb.id,
@@ -845,18 +799,14 @@ class SOAREngine:
         ]
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         with self._lock:
             return dict(self.stats)
 
     def get_execution_history(self, limit: int = 20) -> List[Dict]:
-        """Получить историю выполнений"""
         return list(self.execution_history)[-limit:]
 
 
-
 class ShardSOARIntegration:
-    """Интеграция SOAR в SHARD"""
 
     def __init__(self, config: Dict = None):
         self.config = SOARConfig()
@@ -865,7 +815,6 @@ class ShardSOARIntegration:
         self.logger = None
 
     def setup(self, event_bus, logger, firewall=None):
-        """Настройка интеграции"""
         self.event_bus = event_bus
         self.logger = logger
         self.engine = SOAREngine(self.config, logger)
@@ -878,7 +827,6 @@ class ShardSOARIntegration:
             event_bus.subscribe('soar.execute', self.on_execute_request)
 
     def start(self):
-        """Запуск интеграции"""
         if self.engine:
             self.engine.start()
 
@@ -886,17 +834,14 @@ class ShardSOARIntegration:
             self.logger.info("🚀 SOAR Integration запущена")
 
     def stop(self):
-        """Остановка интеграции"""
         if self.engine:
             self.engine.stop()
 
     def on_alert(self, alert: Dict):
-        """Обработка алерта"""
         if self.engine:
             self.engine.on_alert(alert)
 
     def on_execute_request(self, data: Dict):
-        """Обработка запроса выполнения playbook"""
         playbook_id = data.get('playbook_id')
         context = data.get('context', {})
 
@@ -911,27 +856,22 @@ class ShardSOARIntegration:
                 })
 
     def execute_playbook(self, playbook_id: str, context: Dict) -> Dict:
-        """Выполнить playbook"""
         if self.engine:
             return self.engine.execute_playbook(playbook_id, context)
         return {'status': 'failed', 'error': 'Engine not initialized'}
 
     def list_playbooks(self) -> List[Dict]:
-        """Список playbook'ов"""
         if self.engine:
             return self.engine.list_playbooks()
         return []
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         if self.engine:
             return self.engine.get_stats()
         return {}
 
 
-
 def test_soar():
-    """Тестирование SOAR"""
     print("=" * 60)
     print("🧪 ТЕСТИРОВАНИЕ SOAR INTEGRATION")
     print("=" * 60)

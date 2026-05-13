@@ -69,10 +69,8 @@ except ImportError:
     logger.warning("⚠️ Scikit-learn not installed. Some metrics unavailable.")
 
 
-
 @dataclass
 class AdaptiveConfig:
-    """Конфигурация адаптивного обучения"""
 
     forgetting_factor: float = 0.95
     anomaly_threshold: float = 3.0
@@ -103,30 +101,18 @@ class AdaptiveConfig:
     cache_ttl: int = 60
 
     def save(self, path: str):
-        """Сохранение конфигурации"""
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         with open(path, 'w') as f:
             json.dump(self.__dict__, f, indent=2)
 
     @classmethod
     def load(cls, path: str) -> 'AdaptiveConfig':
-        """Загрузка конфигурации"""
         with open(path, 'r') as f:
             data = json.load(f)
         return cls(**data)
 
 
-
 class AdaptiveBaselineProfiler:
-    """
-    Адаптивный профайлер с экспоненциальным забыванием.
-
-    Особенности:
-    - Online обновление статистик через алгоритм Уэлфорда
-    - Экспоненциальное забывание для адаптации к изменениям
-    - Автоматическое определение порогов аномалий
-    - Кэширование для быстрого доступа
-    """
 
     def __init__(self, config: AdaptiveConfig = None):
         self.config = config or AdaptiveConfig()
@@ -163,7 +149,6 @@ class AdaptiveBaselineProfiler:
                     f"(forgetting={self.config.forgetting_factor})")
 
     def _load_profiles(self):
-        """Загружает сохранённые профили"""
         profile_path = Path(self.config.model_dir) / 'baseline_profiles.json'
 
         if profile_path.exists():
@@ -187,7 +172,6 @@ class AdaptiveBaselineProfiler:
                 logger.warning(f"⚠️ Failed to load profiles: {e}")
 
     def _save_profiles(self):
-        """Сохраняет профили на диск"""
         profile_path = Path(self.config.model_dir) / 'baseline_profiles.json'
         profile_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -214,16 +198,6 @@ class AdaptiveBaselineProfiler:
             logger.error(f"❌ Failed to save profiles: {e}")
 
     def update(self, device: str, features: Dict[str, float]) -> Dict:
-        """
-        Обновление профиля устройства.
-
-        Args:
-            device: Идентификатор устройства
-            features: Словарь признаков
-
-        Returns:
-            Dict с результатами обновления
-        """
         with self._profile_lock:
             profile = self.profiles[device]
             now = time.time()
@@ -328,7 +302,6 @@ class AdaptiveBaselineProfiler:
             return result
 
     def _invalidate_cache(self, device: str):
-        """Инвалидация кэша для устройства"""
         with self._cache_lock:
             keys_to_remove = [k for k in self._cache.keys() if k.startswith(f"{device}:")]
             for k in keys_to_remove:
@@ -339,16 +312,6 @@ class AdaptiveBaselineProfiler:
             self._last_cache_update.pop(device, None)
 
     def get_anomaly_score(self, device: str, features: Dict[str, float]) -> float:
-        """
-        Быстрое получение оценки аномальности.
-
-        Args:
-            device: Идентификатор устройства
-            features: Словарь признаков
-
-        Returns:
-            float: Оценка аномальности [0, 1]
-        """
         cache_key = self._make_cache_key(device, features)
 
         with self._cache_lock:
@@ -395,7 +358,6 @@ class AdaptiveBaselineProfiler:
             return score
 
     def _make_cache_key(self, device: str, features: Dict[str, float]) -> str:
-        """Создаёт ключ кэша"""
         sorted_keys = sorted(features.keys())
         key_parts = [device]
 
@@ -409,7 +371,6 @@ class AdaptiveBaselineProfiler:
         return hashlib.md5(key_string.encode()).hexdigest()
 
     def get_profile(self, device: str) -> Optional[Dict]:
-        """Получить профиль устройства"""
         with self._profile_lock:
             if device not in self.profiles:
                 return None
@@ -433,7 +394,6 @@ class AdaptiveBaselineProfiler:
             }
 
     def reset_profile(self, device: str) -> bool:
-        """Сбросить профиль устройства"""
         with self._profile_lock:
             if device in self.profiles:
                 del self.profiles[device]
@@ -442,7 +402,6 @@ class AdaptiveBaselineProfiler:
         return False
 
     def add_feedback(self, device: str, was_false_positive: bool):
-        """Добавление обратной связи для адаптации порогов"""
         if was_false_positive:
             with self._stats_lock:
                 self.stats['false_positives'] += 1
@@ -454,7 +413,6 @@ class AdaptiveBaselineProfiler:
                             f"(FP rate: {fp_rate:.2%})")
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         with self._stats_lock:
             with self._profile_lock:
                 return {
@@ -469,23 +427,12 @@ class AdaptiveBaselineProfiler:
                 }
 
     def shutdown(self):
-        """Graceful shutdown"""
         self._save_profiles()
         self._executor.shutdown(wait=True)
         logger.info("Baseline profiler shut down")
 
 
-
 class DeepFeatureExtractor:
-    """
-    Глубокое извлечение признаков через стек автоэнкодеров.
-
-    Особенности:
-    - Послойное предобучение
-    - Совместный fine-tuning
-    - Поддержка TensorFlow и PyTorch
-    - Online обучение
-    """
 
     def __init__(self, config: AdaptiveConfig = None):
         self.config = config or AdaptiveConfig()
@@ -520,7 +467,6 @@ class DeepFeatureExtractor:
         self._load_model()
 
     def _build_tensorflow_model(self):
-        """Построение модели на TensorFlow"""
         current_dim = self.config.input_dim
 
         for i, h_dim in enumerate(self.config.deep_feature_dims):
@@ -562,7 +508,6 @@ class DeepFeatureExtractor:
                     f"input={self.config.input_dim}, output={self.feature_dim}")
 
     def _build_pytorch_model(self):
-        """Построение модели на PyTorch"""
 
         class AutoencoderStack(nn.Module):
             def __init__(self, input_dim, hidden_dims):
@@ -635,18 +580,6 @@ class DeepFeatureExtractor:
 
     def pretrain(self, data: np.ndarray, epochs_per_layer: int = None,
                  batch_size: int = None, verbose: int = 1) -> Dict:
-        """
-        Послойное предобучение стека автоэнкодеров.
-
-        Args:
-            data: Массив данных (n_samples, input_dim)
-            epochs_per_layer: Количество эпох на слой
-            batch_size: Размер батча
-            verbose: Уровень логирования
-
-        Returns:
-            Dict с историей обучения
-        """
         epochs_per_layer = epochs_per_layer or self.config.pretrain_epochs_per_layer
         batch_size = batch_size or self.config.batch_size
 
@@ -663,7 +596,6 @@ class DeepFeatureExtractor:
 
     def _pretrain_tensorflow(self, data: np.ndarray, epochs_per_layer: int,
                              batch_size: int, verbose: int) -> Dict:
-        """Предобучение на TensorFlow"""
         history = {'layers': []}
         current_data = data.copy()
 
@@ -720,7 +652,6 @@ class DeepFeatureExtractor:
 
     def _pretrain_pytorch(self, data: np.ndarray, epochs_per_layer: int,
                           batch_size: int, verbose: int) -> Dict:
-        """Предобучение на PyTorch"""
         history = {'layers': []}
 
         dataset = TensorDataset(torch.FloatTensor(data))
@@ -762,15 +693,6 @@ class DeepFeatureExtractor:
         return history
 
     def extract_features(self, data: np.ndarray) -> np.ndarray:
-        """
-        Извлечение глубинных признаков.
-
-        Args:
-            data: Массив данных (n_samples, input_dim)
-
-        Returns:
-            Массив признаков (n_samples, feature_dim)
-        """
         if not self.is_trained:
             logger.warning("Model not trained, returning random features")
             return np.random.randn(len(data), self.feature_dim) * 0.1
@@ -791,14 +713,6 @@ class DeepFeatureExtractor:
         return np.random.randn(len(data), self.feature_dim) * 0.1
 
     def get_anomaly_score(self, data: np.ndarray) -> Tuple[float, float, bool]:
-        """
-        Оценка аномальности через reconstruction error.
-
-        Returns:
-            score: нормализованная оценка [0, 1]
-            mse: средняя квадратичная ошибка
-            is_anomaly: флаг аномалии
-        """
         self.stats['total_predictions'] += 1
 
         if not self.is_trained:
@@ -837,7 +751,6 @@ class DeepFeatureExtractor:
         return score, mse, is_anomaly
 
     def reconstruct(self, features: np.ndarray) -> np.ndarray:
-        """Восстановление из признаков"""
         if not self.is_trained:
             return np.random.randn(len(features), self.config.input_dim) * 0.1
 
@@ -850,7 +763,6 @@ class DeepFeatureExtractor:
         return np.random.randn(len(features), self.config.input_dim) * 0.1
 
     def online_update(self, data: np.ndarray, labels: Optional[np.ndarray] = None):
-        """Онлайн обновление модели"""
         self.online_buffer.extend(data)
         if labels is not None:
             self.online_labels.extend(labels)
@@ -859,7 +771,6 @@ class DeepFeatureExtractor:
             self._retrain_online()
 
     def _retrain_online(self):
-        """Дообучение на накопленных данных"""
         data = np.array(list(self.online_buffer))
 
         normal_data = data
@@ -894,7 +805,6 @@ class DeepFeatureExtractor:
         self.online_labels.clear()
 
     def save(self, path: str = None):
-        """Сохранение модели"""
         save_path = Path(path or self.config.model_dir) / 'feature_extractor'
         save_path.mkdir(parents=True, exist_ok=True)
 
@@ -914,7 +824,6 @@ class DeepFeatureExtractor:
         logger.info(f"✅ Model saved to {save_path}")
 
     def _load_model(self):
-        """Загрузка сохранённой модели"""
         load_path = Path(self.config.model_dir) / 'feature_extractor'
 
         if not load_path.exists():
@@ -945,7 +854,6 @@ class DeepFeatureExtractor:
             logger.error(f"❌ Failed to load model: {e}")
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         with self._lock:
             return {
                 'is_trained': self.is_trained,
@@ -957,17 +865,7 @@ class DeepFeatureExtractor:
             }
 
 
-
 class DynamicEnsemble:
-    """
-    Ансамбль с динамическими весами на основе производительности.
-
-    Особенности:
-    - Взвешенное голосование
-    - Обновление весов через F1-score
-    - Калибровка уверенности
-    - Асинхронное обновление
-    """
 
     def __init__(self, models: Dict[str, Any], config: AdaptiveConfig = None):
         self.config = config or AdaptiveConfig()
@@ -1005,16 +903,6 @@ class DynamicEnsemble:
         logger.info(f"✅ DynamicEnsemble initialized with {len(models)} models")
 
     def predict(self, features: np.ndarray, use_cache: bool = True) -> Dict:
-        """
-        Взвешенное предсказание ансамбля.
-
-        Args:
-            features: Вектор признаков
-            use_cache: Использовать кэш
-
-        Returns:
-            Dict с результатами
-        """
         if use_cache:
             cache_key = self._make_cache_key(features)
             with self._cache_lock:
@@ -1118,13 +1006,11 @@ class DynamicEnsemble:
         return result
 
     def _make_cache_key(self, features: np.ndarray) -> str:
-        """Создаёт ключ кэша"""
         features_flat = features.flatten()
         quantized = np.round(features_flat[:20], 3)
         return hashlib.md5(quantized.tobytes()).hexdigest()
 
     def _calibrate_confidence(self, score: float, raw_confidence: float) -> float:
-        """Калибровка уверенности"""
         temperature = 1.5
         calibrated = 1.0 / (1.0 + np.exp(-(score - 0.5) / temperature))
 
@@ -1132,15 +1018,6 @@ class DynamicEnsemble:
 
     def add_feedback(self, features: np.ndarray, true_label: int,
                      alert_resolved: bool = False, damage_prevented: float = 0.0):
-        """
-        Добавление обратной связи.
-
-        Args:
-            features: Вектор признаков
-            true_label: Истинная метка (0 = норма, 1 = атака)
-            alert_resolved: Был ли алерт разрешён
-            damage_prevented: Предотвращённый ущерб (0-1)
-        """
         with self._feedback_lock:
             self.feedback_buffer.append({
                 'features': features,
@@ -1155,15 +1032,6 @@ class DynamicEnsemble:
             self._executor.submit(self.update_weights)
 
     def update_weights(self, min_samples: int = None) -> bool:
-        """
-        Обновление весов на основе F1-score.
-
-        Args:
-            min_samples: Минимальное количество примеров
-
-        Returns:
-            True если веса обновлены
-        """
         min_samples = min_samples or self.config.ensemble_update_frequency
 
         with self._feedback_lock:
@@ -1250,7 +1118,6 @@ class DynamicEnsemble:
         return True
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         with self._weight_lock:
             return {
                 **self.stats,
@@ -1269,21 +1136,10 @@ class DynamicEnsemble:
             }
 
     def shutdown(self):
-        """Graceful shutdown"""
         self._executor.shutdown(wait=True)
 
 
-
 class AdaptiveLearningEngine:
-    """
-    Главный интеграционный слой для адаптивного обучения.
-
-    Особенности:
-    - Объединяет все компоненты
-    - Асинхронное обучение
-    - Автоматическое сохранение
-    - Мониторинг
-    """
 
     def __init__(self, config: Dict = None):
         self.config = AdaptiveConfig()
@@ -1322,13 +1178,11 @@ class AdaptiveLearningEngine:
         logger.info("✅ AdaptiveLearningEngine initialized")
 
     def register_models(self, models: Dict[str, Any]):
-        """Регистрация моделей для ансамбля"""
         with self._lock:
             self.ensemble = DynamicEnsemble(models, self.config)
             logger.info(f"✅ Registered {len(models)} models in ensemble")
 
     def start(self):
-        """Запуск движка"""
         self._running = True
 
         self._retrain_thread = threading.Thread(
@@ -1348,7 +1202,6 @@ class AdaptiveLearningEngine:
         logger.info("🚀 AdaptiveLearningEngine started")
 
     def stop(self):
-        """Остановка движка"""
         self._running = False
 
         if self._retrain_thread:
@@ -1365,7 +1218,6 @@ class AdaptiveLearningEngine:
         logger.info("🛑 AdaptiveLearningEngine stopped")
 
     def _retrain_loop(self):
-        """Фоновый цикл дообучения"""
         while self._running:
             time.sleep(self.config.retrain_interval)
 
@@ -1386,7 +1238,6 @@ class AdaptiveLearningEngine:
                 logger.error(f"Retrain error: {e}")
 
     def _save_loop(self):
-        """Фоновое сохранение"""
         while self._running:
             time.sleep(300)
 
@@ -1399,16 +1250,6 @@ class AdaptiveLearningEngine:
                 logger.error(f"Save error: {e}")
 
     def process_packet(self, device: str, raw_features: List[float]) -> Dict:
-        """
-        Обработка пакета через все компоненты.
-
-        Args:
-            device: Идентификатор устройства
-            raw_features: Сырые признаки пакета
-
-        Returns:
-            Dict с результатами анализа
-        """
         self.stats['total_packets_processed'] += 1
 
         result = {
@@ -1465,7 +1306,6 @@ class AdaptiveLearningEngine:
 
     def add_feedback(self, features: List[float], true_label: int,
                      alert_resolved: bool = False, damage_prevented: float = 0.0):
-        """Добавление обратной связи"""
         features_array = np.array(features)
 
         if self.ensemble:
@@ -1475,14 +1315,12 @@ class AdaptiveLearningEngine:
             self.stats['false_positives_reported'] += 1
 
     def save_models(self):
-        """Сохранение всех моделей"""
         if self.feature_extractor:
             self.feature_extractor.save()
 
         logger.info("✅ Models saved")
 
     def load_models(self) -> bool:
-        """Загрузка всех моделей"""
         if self.feature_extractor:
             self.feature_extractor._load_model()
 
@@ -1490,7 +1328,6 @@ class AdaptiveLearningEngine:
         return True
 
     def get_stats(self) -> Dict:
-        """Получить полную статистику"""
         stats = {
             'engine': {
                 **self.stats,
@@ -1504,9 +1341,7 @@ class AdaptiveLearningEngine:
         return stats
 
 
-
 def test_adaptive_learning():
-    """Тестирование модуля"""
     print("=" * 60)
     print("🧪 TESTING ADAPTIVE LEARNING ENGINE")
     print("=" * 60)

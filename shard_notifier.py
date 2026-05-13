@@ -14,14 +14,12 @@ from typing import Dict, Optional
 logger = logging.getLogger("SHARD-Notifier")
 
 class ShardNotifier:
-    """Мульти-канальный уведомитель"""
     
     def __init__(self, config: Dict = None):
         self.config = config or {}
         self._load_config()
     
     def _load_config(self):
-        """Загрузка токенов из переменных окружения или конфига"""
         import os
         self.telegram_token = os.environ.get('SHARD_TELEGRAM_TOKEN', '')
         self.telegram_chat_id = os.environ.get('SHARD_TELEGRAM_CHAT', '')
@@ -38,7 +36,6 @@ class ShardNotifier:
             logger.info(f"🎮 Discord notifications enabled")
     
     def _format_alert(self, alert: Dict) -> str:
-        """Форматирование алерта в читаемый вид"""
         severity = alert.get('severity', 'LOW')
         attack_type = alert.get('attack_type', 'Unknown')
         src_ip = alert.get('src_ip', '?')
@@ -67,7 +64,6 @@ class ShardNotifier:
         return msg
     
     def _format_defense(self, result: Dict) -> str:
-        """Форматирование защитного действия"""
         atype = result.get('attack_type', '?')
         conf = result.get('confidence', 0)
         rl = result.get('rl_action', {})
@@ -81,7 +77,6 @@ class ShardNotifier:
         return msg
     
     def send_alert(self, alert: Dict):
-        """Отправить алерт во все настроенные каналы"""
         if not self.enabled:
             return
         
@@ -98,7 +93,6 @@ class ShardNotifier:
         threading.Thread(target=_send, daemon=True).start()
     
     def send_defense_action(self, result: Dict):
-        """Отправить уведомление о защитном действии"""
         if not self.enabled:
             return
         
@@ -111,7 +105,6 @@ class ShardNotifier:
         threading.Thread(target=_send, daemon=True).start()
     
     def _send_telegram(self, message: str):
-        """Отправка в Telegram"""
         try:
             url = f"https://api.telegram.org/bot{self.telegram_token}/sendMessage"
             response = requests.post(url, json={
@@ -125,7 +118,6 @@ class ShardNotifier:
             logger.debug(f"Telegram send error: {e}")
     
     def _send_slack(self, message: str):
-        """Отправка в Slack"""
         try:
             requests.post(self.slack_webhook, json={
                 'text': message.replace('*', '*'),
@@ -134,7 +126,6 @@ class ShardNotifier:
             logger.debug(f"Slack send error: {e}")
     
     def _send_discord(self, message: str):
-        """Отправка в Discord"""
         try:
             requests.post(self.discord_webhook, json={
                 'content': message.replace('*', '**'),

@@ -39,7 +39,6 @@ except ImportError:
     print("⚠️ TensorFlow не установлен. Attention LSTM недоступен.")
 
 
-
 @dataclass
 class AttentionLSTMConfig:
     sequence_length: int = 100
@@ -59,10 +58,8 @@ class AttentionLSTMConfig:
     model_dir: str = './models/attention_lstm/'
 
 
-
 if TF_AVAILABLE:
     class AttentionLSTM(Model):
-        """Attention LSTM для анализа последовательностей"""
 
         def __init__(self, config: AttentionLSTMConfig):
             super().__init__(name='AttentionLSTM')
@@ -151,9 +148,7 @@ else:
             pass
 
 
-
 class AttentionLSTMEngine:
-    """Движок для Attention LSTM"""
 
     def __init__(self, config: AttentionLSTMConfig = None):
         self.config = config or AttentionLSTMConfig()
@@ -244,9 +239,7 @@ class AttentionLSTMEngine:
         }
 
 
-
 class ShardAttentionLSTMIntegration:
-    """Интеграция с SHARD"""
 
     def __init__(self, config: Dict = None):
         self.config = AttentionLSTMConfig()

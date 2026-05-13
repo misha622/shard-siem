@@ -173,12 +173,7 @@ except ImportError:
     print("⚠️ Threat Intelligence Platform модуль недоступен")
 
 
-
 class EnhancedShardEnterprise:
-    """
-    SHARD Enterprise с ВСЕМИ улучшениями.
-    Объединяет все продвинутые модули в единую систему.
-    """
 
     def __init__(self, config_path: str = "config.yaml", enable_enhancements: bool = True,
                  enable_simulation: bool = False, no_capture: bool = False):
@@ -222,7 +217,6 @@ class EnhancedShardEnterprise:
         self._init_enhancements()
 
     def _init_enhancements(self):
-        """Инициализация всех улучшений"""
         if not self.enable_enhancements:
             self.logger.info("Улучшения отключены (--no-enhancements)")
             return
@@ -424,7 +418,6 @@ class EnhancedShardEnterprise:
         print("=" * 50)
 
     def start(self):
-        """Запуск SHARD с ВСЕМИ улучшениями"""
         print("\n🛡️ Запуск SHARD Enterprise с ВСЕМИ улучшениями...")
 
         if self.cloud_security:
@@ -549,7 +542,6 @@ class EnhancedShardEnterprise:
 
 
     def _on_alert_defense(self, alert: Dict):
-        """Обработка алерта через AI Defense Pipeline v3 с RL"""
         if self.defense_pipeline:
             try:
                 result = self.defense_pipeline.process_alert(alert)
@@ -557,7 +549,6 @@ class EnhancedShardEnterprise:
                 self.logger.debug(f"Defense pipeline error: {e}")
 
     def _on_alert_autonomous(self, alert: Dict):
-        """Обработчик алертов для автономной реакции"""
         if self.autonomous:
             result = self.autonomous.on_alert(alert)
             if result and result.get('autonomous_action'):
@@ -567,7 +558,6 @@ class EnhancedShardEnterprise:
                 self.logger.info(f"🧠 LLM Analysis: {result['llm_analysis'][:100]}...")
 
     def stop(self):
-        """Остановка SHARD"""
         print("\n🛑 Остановка SHARD Enterprise...")
         self._running = False
 
@@ -660,7 +650,6 @@ class EnhancedShardEnterprise:
             self.shard.stop()
 
     def get_status(self) -> Dict:
-        """Получить статус всех компонентов"""
         return {
             'shard': self._running,
             'attention_lstm': self.attention_lstm is not None,
@@ -685,112 +674,93 @@ class EnhancedShardEnterprise:
 
 
     def secure_llm_call(self, prompt: str, llm_function: callable, client_id: str = 'unknown') -> Tuple[Any, Dict]:
-        """Безопасный вызов LLM с защитой"""
         if self.llm_guardian:
             return self.llm_guardian.secure_llm_call(prompt, llm_function, client_id)
         return llm_function(prompt), {}
 
     def scan_code(self, filepath: str) -> List[Dict]:
-        """Сканирование кода на уязвимости"""
         if self.code_security:
             return self.code_security.analyzer.analyze_file(filepath)
         return []
 
     def scan_repository(self, repo_path: str) -> Dict:
-        """Сканирование репозитория"""
         if self.code_security:
             return self.code_security.scan_repository(repo_path)
         return {}
 
     def check_cve(self, cve_id: str) -> Optional[Dict]:
-        """Проверка CVE"""
         if self.cve_intelligence:
             cve = self.cve_intelligence.engine.check_cve(cve_id)
             return cve.__dict__ if cve else None
         return None
 
     def scan_cve_dependencies(self, project_path: str) -> List:
-        """Сканирование зависимостей на CVE"""
         if self.cve_intelligence:
             return self.cve_intelligence.scan_project(project_path)
         return []
 
     def run_red_team_scan(self, target: str, scope: List[str] = None) -> Dict:
-        """Запуск Red Team сканирования"""
         if self.red_team:
             return self.red_team.scan_target(target, scope)
         return {}
 
     def get_threat_hunting_report(self) -> Dict:
-        """Получить отчёт Threat Hunting"""
         if self.threat_hunting:
             return self.threat_hunting.get_report()
         return {}
 
     def get_mitre_coverage(self) -> Dict:
-        """Получить покрытие MITRE ATT&CK"""
         if self.mitre:
             return self.mitre.get_coverage_report()
         return {}
 
     def generate_mitre_navigator_layer(self) -> str:
-        """Генерация слоя для MITRE Navigator"""
         if self.mitre:
             return self.mitre.generate_navigator_layer()
         return ""
 
     def execute_playbook(self, playbook_id: str, context: Dict) -> Dict:
-        """Выполнить SOAR playbook"""
         if self.soar:
             return self.soar.execute_playbook(playbook_id, context)
         return {'status': 'failed', 'error': 'SOAR not available'}
 
     def list_playbooks(self) -> List[Dict]:
-        """Список SOAR playbook'ов"""
         if self.soar:
             return self.soar.list_playbooks()
         return []
 
     def create_forensics_case(self, name: str, description: str = "") -> str:
-        """Создать дело в Digital Forensics"""
         if self.forensics:
             return self.forensics.create_case(name, description)
         return ""
 
     def add_forensics_evidence(self, case_id: str, evidence_type: str, source: str, file_path: str) -> str:
-        """Добавить доказательство в дело"""
         if self.forensics:
             return self.forensics.add_evidence(case_id, evidence_type, source, file_path)
         return ""
 
     def get_forensics_report(self, case_id: str) -> Dict:
-        """Получить отчёт по делу"""
         if self.forensics:
             return self.forensics.get_report(case_id)
         return {}
 
     def get_deception_stats(self) -> Dict:
-        """Получить статистику Deception Technology"""
         if self.deception:
             return self.deception.get_stats()
         return {}
 
     def get_tip_stats(self) -> Dict:
-        """Получить статистику Threat Intelligence Platform"""
         if self.tip:
             return self.tip.get_stats()
         return {}
 
     def query_tip(self, indicator: str, indicator_type: str = 'auto') -> Dict:
-        """Запрос к Threat Intelligence Platform"""
         if self.tip:
             return self.tip.query(indicator, indicator_type)
         return {}
 
 
-
 def print_banner():
-    """Вывод баннера"""
     banner = """
 ╔══════════════════════════════════════════════════════════════════════════╗
 ║                                                                          ║
@@ -835,7 +805,6 @@ def print_banner():
 
 
 def main():
-    """Главная функция"""
     parser = argparse.ArgumentParser(description='SHARD Enterprise SIEM')
     parser.add_argument('--config', '-c', default='config.yaml', help='Путь к конфигурации')
     parser.add_argument('--no-enhancements', action='store_true', help='Отключить улучшения')
@@ -990,13 +959,10 @@ def main():
     return 0
 
 
-
 class SHARDCLI:
-    """Утилиты командной строки для SHARD"""
 
     @staticmethod
     def show_status(enterprise: EnhancedShardEnterprise):
-        """Показать статус системы"""
         status = enterprise.get_status()
         print("\n📊 Статус SHARD Enterprise:")
         print("=" * 40)
@@ -1007,7 +973,6 @@ class SHARDCLI:
 
     @staticmethod
     def show_stats(enterprise: EnhancedShardEnterprise):
-        """Показать статистику"""
         if enterprise.shard:
             stats = enterprise.shard.get_stats()
             print("\n📈 Статистика SHARD:")
@@ -1025,7 +990,6 @@ class SHARDCLI:
 
     @staticmethod
     def export_config(enterprise: EnhancedShardEnterprise, output_path: str):
-        """Экспорт конфигурации"""
         import json
         config_data = enterprise.config.export()
         with open(output_path, 'w') as f:
@@ -1034,7 +998,6 @@ class SHARDCLI:
 
     @staticmethod
     def validate_config(config_path: str) -> bool:
-        """Валидация конфигурации"""
         try:
             config = ConfigManager(config_path)
             errors = config.validate()
@@ -1050,21 +1013,9 @@ class SHARDCLI:
             return False
 
 
-
 def create_shard_instance(config_path: str = "config.yaml",
                           enable_enhancements: bool = True,
                           headless: bool = False) -> EnhancedShardEnterprise:
-    """
-    Создание экземпляра SHARD для программного использования
-
-    Args:
-        config_path: Путь к конфигурации
-        enable_enhancements: Включить улучшения
-        headless: Без вывода в консоль
-
-    Returns:
-        Экземпляр EnhancedShardEnterprise
-    """
     if headless:
         import io
         sys.stdout = io.StringIO()
@@ -1080,16 +1031,6 @@ def create_shard_instance(config_path: str = "config.yaml",
 
 
 def shard_analyze_event(event_data: Dict, enterprise: EnhancedShardEnterprise = None) -> Dict:
-    """
-    Анализ события через SHARD
-
-    Args:
-        event_data: Данные события
-        enterprise: Экземпляр SHARD (если None, создаётся временный)
-
-    Returns:
-        Результат анализа
-    """
     if enterprise is None:
         enterprise = create_shard_instance(headless=True)
         enterprise.start()
@@ -1124,16 +1065,6 @@ def shard_analyze_event(event_data: Dict, enterprise: EnhancedShardEnterprise = 
 
 
 def shard_scan_network(target: str, enterprise: EnhancedShardEnterprise = None) -> Dict:
-    """
-    Сканирование сети через SHARD
-
-    Args:
-        target: Цель сканирования (IP или подсеть)
-        enterprise: Экземпляр SHARD
-
-    Returns:
-        Результаты сканирования
-    """
     if enterprise is None:
         enterprise = create_shard_instance(headless=True)
         enterprise.start()
@@ -1162,17 +1093,6 @@ def shard_scan_network(target: str, enterprise: EnhancedShardEnterprise = None) 
 def shard_generate_report(enterprise: EnhancedShardEnterprise,
                           report_type: str = 'full',
                           format: str = 'json') -> str:
-    """
-    Генерация отчёта SHARD
-
-    Args:
-        enterprise: Экземпляр SHARD
-        report_type: Тип отчёта (full, security, compliance, mitre)
-        format: Формат (json, html, pdf)
-
-    Returns:
-        Путь к файлу отчёта
-    """
     import json
     from datetime import datetime
 
@@ -1217,7 +1137,6 @@ def shard_generate_report(enterprise: EnhancedShardEnterprise,
 
 
 def _generate_html_report(report: Dict) -> str:
-    """Генерация HTML отчёта"""
     html = f"""
     <!DOCTYPE html>
     <html>
@@ -1253,10 +1172,6 @@ def _generate_html_report(report: Dict) -> str:
     html += """
             </table>
         </div>
-    """
-
-    if 'stats' in report:
-        html += f"""
         <div class="section">
             <h2>Statistics</h2>
             <table>
@@ -1267,30 +1182,14 @@ def _generate_html_report(report: Dict) -> str:
                 <tr><td>Blocked IPs</td><td>{report['stats'].get('blocked_ips', 0)}</td></tr>
             </table>
         </div>
-        """
-
-    if 'mitre_coverage' in report:
-        mc = report['mitre_coverage']
-        html += f"""
         <div class="section">
             <h2>MITRE ATT&CK Coverage</h2>
             <p>Total Coverage: {mc.get('total_coverage', 0):.1%}</p>
             <p>Tactics Covered: {mc.get('tactics_covered', 0)}/{mc.get('total_tactics', 0)}</p>
             <p>Techniques Covered: {mc.get('techniques_covered', 0)}/{mc.get('total_techniques', 0)}</p>
         </div>
-        """
-
-    html += """
     </body>
-    </html>
-    """
-
-    return html
-
-
-
-def test_shard_modules():
-    """Тестирование модулей SHARD"""
+    </html>Тестирование модулей SHARD"""
     print("\n🧪 Тестирование модулей SHARD Enterprise...")
     print("=" * 50)
 
@@ -1335,7 +1234,6 @@ def test_shard_modules():
 
 
 def test_llm_guardian():
-    """Тестирование LLM Guardian"""
     if not LLM_GUARDIAN_AVAILABLE:
         print("❌ LLM Guardian недоступен")
         return False
@@ -1370,7 +1268,6 @@ def test_llm_guardian():
 
 
 def test_code_security():
-    """Тестирование Code Security"""
     if not CODE_SECURITY_AVAILABLE:
         print("❌ Code Security недоступен")
         return False
@@ -1431,7 +1328,6 @@ def unsafe_subprocess(user_input):
 
     finally:
         os.unlink(temp_file)
-
 
 
 if __name__ == "__main__":

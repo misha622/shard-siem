@@ -20,11 +20,7 @@ app = Flask(__name__)
 CORS(app)
 
 
-
 class PushNotificationManager:
-    """
-    Менеджер push-уведомлений
-    """
 
     def __init__(self):
         self.devices = {}
@@ -37,7 +33,6 @@ class PushNotificationManager:
         logger.info("📱 Push Notification Manager инициализирован")
 
     def register_device(self, device_token: str, platform: str, user_id: str = None):
-        """Регистрация устройства"""
         self.devices[device_token] = {
             'token': device_token,
             'platform': platform,
@@ -49,16 +44,12 @@ class PushNotificationManager:
         return {'status': 'registered', 'devices': len(self.devices)}
 
     def unregister_device(self, device_token: str):
-        """Отмена регистрации"""
         if device_token in self.devices:
             del self.devices[device_token]
             logger.info(f"📱 Устройство удалено: {device_token[:16]}...")
         return {'status': 'unregistered'}
 
     def send_push(self, device_token: str, title: str, body: str, data: Dict = None) -> bool:
-        """
-        Отправка push-уведомления
-        """
         if device_token not in self.devices:
             return False
 
@@ -70,7 +61,6 @@ class PushNotificationManager:
             return self._send_fcm(device_token, title, body, data)
 
     def _send_fcm(self, token: str, title: str, body: str, data: Dict = None) -> bool:
-        """Отправка через Firebase Cloud Messaging"""
         if not self.firebase_enabled:
             logger.info(f"📱 [FCM] {title}: {body}")
             return True
@@ -105,14 +95,10 @@ class PushNotificationManager:
             return False
 
     def _send_apns(self, token: str, title: str, body: str, data: Dict = None) -> bool:
-        """Отправка через Apple Push Notification Service (заглушка)"""
         logger.info(f"📱 [APNS] {title}: {body}")
         return True
 
     def broadcast_alert(self, alert: Dict, min_severity: str = 'HIGH'):
-        """
-        Рассылка алерта всем устройствам
-        """
         severity = alert.get('severity', 'MEDIUM')
         severity_levels = {'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'CRITICAL': 4}
 
@@ -150,7 +136,6 @@ class PushNotificationManager:
             self.alert_history = self.alert_history[-self.max_history:]
 
     def get_stats(self) -> Dict:
-        """Статистика"""
         return {
             'devices': len(self.devices),
             'platforms': {
@@ -165,10 +150,8 @@ class PushNotificationManager:
 push_manager = PushNotificationManager()
 
 
-
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    """Проверка здоровья"""
     return jsonify({
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
@@ -178,7 +161,6 @@ def health_check():
 
 @app.route('/api/device/register', methods=['POST'])
 def register_device():
-    """Регистрация устройства"""
     data = request.json
     device_token = data.get('device_token')
     platform = data.get('platform', 'android')
@@ -193,7 +175,6 @@ def register_device():
 
 @app.route('/api/device/unregister', methods=['POST'])
 def unregister_device():
-    """Отмена регистрации"""
     data = request.json
     device_token = data.get('device_token')
 
@@ -206,7 +187,6 @@ def unregister_device():
 
 @app.route('/api/alerts/recent', methods=['GET'])
 def get_recent_alerts():
-    """Получение последних алертов"""
     limit = request.args.get('limit', 50, type=int)
     severity = request.args.get('severity', None)
 
@@ -223,7 +203,6 @@ def get_recent_alerts():
 
 @app.route('/api/alert/send', methods=['POST'])
 def send_alert():
-    """Отправка алерта (внутренний API)"""
     data = request.json
 
     alert = {
@@ -243,7 +222,6 @@ def send_alert():
 
 @app.route('/api/action/block', methods=['POST'])
 def block_ip():
-    """Блокировка IP (удалённо)"""
     data = request.json
     ip = data.get('ip')
 
@@ -261,13 +239,11 @@ def block_ip():
 
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
-    """Статистика"""
     return jsonify(push_manager.get_stats())
 
 
 @app.route('/api/dashboard', methods=['GET'])
 def get_dashboard_data():
-    """Данные для дашборда"""
     return jsonify({
         'alerts_today': len([a for a in push_manager.alert_history
                              if datetime.fromisoformat(a['sent_at']).date() == datetime.now().date()]),
@@ -279,7 +255,6 @@ def get_dashboard_data():
 
 
 def _get_top_threats() -> List[Dict]:
-    """Топ угроз"""
     threat_counts = {}
     for alert in push_manager.alert_history:
         t = alert.get('type', 'Unknown')
@@ -292,11 +267,7 @@ def _get_top_threats() -> List[Dict]:
     )[:5]
 
 
-
 class SHARDMobileIntegration:
-    """
-    Интеграция мобильного API с SHARD
-    """
 
     def __init__(self, port: int = 5000):
         self.port = port
@@ -307,7 +278,6 @@ class SHARDMobileIntegration:
         logger.info(f"📱 SHARD Mobile Integration готов (порт: {port})")
 
     def start_server(self):
-        """Запуск API сервера"""
 
         def run():
             app.run(host='0.0.0.0', port=self.port, debug=False, use_reloader=False)
@@ -317,7 +287,6 @@ class SHARDMobileIntegration:
         logger.info(f"🚀 Mobile API запущен на порту {self.port}")
 
     def on_alert(self, alert: Dict):
-        """Обработчик алертов от SHARD"""
         severity = alert.get('severity', 'MEDIUM')
         if severity in ['HIGH', 'CRITICAL']:
             push_manager.broadcast_alert({
@@ -329,7 +298,6 @@ class SHARDMobileIntegration:
             }, min_severity='HIGH')
 
     def get_stats(self) -> Dict:
-        """Статистика"""
         return {
             'api_port': self.port,
             'push_manager': push_manager.get_stats()

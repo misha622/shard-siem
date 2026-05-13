@@ -19,9 +19,6 @@ logger = logging.getLogger("SHARD-JA3")
 
 
 class JA3Fingerprinter:
-    """
-    Вычисление JA3 отпечатков для TLS Client Hello
-    """
 
     TLS_VERSIONS = {
         0x0301: "TLSv1.0",
@@ -34,17 +31,6 @@ class JA3Fingerprinter:
         self.fingerprints = {}
 
     def compute_ja3(self, client_hello: bytes) -> Optional[str]:
-        """
-        Вычисление JA3 хеша из Client Hello
-
-        JA3 = MD5(
-            SSLVersion,
-            CipherSuites,
-            Extensions,
-            EllipticCurves,
-            EllipticCurvePointFormats
-        )
-        """
         try:
             if len(client_hello) < 43:
                 return None
@@ -136,16 +122,12 @@ class JA3Fingerprinter:
 
 
 class JA3Database:
-    """
-    База данных известных JA3 отпечатков
-    """
 
     def __init__(self, db_path: str = "data/ja3_database.json"):
         self.db_path = db_path
         self.signatures = self._load_signatures()
 
     def _load_signatures(self) -> Dict:
-        """Загрузка сигнатур"""
         default_signatures = {
             "a0e9f5d64349fb1319c5e4f5e2d2e5c7": {
                 "name": "TrickBot",
@@ -204,25 +186,19 @@ class JA3Database:
         return default_signatures
 
     def lookup(self, ja3_hash: str) -> Optional[Dict]:
-        """Поиск отпечатка в базе"""
         return self.signatures.get(ja3_hash)
 
     def add_signature(self, ja3_hash: str, info: Dict):
-        """Добавление новой сигнатуры"""
         self.signatures[ja3_hash] = info
         self._save()
 
     def _save(self):
-        """Сохранение базы"""
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         with open(self.db_path, 'w') as f:
             json.dump(self.signatures, f, indent=2)
 
 
 class JA3Analyzer:
-    """
-    Анализатор JA3 для обнаружения угроз
-    """
 
     def __init__(self):
         self.fingerprinter = JA3Fingerprinter()
@@ -245,12 +221,6 @@ class JA3Analyzer:
 
     def analyze_connection(self, src_ip: str, dst_ip: str, dst_port: int,
                            client_hello: bytes, server_hello: bytes = None) -> Dict:
-        """
-        Анализ TLS соединения
-
-        Returns:
-            Словарь с результатами анализа
-        """
         self.stats['total_connections'] += 1
 
         result = {
@@ -311,7 +281,6 @@ class JA3Analyzer:
         return result
 
     def get_c2_activity(self, src_ip: str = None) -> List:
-        """Получение информации о C2 активности"""
         if src_ip:
             return self.c2_trackers.get(src_ip, [])
 
@@ -321,7 +290,6 @@ class JA3Analyzer:
         return all_activity
 
     def get_stats(self) -> Dict:
-        """Статистика анализатора"""
         return {
             **self.stats,
             'tracked_ips': len(self.c2_trackers),
@@ -329,7 +297,6 @@ class JA3Analyzer:
         }
 
     def export_threat_intel(self) -> List[Dict]:
-        """Экспорт threat intelligence"""
         intel = []
         for ip, activities in self.c2_trackers.items():
             if len(activities) >= 3:
@@ -344,11 +311,7 @@ class JA3Analyzer:
         return intel
 
 
-
 class SHARDJA3Integration:
-    """
-    Интеграция JA3 анализатора с SHARD
-    """
 
     def __init__(self):
         self.analyzer = JA3Analyzer()
@@ -360,9 +323,6 @@ class SHARDJA3Integration:
 
     def process_packet(self, packet_data: bytes, src_ip: str, dst_ip: str,
                        src_port: int, dst_port: int) -> Optional[Dict]:
-        """
-        Обработка сетевого пакета
-        """
         if not self.enabled:
             return None
 
@@ -391,7 +351,6 @@ class SHARDJA3Integration:
             return None
 
     def _format_alert(self, result: Dict) -> Dict:
-        """Форматирование алерта для SHARD"""
         threat_info = result.get('threat_info', {})
 
         return {
@@ -410,11 +369,9 @@ class SHARDJA3Integration:
         }
 
     def get_threat_intel(self) -> List[Dict]:
-        """Получение threat intelligence для обмена"""
         return self.analyzer.export_threat_intel()
 
     def add_signature(self, ja3_hash: str, name: str, category: str, severity: str):
-        """Добавление новой сигнатуры"""
         self.analyzer.database.add_signature(ja3_hash, {
             'name': name,
             'category': category,
@@ -423,7 +380,6 @@ class SHARDJA3Integration:
         })
 
     def get_stats(self) -> Dict:
-        """Статистика"""
         return self.analyzer.get_stats()
 
 

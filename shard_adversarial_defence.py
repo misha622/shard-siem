@@ -27,10 +27,8 @@ from dataclasses import dataclass, field
 logger = logging.getLogger("SHARD-Adversarial")
 
 
-
 @dataclass
 class AdversarialDefenceConfig:
-    """Конфигурация защиты от adversarial атак"""
 
     feature_clipping: bool = True
     feature_clip_min: float = -5.0
@@ -53,12 +51,7 @@ class AdversarialDefenceConfig:
     save_adversarial_samples: bool = True
 
 
-
 class FeatureStatistics:
-    """
-    Отслеживание статистик признаков для детекции аномалий.
-    Использует алгоритм Уэлфорда для онлайн-вычисления среднего и дисперсии.
-    """
 
     def __init__(self, n_features: int, window_size: int = 10000):
         self.n_features = n_features
@@ -76,7 +69,6 @@ class FeatureStatistics:
         self._lock = threading.RLock()
 
     def update(self, features: np.ndarray):
-        """Обновление статистик новым сэмплом"""
         with self._lock:
             if features.ndim == 2:
                 features = features.flatten()
@@ -93,14 +85,12 @@ class FeatureStatistics:
             self.recent_samples.append(features.copy())
 
     def get_std(self) -> np.ndarray:
-        """Стандартное отклонение"""
         with self._lock:
             if self.count < 2:
                 return np.ones(self.n_features)
             return np.sqrt(self.M2 / (self.count - 1))
 
     def get_z_scores(self, features: np.ndarray) -> np.ndarray:
-        """Z-scores для каждого признака"""
         with self._lock:
             if features.ndim == 2:
                 features = features.flatten()
@@ -110,14 +100,6 @@ class FeatureStatistics:
             return np.abs(features - self.mean) / std
 
     def is_anomalous(self, features: np.ndarray, threshold: float = 3.0) -> Tuple[bool, float, List[int]]:
-        """
-        Проверка на аномальность.
-
-        Returns:
-            is_anomaly: флаг аномалии
-            max_z: максимальный Z-score
-            anomalous_features: индексы аномальных признаков
-        """
         z_scores = self.get_z_scores(features)
         max_z = np.max(z_scores)
         anomalous_features = np.where(z_scores > threshold)[0].tolist()
@@ -125,7 +107,6 @@ class FeatureStatistics:
         return max_z > threshold, max_z, anomalous_features
 
     def get_stats(self) -> Dict:
-        """Получить текущие статистики"""
         with self._lock:
             return {
                 'count': self.count,
@@ -135,32 +116,13 @@ class FeatureStatistics:
             }
 
 
-
 class AdversarialCleaner:
-    """
-    Очистка входных признаков от adversarial возмущений.
-
-    Методы:
-    - Feature clipping (обрезка выбросов)
-    - Quantization (квантование для уменьшения шума)
-    - Spatial smoothing (пространственное сглаживание)
-    - JPEG compression (для изображений)
-    """
 
     def __init__(self, config: AdversarialDefenceConfig):
         self.config = config
         self.stats = None
 
     def clean(self, features: np.ndarray) -> np.ndarray:
-        """
-        Очистка признаков.
-
-        Args:
-            features: np.ndarray shape (n_features,) или (1, n_features)
-
-        Returns:
-            cleaned: очищенные признаки той же формы
-        """
         original_shape = features.shape
         if features.ndim == 2:
             features = features.flatten()
@@ -177,7 +139,6 @@ class AdversarialCleaner:
         return cleaned.reshape(original_shape)
 
     def _clip_features(self, features: np.ndarray) -> np.ndarray:
-        """Обрезка выбросов"""
         if self.stats is not None and self.stats.count > 100:
             mean = self.stats.mean
             std = self.stats.get_std()
@@ -190,7 +151,6 @@ class AdversarialCleaner:
                            self.config.feature_clip_max)
 
     def _quantize(self, features: np.ndarray, bits: int = 8) -> np.ndarray:
-        """Квантование для снижения точности adversarial perturbation"""
         levels = 2 ** bits
         min_val = features.min()
         max_val = features.max()
@@ -200,7 +160,6 @@ class AdversarialCleaner:
         return features
 
     def _median_filter(self, features: np.ndarray, kernel_size: int = 3) -> np.ndarray:
-        """Медианный фильтр для удаления одиночных выбросов"""
         if len(features) < kernel_size:
             return features
 
@@ -217,16 +176,7 @@ class AdversarialCleaner:
         return result
 
 
-
 class AdversarialDetector:
-    """
-    Детектор adversarial атак.
-
-    Методы детекции:
-    - Statistical anomaly detection (Z-score)
-    - Feature squeezing (сравнение до/после очистки)
-    - Ensemble disagreement (проверка согласия моделей)
-    """
 
     def __init__(self, config: AdversarialDefenceConfig):
         self.config = config
@@ -248,7 +198,6 @@ class AdversarialDetector:
         self._lock = threading.RLock()
 
     def setup(self, event_bus=None, firewall=None, models: Dict[str, Any] = None):
-        """Настройка интеграций"""
         self.event_bus = event_bus
         self.firewall = firewall
 
@@ -256,24 +205,14 @@ class AdversarialDetector:
             self.models = models
 
     def initialize_stats(self, n_features: int):
-        """Инициализация статистик"""
         self.stats = FeatureStatistics(n_features, self.config.normal_stats_window)
         self.cleaner.stats = self.stats
 
     def update_stats(self, features: np.ndarray):
-        """Обновление нормальных статистик"""
         if self.stats is not None:
             self.stats.update(features)
 
     def detect_anomaly(self, features: np.ndarray, cleaned: np.ndarray = None) -> Tuple[bool, float, Dict]:
-        """
-        Комплексная проверка на adversarial атаку.
-
-        Returns:
-            is_attack: флаг атаки
-            confidence: уверенность (0-1)
-            details: детали детекции
-        """
         with self._lock:
             self.stats_detector['total_checked'] += 1
 
@@ -345,11 +284,6 @@ class AdversarialDetector:
             return is_attack, total_score, details
 
     def _check_ensemble_agreement(self, original: np.ndarray, cleaned: np.ndarray) -> float:
-        """
-        Проверка согласия ансамбля моделей.
-
-        Высокий disagreement = возможная adversarial атака.
-        """
         if not self.models:
             return 0.0
 
@@ -378,7 +312,6 @@ class AdversarialDetector:
         return disagreements / len(preds_original)
 
     def _publish_alert(self, features: np.ndarray, details: Dict):
-        """Публикация алерта об adversarial атаке"""
         if self.event_bus:
             alert = {
                 'timestamp': time.time(),
@@ -401,14 +334,12 @@ class AdversarialDetector:
             logger.warning(f"🛡️ Adversarial attack detected! Score: {details['total_score']:.3f}")
 
     def _auto_block(self, features: np.ndarray, score: float):
-        """Автоматическая блокировка при adversarial атаке"""
         if self.firewall and score > 0.8:
             feature_hash = hashlib.md5(features.tobytes()).hexdigest()[:12]
 
             logger.critical(f"🚫 Auto-blocking adversarial attack pattern: {feature_hash}")
 
     def add_feedback(self, was_false_positive: bool):
-        """Обратная связь для адаптации порогов"""
         with self._lock:
             if was_false_positive:
                 self.stats_detector['false_positives'] += 1
@@ -419,7 +350,6 @@ class AdversarialDetector:
                     logger.info(f"Adversarial threshold adjusted to {self.config.anomaly_threshold:.2f}")
 
     def get_stats(self) -> Dict:
-        """Статистика детектора"""
         with self._lock:
             return {
                 **self.stats_detector,
@@ -429,17 +359,7 @@ class AdversarialDetector:
             }
 
 
-
 class AdversarialDefence:
-    """
-    Главный модуль защиты от adversarial атак.
-
-    Объединяет:
-    - Очистку признаков (AdversarialCleaner)
-    - Статистический мониторинг (FeatureStatistics)
-    - Детекцию атак (AdversarialDetector)
-    - Интеграцию с EventBus, Firewall, RL Agent
-    """
 
     def __init__(self, config: AdversarialDefenceConfig = None):
         self.config = config or AdversarialDefenceConfig()
@@ -458,7 +378,6 @@ class AdversarialDefence:
         logger.info("🛡️ Adversarial Defence Module initialized")
 
     def setup(self, event_bus=None, firewall=None, rl_agent=None, models=None):
-        """Настройка интеграций"""
         self.event_bus = event_bus
         self.firewall = firewall
         self.rl_agent = rl_agent
@@ -471,7 +390,6 @@ class AdversarialDefence:
             event_bus.subscribe('adversarial.feedback', self.on_feedback)
 
     def initialize(self, n_features: int, calibration_data: np.ndarray = None):
-        """Инициализация с размерностью признаков"""
         self.stats = FeatureStatistics(n_features, self.config.normal_stats_window)
         self.cleaner.stats = self.stats
         self.detector.initialize_stats(n_features)
@@ -487,25 +405,14 @@ class AdversarialDefence:
         logger.info(f"✅ Adversarial Defence initialized for {n_features} features")
 
     def start(self):
-        """Запуск модуля"""
         self._running = True
         logger.info("🚀 Adversarial Defence started")
 
     def stop(self):
-        """Остановка модуля"""
         self._running = False
         logger.info("🛑 Adversarial Defence stopped")
 
     def process_features(self, features: np.ndarray) -> Dict:
-        """
-        Полный цикл обработки признаков.
-
-        Args:
-            features: np.ndarray shape (n_features,)
-
-        Returns:
-            dict с результатами
-        """
         if not self._initialized:
             self.initialize(len(features))
 
@@ -529,19 +436,16 @@ class AdversarialDefence:
         return result
 
     def clean(self, features: np.ndarray) -> np.ndarray:
-        """Быстрая очистка без детекции"""
         if not self._initialized:
             self.initialize(len(features))
         return self.cleaner.clean(features)
 
     def detect_anomaly(self, features: np.ndarray, cleaned: np.ndarray = None) -> Tuple[bool, float, Dict]:
-        """Детекция аномалии"""
         if cleaned is None:
             cleaned = self.clean(features)
         return self.detector.detect_anomaly(features, cleaned)
 
     def on_features(self, data: Dict):
-        """Обработчик событий признаков"""
         features = data.get('features')
         if features is not None:
             features = np.array(features)
@@ -565,24 +469,20 @@ class AdversarialDefence:
                 })
 
     def on_prediction(self, data: Dict):
-        """Обработчик предсказаний модели"""
         features = data.get('features')
         if features is not None:
             self.update_stats(np.array(features))
 
     def on_feedback(self, data: Dict):
-        """Обработчик обратной связи"""
         was_fp = data.get('false_positive', False)
         self.detector.add_feedback(was_fp)
 
     def update_stats(self, features: np.ndarray):
-        """Обновление нормальных статистик"""
         if self.stats is not None:
             self.stats.update(features)
             self.detector.update_stats(features)
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         return {
             'detector': self.detector.get_stats(),
             'config': {
@@ -593,9 +493,7 @@ class AdversarialDefence:
         }
 
 
-
 class ShardAdversarialIntegration:
-    """Интеграция Adversarial Defence в SHARD Enterprise"""
 
     def __init__(self, config: Dict = None):
         self.config = AdversarialDefenceConfig()
@@ -609,7 +507,6 @@ class ShardAdversarialIntegration:
         self.logger = logger
 
     def setup(self, event_bus=None, firewall=None, rl_agent=None, models=None, logger_instance=None):
-        """Настройка интеграции"""
         self.event_bus = event_bus
         if logger_instance:
             self.logger = logger_instance
@@ -622,34 +519,23 @@ class ShardAdversarialIntegration:
         )
 
     def start(self):
-        """Запуск"""
         self.defence.start()
         self.logger.info("🛡️ Adversarial Defence Integration started")
 
     def stop(self):
-        """Остановка"""
         self.defence.stop()
 
     def process_request(self, features: np.ndarray) -> Dict:
-        """
-        Полный цикл защиты запроса.
-
-        Используй этот метод перед отправкой данных в нейросеть.
-        """
         return self.defence.process_features(features)
 
     def clean(self, features: np.ndarray) -> np.ndarray:
-        """Очистить признаки перед инференсом"""
         return self.defence.clean(features)
 
     def get_stats(self) -> Dict:
-        """Статистика"""
         return self.defence.get_stats()
 
 
-
 def test_adversarial_defence():
-    """Тестирование модуля"""
     print("=" * 60)
     print("🧪 ТЕСТИРОВАНИЕ ADVERSARIAL DEFENCE")
     print("=" * 60)

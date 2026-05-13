@@ -37,7 +37,6 @@ CONFIG = {
 
 
 class ThreatGraphGenerator:
-    """Генерирует реалистичные графы угроз для обучения GNN"""
     
     ATTACK_TYPES = ['Port Scan', 'Brute Force', 'DDoS', 'SQL Injection', 
                     'C2 Beacon', 'Data Exfiltration', 'DNS Tunnel', 'Botnet']
@@ -50,10 +49,6 @@ class ThreatGraphGenerator:
         self.num_edges = num_edges
     
     def generate_graph(self) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Генерирует один граф угроз.
-        Returns: node_features, edge_index, edge_features, node_labels
-        """
         node_features = torch.zeros(self.num_nodes, CONFIG['node_features'])
         node_labels = torch.zeros(self.num_nodes, dtype=torch.long)
         
@@ -147,13 +142,10 @@ class ThreatGraphGenerator:
         return node_features, edge_index, edge_features, node_labels
     
     def generate_batch(self, batch_size=32) -> List[Tuple]:
-        """Генерирует батч графов"""
         return [self.generate_graph() for _ in range(batch_size)]
 
 
-
 class GATLayer(nn.Module):
-    """Graph Attention Layer с учётом edge features"""
     
     def __init__(self, in_dim, out_dim, edge_dim, num_heads=4, dropout=0.2):
         super().__init__()
@@ -204,7 +196,6 @@ class GATLayer(nn.Module):
 
 
 class ThreatGNN(nn.Module):
-    """Graph Neural Network для анализа графа угроз"""
     
     def __init__(self, node_dim=12, edge_dim=4, hidden_dim=64, num_layers=3, num_heads=4, num_classes=3, dropout=0.2):
         super().__init__()
@@ -261,7 +252,6 @@ class ThreatGNN(nn.Module):
         graph_score = self.global_pool(x.mean(dim=0, keepdim=True))
         
         return node_logits, edge_probs, graph_score
-
 
 
 def train():

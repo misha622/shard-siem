@@ -7,10 +7,6 @@ from typing import Optional, Tuple
 
 
 class NetworkTrafficTransformer(nn.Module):
-    """
-    Transformer архитектура для анализа сетевого трафика
-    Аналогично GPT, но для пакетов и потоков
-    """
 
     def __init__(self,
                  vocab_size=256,
@@ -59,9 +55,6 @@ class NetworkTrafficTransformer(nn.Module):
         )
 
     def forward(self, packet_bytes, return_attention=False):
-        """
-        packet_bytes: (batch, seq_len) - байты пакета
-        """
         batch_size, seq_len = packet_bytes.shape
 
         x = self.byte_embedding(packet_bytes)
@@ -81,9 +74,6 @@ class NetworkTrafficTransformer(nn.Module):
 
 
 class PacketStreamTransformer(nn.Module):
-    """
-    Transformer для потоков пакетов (анализ последовательности пакетов)
-    """
 
     def __init__(self, packet_encoder, d_model=512, nhead=8, num_layers=4):
         super().__init__()
@@ -110,9 +100,6 @@ class PacketStreamTransformer(nn.Module):
         )
 
     def forward(self, packet_sequence):
-        """
-        packet_sequence: (batch, seq_len, packet_len) - последовательность пакетов
-        """
         batch_size, seq_len, packet_len = packet_sequence.shape
 
         packet_embeddings = []
@@ -139,7 +126,6 @@ class PacketStreamTransformer(nn.Module):
 
 
 class PositionalEncoding(nn.Module):
-    """Позиционное кодирование для Transformer"""
 
     def __init__(self, d_model: int, max_len: int = 5000, dropout: float = 0.1):
         super().__init__()
@@ -153,13 +139,11 @@ class PositionalEncoding(nn.Module):
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        """x: (batch, seq_len, d_model)"""
         x = x + self.pe[:x.size(1)].permute(1, 0, 2)
         return self.dropout(x)
 
 
 class PreTrainedNetworkTransformer:
-    """Предобученная модель для сетевого трафика"""
 
     def __init__(self, model_path='network_transformer.pth'):
         self.model = NetworkTrafficTransformer()
@@ -172,7 +156,6 @@ class PreTrainedNetworkTransformer:
 
     @torch.no_grad()
     def analyze_packet(self, packet_bytes):
-        """Анализ отдельного пакета"""
         packet_tensor = torch.tensor(packet_bytes).unsqueeze(0)
         attack_logits, anomaly_scores = self.model(packet_tensor)
 
@@ -189,7 +172,6 @@ class PreTrainedNetworkTransformer:
         }
 
     def get_attention_map(self, packet_bytes):
-        """Визуализация внимания модели"""
         packet_tensor = torch.tensor(packet_bytes).unsqueeze(0)
         _, _, encoded = self.model(packet_tensor, return_attention=True)
         return encoded.squeeze().cpu().numpy()

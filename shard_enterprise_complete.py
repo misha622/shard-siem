@@ -77,9 +77,7 @@ if sys.platform == 'linux':
         pass
 
 
-
 def safe_import(module_name: str, submodule: str = None) -> Optional[Any]:
-    """Безопасный импорт с поддержкой подмодулей"""
     try:
         if submodule:
             return __import__(module_name, fromlist=[submodule])
@@ -112,9 +110,7 @@ torch_geometric = safe_import('torch_geometric')
 torch_geometric_nn = safe_import('torch_geometric.nn') if torch_geometric else None
 
 
-
 def require_module(module_name: str):
-    """Декоратор для проверки наличия модуля"""
 
     def decorator(func):
         def wrapper(*args, **kwargs):
@@ -136,7 +132,6 @@ def require_module(module_name: str):
 
 
 def safe_import_scapy():
-    """Безопасный импорт Scapy с проверкой"""
     try:
         from scapy.all import IP, TCP, UDP, Raw, DNS, DNSQR
         return True, (IP, TCP, UDP, Raw, DNS, DNSQR)
@@ -144,10 +139,7 @@ def safe_import_scapy():
         return False, None
 
 
-
-
 class AttackType(Enum):
-    """Типы атак"""
     NORMAL = "Normal"
     DOS = "DoS"
     DDOS = "DDoS"
@@ -169,7 +161,6 @@ class AttackType(Enum):
 
     @classmethod
     def from_string(cls, value: str) -> 'AttackType':
-        """Получить Enum из строки (безопасно)"""
         if not value:
             return cls.UNKNOWN
 
@@ -194,7 +185,6 @@ class AttackType(Enum):
         return hash(self.value)
 
 class AlertSeverity(Enum):
-    """Уровни серьёзности"""
     INFO = "INFO"
     LOW = "LOW"
     MEDIUM = "MEDIUM"
@@ -203,7 +193,6 @@ class AlertSeverity(Enum):
 
     @classmethod
     def from_string(cls, value: str) -> 'AlertSeverity':
-        """Получить Enum из строки"""
         if not value:
             return cls.LOW
         for severity in cls:
@@ -242,7 +231,6 @@ class AlertSeverity(Enum):
 
 
 def is_attack_type(value, expected):
-    """Безопасное сравнение типа атаки"""
     if isinstance(value, AttackType):
         if isinstance(expected, AttackType):
             return value == expected
@@ -253,7 +241,6 @@ def is_attack_type(value, expected):
 
 
 def is_severity(value, expected):
-    """Безопасное сравнение серьёзности"""
     if isinstance(value, AlertSeverity):
         if isinstance(expected, AlertSeverity):
             return value == expected
@@ -263,7 +250,6 @@ def is_severity(value, expected):
     return value == expected
 
 class DNSThresholds:
-    """Пороговые значения для DNS анализа"""
     LONG_QUERY = 52
     VERY_LONG_QUERY = 100
     HIGH_ENTROPY = 3.5
@@ -279,7 +265,6 @@ class DNSThresholds:
 
 
 class ExfilThresholds:
-    """Пороги для обнаружения утечки данных"""
     SINGLE_DST_CRITICAL = 50_000_000
     SINGLE_DST_HIGH = 20_000_000
     SINGLE_DST_MEDIUM = 5_000_000
@@ -295,7 +280,6 @@ class ExfilThresholds:
 
 
 class WAFThresholds:
-    """Пороги для WAF"""
     RATE_LIMIT_REQUESTS = 100
     RATE_LIMIT_WINDOW = 60
     MAX_BUFFER_SIZE = 200
@@ -303,7 +287,6 @@ class WAFThresholds:
 
 
 class BeaconingThresholds:
-    """Пороги для обнаружения beaconing"""
     BEACON_SCORE_THRESHOLD = 0.7
     MIN_SAMPLES = 5
     CV_THRESHOLD = 0.1
@@ -312,7 +295,6 @@ class BeaconingThresholds:
 
 
 class MLThresholds:
-    """Пороги для ML моделей"""
     CONFIDENCE_THRESHOLD = 0.7
     ANOMALY_SCORE_THRESHOLD = -0.2
     RETRAIN_MIN_SAMPLES = 100
@@ -321,7 +303,6 @@ class MLThresholds:
 
 
 class CacheTTL:
-    """TTL для различных кэшей"""
     THREAT_INTEL = 3600
     GEO_LOCATION = 86400
     LDAP_USER = 3600
@@ -332,7 +313,6 @@ class CacheTTL:
 
 
 class CleanupIntervals:
-    """Интервалы очистки"""
     ATTACK_CHAIN = 300
     TLS_SESSIONS = 300
     THREAT_CACHE = 300
@@ -342,7 +322,6 @@ class CleanupIntervals:
 
 
 class ConfigManager:
-    """Менеджер конфигурации с проверкой целостности и безопасным доступом"""
 
     def __init__(self, config_path: str = "config.yaml"):
         self.config_path = Path(config_path)
@@ -361,7 +340,6 @@ class ConfigManager:
         self._setup_dirs()
 
     def _calculate_signature(self, data: str) -> str:
-        """Вычисление HMAC подписи данных"""
         import hmac
         import hashlib
         if isinstance(data, dict):
@@ -371,7 +349,6 @@ class ConfigManager:
         return hmac.new(self.secret_key, data.encode(), hashlib.sha256).hexdigest()
 
     def _verify_signature(self, data: str, signature: str) -> bool:
-        """Проверка HMAC подписи"""
         expected = self._calculate_signature(data)
         return hmac.compare_digest(expected, signature)
 
@@ -449,7 +426,6 @@ class ConfigManager:
         Path(self.get('ml.model_path', './models/')).mkdir(exist_ok=True)
 
     def _log_security_alert(self, message: str) -> None:
-        """Логирование события безопасности"""
         try:
             with open('shard_security.log', 'a', encoding='utf-8') as f:
                 f.write(f"{datetime.now().isoformat()} - SECURITY ALERT - {message}\n")
@@ -457,7 +433,6 @@ class ConfigManager:
             pass
 
     def get(self, key: str, default: Any = None) -> Any:
-        """Безопасное получение значения по dotted key (пункт 79)"""
         if not key:
             return default
 
@@ -476,7 +451,6 @@ class ConfigManager:
         return value if value is not None else default
 
     def set(self, key: str, value: Any) -> None:
-        """Установка значения по dotted key"""
         if not key:
             return
 
@@ -493,7 +467,6 @@ class ConfigManager:
         target[keys[-1]] = value
 
     def save(self) -> None:
-        """Атомарное сохранение конфигурации с подписью (пункты 34, 59)"""
         import tempfile
 
         temp_fd = None
@@ -549,7 +522,6 @@ class ConfigManager:
 
 
 class LoggingService:
-    """Сервис логирования с централизованной обработкой критических событий"""
 
     def __init__(self, config: ConfigManager, event_bus: Optional['EventBus'] = None):
         self.config = config
@@ -571,7 +543,6 @@ class LoggingService:
         return logging.getLogger(f"SHARD.{name}") if name else self.logger
 
     def critical_event(self, module: str, message: str, data: Dict = None) -> None:
-        """Критическое событие - логируется И публикуется в EventBus"""
         self.logger.critical(f"[{module}] {message}")
 
         if self.event_bus:
@@ -583,7 +554,6 @@ class LoggingService:
             })
 
     def security_alert(self, module: str, message: str, severity: str = 'HIGH', data: Dict = None) -> None:
-        """Событие безопасности - публикуется как алерт"""
         self.logger.warning(f"[SECURITY] [{module}] {message}")
 
         if self.event_bus:
@@ -599,16 +569,6 @@ class LoggingService:
 
 
 class EventBus:
-    """
-    Масштабируемая шина событий с per-subscriber очередями.
-
-    Исправления:
-    - Per-subscriber очереди вместо глобального lock (убирает contention)
-    - Каждый подписчик имеет свой воркер
-    - Lock-free публикация через put_nowait
-    - Автоматическая очистка умерших подписчиков
-    - Метрики для мониторинга
-    """
 
     def __init__(self, max_queue_size: int = 10000):
         self.priority_map = {
@@ -657,10 +617,6 @@ class EventBus:
                 self._dispatchers.append(t)
 
     def _dispatcher_worker(self, priority: str):
-        """
-        Диспетчер: читает события из приоритетной очереди
-        и распределяет их по очередям подписчиков.
-        """
         if priority == 'high':
             q = self._high_queue
         elif priority == 'low':
@@ -698,10 +654,6 @@ class EventBus:
                 continue
 
     def publish(self, event_type: str, data: Any = None):
-        """
-        Публикация события.
-        Высокоприоритетные события обрабатываются немедленно при переполнении очереди.
-        """
         priority = self.priority_map.get(event_type, 'normal')
 
         if priority == 'high':
@@ -731,10 +683,6 @@ class EventBus:
                         pass
 
     def subscribe(self, event_type: str, callback: Callable) -> None:
-        """
-        Подписка на события.
-        Создаёт отдельную очередь и воркер для каждого подписчика.
-        """
         sub_queue = queue.Queue(maxsize=self.max_queue_size)
 
         def subscriber_worker():
@@ -760,7 +708,6 @@ class EventBus:
             self.stats['subscribers'] += 1
 
     def unsubscribe(self, event_type: str, callback: Callable) -> None:
-        """Отписка от событий"""
         with self._subscriber_lock:
             if event_type in self._subscribers:
                 self._subscribers[event_type] = [
@@ -774,7 +721,6 @@ class EventBus:
                 self.stats['subscribers'] -= 1
 
     def get_stats(self) -> Dict:
-        """Получить статистику EventBus"""
         with self._stats_lock:
             stats = dict(self.stats)
 
@@ -793,7 +739,6 @@ class EventBus:
             return stats
 
     def shutdown(self):
-        """Graceful shutdown"""
         self._running = False
 
         for t in self._dispatchers:
@@ -807,9 +752,7 @@ class EventBus:
         self._subscribers.clear()
 
 
-
 class BaseModule(ABC):
-    """Базовый класс для всех модулей"""
 
     def __init__(self, name: str, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         self.name = name
@@ -831,9 +774,7 @@ class BaseModule(ABC):
         return self.running and not self._stop_event.is_set()
 
 
-
 class DNSAnalyzer(BaseModule):
-    """Глубокий анализ DNS трафика"""
 
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("DNSAnalyzer", config, event_bus, logger)
@@ -874,7 +815,6 @@ class DNSAnalyzer(BaseModule):
         self.running = False
 
     def on_packet(self, data: Dict) -> None:
-        """Обработка пакетов для анализа DNS"""
         packet = data.get('packet')
         if not packet:
             return
@@ -900,14 +840,12 @@ class DNSAnalyzer(BaseModule):
             self.logger.debug(f"Ошибка анализа DNS пакета: {e}")
 
     def on_dns_query(self, data: Dict) -> None:
-        """Обработка DNS запросов от DPI"""
         src_ip = data.get('src_ip', 'unknown')
         query = data.get('query', '')
         if query:
             self._analyze_dns_query(src_ip, query, None)
 
     def _analyze_dns_query(self, src_ip: str, query: str, packet: Any = None) -> Dict:
-        """Анализ DNS запроса (исправлено - использует константы, безопасная работа с set)"""
         result = {
             'is_suspicious': False,
             'reasons': [],
@@ -1046,7 +984,6 @@ class DNSAnalyzer(BaseModule):
         return result
 
     def _check_dns_tunnel(self, src_ip: str, dst_ip: str, packet_size: int, packet: Any = None) -> None:
-        """Проверка на DNS туннель (исправлено - учёт направления и типа)"""
 
         local_networks = self.config.get('network.local_networks', ['192.168.', '10.', '172.16.'])
         is_outbound = not any(dst_ip.startswith(net) for net in local_networks)
@@ -1095,7 +1032,6 @@ class DNSAnalyzer(BaseModule):
             self.event_bus.publish('dns.suspicious', alert)
 
     def _calculate_entropy(self, data: str) -> float:
-        """Вычисление энтропии Шеннона"""
         if not data:
             return 0.0
         freq = {}
@@ -1105,7 +1041,6 @@ class DNSAnalyzer(BaseModule):
         return entropy
 
     def get_stats(self, src_ip: str = None) -> Dict:
-        """Получить статистику DNS (исправлено - безопасное копирование)"""
         with self._lock:
             if src_ip:
                 if src_ip not in self.dns_queries:
@@ -1130,9 +1065,7 @@ class DNSAnalyzer(BaseModule):
             }
 
 
-
 class ThreatIntelligence(BaseModule):
-    """Интеграция с базами репутации IP (полная реальная версия)"""
 
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("ThreatIntel", config, event_bus, logger)
@@ -1178,7 +1111,6 @@ class ThreatIntelligence(BaseModule):
         self.event_bus.subscribe('threat_intel.check_ip', self.on_check_ip_request)
 
     def _init_http_session(self) -> None:
-        """Инициализация HTTP сессии"""
         if requests:
             self._session = requests.Session()
             self._session.headers.update({
@@ -1197,7 +1129,6 @@ class ThreatIntelligence(BaseModule):
             self._session.mount("https://", adapter)
 
     def _init_geoip(self) -> None:
-        """Инициализация GeoIP баз данных"""
         try:
             import geoip2.database
 
@@ -1240,7 +1171,6 @@ class ThreatIntelligence(BaseModule):
                 pass
 
     def _load_local_lists(self) -> None:
-        """Загрузка локальных списков известных вредоносных IP"""
         list_paths = [
             Path('data/tor_exit_nodes.txt'),
             Path('data/known_malicious.txt'),
@@ -1268,7 +1198,6 @@ class ThreatIntelligence(BaseModule):
             threading.Thread(target=self._download_tor_exit_list, daemon=True).start()
 
     def _download_tor_exit_list(self) -> None:
-        """Скачивание списка Tor exit nodes (с проверкой сертификата)"""
         try:
             if self._session:
                 response = self._session.get(
@@ -1293,7 +1222,6 @@ class ThreatIntelligence(BaseModule):
             self.logger.debug(f"Ошибка скачивания Tor списка: {e}")
 
     def start(self) -> None:
-        """Запуск модуля"""
         self.running = True
 
         self._executor = ThreadPoolExecutor(
@@ -1315,7 +1243,6 @@ class ThreatIntelligence(BaseModule):
         )
 
     def stop(self) -> None:
-        """Остановка модуля с graceful shutdown"""
         self.running = False
 
         if self._session:
@@ -1357,7 +1284,6 @@ class ThreatIntelligence(BaseModule):
         self.logger.info("Threat Intelligence остановлен")
 
     def on_alert(self, alert: Dict) -> None:
-        """Проверка IP при алерте"""
         src_ip = alert.get('src_ip', '')
         dst_ip = alert.get('dst_ip', '')
 
@@ -1366,7 +1292,6 @@ class ThreatIntelligence(BaseModule):
                 self._executor.submit(self._check_ip_and_enrich_alert, ip, alert)
 
     def _check_ip_and_enrich_alert(self, ip: str, alert: Dict) -> None:
-        """Проверка IP и обогащение алерта"""
         result = self.check_ip(ip)
 
         if result['is_malicious']:
@@ -1379,7 +1304,6 @@ class ThreatIntelligence(BaseModule):
             self.logger.warning(f"IP {ip} найден в threat intelligence: score={result['score']:.2f}")
 
     def on_packet(self, data: Dict) -> None:
-        """Проверка IP из трафика"""
         if not self._executor:
             return
 
@@ -1402,7 +1326,6 @@ class ThreatIntelligence(BaseModule):
                 self._executor.submit(self._check_and_alert_wrapper, ip)
 
     def on_check_ip_request(self, data: Dict) -> None:
-        """Обработка явного запроса на проверку IP"""
         ip = data.get('ip', '')
         request_id = data.get('request_id', '')
 
@@ -1415,7 +1338,6 @@ class ThreatIntelligence(BaseModule):
             })
 
     def _check_and_alert_wrapper(self, ip: str) -> None:
-        """Обёртка для проверки с очисткой pending"""
         try:
             self._check_and_alert(ip)
         finally:
@@ -1423,7 +1345,6 @@ class ThreatIntelligence(BaseModule):
                 self._pending_checks.discard(ip)
 
     def _check_and_alert(self, ip: str) -> None:
-        """Проверка IP и отправка алерта при обнаружении"""
         result = self.check_ip(ip)
 
         if result['is_malicious']:
@@ -1448,7 +1369,6 @@ class ThreatIntelligence(BaseModule):
             self.event_bus.publish('alert.detected', alert)
 
     def check_ip(self, ip: str) -> Dict:
-        """Полная проверка IP через все доступные источники (параллельные запросы)"""
 
         with self._lock:
             if ip in self.cache:
@@ -1587,7 +1507,6 @@ class ThreatIntelligence(BaseModule):
         return result
 
     def _check_local_lists(self, ip: str) -> Dict:
-        """Проверка IP по локальным спискам"""
         result = {
             'is_malicious': False,
             'score': 0.0,
@@ -1622,7 +1541,6 @@ class ThreatIntelligence(BaseModule):
         return result
 
     def get_geo_location(self, ip: str) -> Dict:
-        """Получение геолокации IP из разных источников"""
         with self._geo_lock:
             if ip in self.geo_cache:
                 cached = self.geo_cache[ip]
@@ -1778,7 +1696,6 @@ class ThreatIntelligence(BaseModule):
         return result
 
     def _check_abuseipdb_full(self, ip: str) -> Optional[Dict]:
-        """Расширенная проверка через AbuseIPDB"""
         if not self.abuseipdb_key or not self._session:
             return None
 
@@ -1832,7 +1749,6 @@ class ThreatIntelligence(BaseModule):
             return None
 
     def _abuseipdb_category_name(self, cat_id: int) -> str:
-        """Получение названия категории AbuseIPDB"""
         categories = {
             3: 'Fraud Orders',
             4: 'DDoS Attack',
@@ -1859,7 +1775,6 @@ class ThreatIntelligence(BaseModule):
         return categories.get(cat_id, f'Unknown({cat_id})')
 
     def _check_virustotal_full(self, ip: str) -> Optional[Dict]:
-        """Расширенная проверка через VirusTotal"""
         if not self.virustotal_key or not self._session:
             return None
 
@@ -1912,7 +1827,6 @@ class ThreatIntelligence(BaseModule):
             return None
 
     def _check_alienvault(self, ip: str) -> Optional[Dict]:
-        """Проверка через AlienVault OTX"""
         if not self.alienvault_key or not self._session:
             return None
 
@@ -1956,7 +1870,6 @@ class ThreatIntelligence(BaseModule):
             return None
 
     def _check_ipinfo(self, ip: str) -> Optional[Dict]:
-        """Проверка через IPinfo"""
         if not self.ipinfo_token or not self._session:
             return None
 
@@ -1987,7 +1900,6 @@ class ThreatIntelligence(BaseModule):
             return None
 
     def _is_public_ip(self, ip: str) -> bool:
-        """Проверка, является ли IP публичным"""
         try:
             parts = ip.split('.')
             if len(parts) != 4:
@@ -2018,7 +1930,6 @@ class ThreatIntelligence(BaseModule):
             return False
 
     def _cleanup_loop(self) -> None:
-        """Очистка устаревшего кэша (исправлено - безопасное удаление)"""
         while self.running:
             time.sleep(300)
             now = time.time()
@@ -2051,13 +1962,11 @@ class ThreatIntelligence(BaseModule):
                 self.logger.debug(f"Очищено {len(expired_geo)} записей из кэша геолокации")
 
     def _cache_warmup_loop(self) -> None:
-        """Периодический прогрев кэша важных IP"""
         while self.running:
             time.sleep(3600)
             pass
 
     def get_cache_stats(self) -> Dict:
-        """Получить статистику кэша"""
         with self._lock:
             with self._pending_lock:
                 with self._geo_lock:
@@ -2073,7 +1982,6 @@ class ThreatIntelligence(BaseModule):
                     }
 
     def bulk_check_ips(self, ips: List[str]) -> Dict[str, Dict]:
-        """Массовая проверка списка IP (используем существующий executor)"""
         results = {}
         public_ips = [ip for ip in ips if self._is_public_ip(ip)]
 
@@ -2099,7 +2007,6 @@ class ThreatIntelligence(BaseModule):
         return results
 
     def add_to_local_blocklist(self, ip: str, reason: str = 'manual') -> None:
-        """Добавить IP в локальный блок-лист (исправлено - инвалидация кэша)"""
         if not self._is_public_ip(ip):
             self.logger.warning(f"IP {ip} не является публичным, не добавлен в блок-лист")
             return
@@ -2122,7 +2029,6 @@ class ThreatIntelligence(BaseModule):
             self.logger.error(f"Ошибка сохранения блок-листа: {e}")
 
     def remove_from_local_blocklist(self, ip: str) -> bool:
-        """Удалить IP из локального блок-листа (с инвалидацией кэша)"""
         with self._lock:
             if ip in self.known_malicious_ips:
                 self.known_malicious_ips.remove(ip)
@@ -2134,10 +2040,7 @@ class ThreatIntelligence(BaseModule):
         return False
 
 
-
-
 class DataExfiltrationDetector(BaseModule):
-    """Обнаружение утечки данных (Data Exfiltration) с дедупликацией алертов"""
 
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("ExfilDetector", config, event_bus, logger)
@@ -2198,7 +2101,6 @@ class DataExfiltrationDetector(BaseModule):
         self.running = False
 
     def _should_suppress_alert(self, alert_key: str, src_ip: str) -> bool:
-        """Проверка нужно ли подавить алерт (без вызова логгера внутри лока)"""
         now = time.time()
 
         with self._alert_lock:
@@ -2225,7 +2127,6 @@ class DataExfiltrationDetector(BaseModule):
             return False
 
     def on_packet(self, data: Dict) -> None:
-        """Анализ трафика на утечку данных"""
         src_ip = data.get('src_ip', '')
         dst_ip = data.get('dst_ip', '')
         dst_port = data.get('dst_port', 0)
@@ -2247,7 +2148,6 @@ class DataExfiltrationDetector(BaseModule):
             self.logger.debug(f"Ошибка анализа трафика: {e}")
 
     def on_http(self, data: Dict) -> None:
-        """Анализ HTTP трафика"""
         src_ip = data.get('src_ip', '')
         dst_ip = data.get('dst_ip', '')
         method = data.get('method', '')
@@ -2291,7 +2191,6 @@ class DataExfiltrationDetector(BaseModule):
                 self.event_bus.publish('exfiltration.detected', alert)
 
     def _analyze_outbound_traffic(self, src_ip: str, dst_ip: str, dst_port: int, bytes_count: int, packet: Any) -> None:
-        """Анализ исходящего трафика (исправлено - убрана двойная инициализация)"""
 
         flow_key = (src_ip, dst_ip)
 
@@ -2424,7 +2323,6 @@ class DataExfiltrationDetector(BaseModule):
                     f"Обнаружена утечка данных от {src_ip} к {dst_ip}: score={result['score']:.3f}, {', '.join(result['reasons'])}")
 
     def _cleanup_loop(self) -> None:
-        """Очистка устаревших данных (исправлена гонка)"""
         while self.running:
             time.sleep(600)
 
@@ -2442,7 +2340,6 @@ class DataExfiltrationDetector(BaseModule):
                         del self.host_stats[k]
 
     def get_stats(self, src_ip: str = None) -> Dict:
-        """Получить статистику"""
         with self._lock:
             if src_ip:
                 host_stats = self.host_stats.get(src_ip, {})
@@ -2487,7 +2384,6 @@ class DataExfiltrationDetector(BaseModule):
             }
 
     def reset_stats(self) -> None:
-        """Сброс статистики"""
         with self._lock:
             self.flows.clear()
             self.host_stats.clear()
@@ -2501,9 +2397,7 @@ class DataExfiltrationDetector(BaseModule):
         self.logger.info("Статистика детектора утечек сброшена")
 
 
-
 class UserBehaviorAnalytics(BaseModule):
-    """Анализ поведения пользователей и сущностей (UBA/UEBA)"""
 
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("UBA", config, event_bus, logger)
@@ -2556,13 +2450,11 @@ class UserBehaviorAnalytics(BaseModule):
         self.running = False
 
     def bind_ip_to_user(self, ip: str, username: str) -> None:
-        """Привязка IP к пользователю"""
         with self._lock:
             self.ip_to_user[ip] = username
             self.users[username]['ips'].add(ip)
 
     def on_login(self, data: Dict) -> None:
-        """Обработка успешного входа"""
         username = data.get('username', '')
         src_ip = data.get('src_ip', '')
         geo = data.get('geo', '')
@@ -2589,7 +2481,6 @@ class UserBehaviorAnalytics(BaseModule):
             self.event_bus.publish('uba.anomaly', alert)
 
     def on_logout(self, data: Dict) -> None:
-        """Обработка выхода"""
         username = data.get('username', '')
         src_ip = data.get('src_ip', '')
 
@@ -2604,7 +2495,6 @@ class UserBehaviorAnalytics(BaseModule):
             )
 
     def on_failed_login(self, data: Dict) -> None:
-        """Обработка неудачного входа"""
         username = data.get('username', '')
         src_ip = data.get('src_ip', '')
 
@@ -2621,7 +2511,6 @@ class UserBehaviorAnalytics(BaseModule):
             self.event_bus.publish('uba.anomaly', alert)
 
     def on_traffic(self, data: Dict) -> None:
-        """Анализ трафика для UBA"""
         src_ip = data.get('src_ip', '')
         packet = data.get('packet')
 
@@ -2645,7 +2534,6 @@ class UserBehaviorAnalytics(BaseModule):
                 user['bytes_uploaded'].append((now, bytes_count))
 
     def on_alert(self, alert: Dict) -> None:
-        """Обновление риска при алерте"""
         src_ip = alert.get('src_ip', '')
         if src_ip:
             username = self.ip_to_user.get(src_ip, src_ip)
@@ -2654,7 +2542,6 @@ class UserBehaviorAnalytics(BaseModule):
                     self.users[username]['risk_score'] = min(1.0, self.users[username]['risk_score'] + 0.1)
 
     def record_event(self, src_ip: str, event_type: str, details: Dict) -> Optional[Dict]:
-        """Запись события и анализ аномалий (с копированием данных)"""
         username = self.ip_to_user.get(src_ip, src_ip)
 
         with self._lock:
@@ -2722,7 +2609,6 @@ class UserBehaviorAnalytics(BaseModule):
             return alert
 
     def _analyze_anomalies(self, username: str, user: Dict, event_type: str, details: Dict) -> Optional[Dict]:
-        """Анализ аномалий в поведении (исправлена логика unusual time)"""
         alert = {
             'username': username,
             'anomalies': [],
@@ -2821,13 +2707,11 @@ class UserBehaviorAnalytics(BaseModule):
         return None
 
     def _peer_group_loop(self) -> None:
-        """Обновление групп похожих пользователей"""
         while self.running:
             time.sleep(3600)
             self._update_peer_groups()
 
     def _update_peer_groups(self) -> None:
-        """Обновление peer groups на основе поведения"""
         with self._lock:
             user_activity = {}
             for username, data in self.users.items():
@@ -2847,7 +2731,6 @@ class UserBehaviorAnalytics(BaseModule):
                         self.user_peer_groups['normal_activity'].append(username)
 
     def _risk_decay_loop(self) -> None:
-        """Постепенное снижение риска"""
         while self.running:
             time.sleep(60)
             with self._lock:
@@ -2855,12 +2738,10 @@ class UserBehaviorAnalytics(BaseModule):
                     user['risk_score'] = max(0.0, user['risk_score'] * 0.99)
 
     def get_user_risk(self, username: str) -> float:
-        """Получить текущий риск пользователя"""
         with self._lock:
             return self.users.get(username, {}).get('risk_score', 0.0)
 
     def get_user_profile(self, username: str) -> Optional[Dict]:
-        """Получить профиль пользователя"""
         with self._lock:
             if username in self.users:
                 user = self.users[username]
@@ -2879,9 +2760,7 @@ class UserBehaviorAnalytics(BaseModule):
         return None
 
 
-
 class IncidentReportGenerator(BaseModule):
-    """Генерация автоматических отчётов об инцидентах (исправлен - защита от циклов, экранирование, ограничение частоты)"""
 
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("ReportGenerator", config, event_bus, logger)
@@ -2943,14 +2822,12 @@ class IncidentReportGenerator(BaseModule):
         self.event_bus.subscribe('alert.detected', self.on_alert)
 
     def _escape_html(self, text: str) -> str:
-        """Экранирование специальных символов HTML"""
         if not text:
             return ""
         return str(text).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace(
             "'", '&
 
     def _escape_text(self, text: str) -> str:
-        """Безопасное форматирование текста для отчёта"""
         if not text:
             return "N/A"
         safe_text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', str(text))
@@ -2966,7 +2843,6 @@ class IncidentReportGenerator(BaseModule):
         self.logger.info("Генератор отчётов остановлен")
 
     def _cleanup_loop(self) -> None:
-        """Очистка старых отчётов"""
         while self.running:
             time.sleep(3600)
 
@@ -2980,7 +2856,6 @@ class IncidentReportGenerator(BaseModule):
                 self.logger.debug(f"Ошибка очистки отчётов: {e}")
 
     def on_investigation(self, investigation: Dict) -> None:
-        """Генерация отчёта при завершении расследования (с защитой от циклов)"""
         inv_id = investigation.get('id')
 
         with self._investigation_lock:
@@ -3021,7 +2896,6 @@ class IncidentReportGenerator(BaseModule):
         self._save_report(inv_id, report)
 
     def on_alert(self, alert: Dict) -> None:
-        """Автоматическая генерация отчёта для критических алертов (с ограничением частоты)"""
         if alert.get('severity') != AlertSeverity.CRITICAL.value:
             return
 
@@ -3062,7 +2936,6 @@ class IncidentReportGenerator(BaseModule):
         self._save_report(investigation['id'], report)
 
     def generate_report(self, investigation: Dict, alerts: List[Dict]) -> str:
-        """Генерация полного отчёта (с экранированием данных)"""
         inv = investigation
 
         inv_id = self._escape_text(inv.get('id', 'N/A'))
@@ -3187,7 +3060,6 @@ ID инцидента: {inv_id}
         return report
 
     def generate_html_report(self, investigation: Dict, alerts: List[Dict]) -> str:
-        """Генерация HTML отчёта (с полным экранированием)"""
         inv = investigation
 
         inv_id = self._escape_html(inv.get('id', 'N/A'))
@@ -3305,13 +3177,11 @@ ID инцидента: {inv_id}
         return html
 
     def _get_recommendations(self, attack_type: str) -> List[str]:
-        """Получить рекомендации для типа атаки"""
         return self.recommendation_templates.get(attack_type,
                                                  ['Провести дополнительный анализ', 'Проверить логи',
                                                   'Усилить мониторинг'])
 
     def _save_report(self, incident_id: str, report: str) -> None:
-        """Сохранение отчёта в файл"""
         safe_id = re.sub(r'[^a-zA-Z0-9\-_]', '_', str(incident_id))[:50]
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         filename = self.reports_dir / f"incident_{safe_id}_{timestamp}.txt"
@@ -3324,7 +3194,6 @@ ID инцидента: {inv_id}
             self.logger.error(f"Ошибка сохранения отчёта: {e}")
 
     def get_recent_reports(self, limit: int = 10) -> List[Dict]:
-        """Получить список последних отчётов"""
         reports = []
         try:
             for f in sorted(self.reports_dir.glob('incident_*.txt'),
@@ -3339,7 +3208,6 @@ ID инцидента: {inv_id}
         return reports
 
     def get_stats(self) -> Dict:
-        """Получить статистику генератора отчётов"""
         with self._report_lock:
             with self._investigation_lock:
                 return {
@@ -3353,7 +3221,6 @@ ID инцидента: {inv_id}
 
 
 class DashboardHandler(http.server.SimpleHTTPRequestHandler):
-    """Обработчик HTTP запросов для дашборда (исправлен - path traversal защита, безопасное сравнение)"""
 
     dashboard_stats = None
     dashboard_logger = None
@@ -3366,7 +3233,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         pass
 
     def handle(self):
-        """Обработка запроса с игнорированием BrokenPipe"""
         try:
             super().handle()
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
@@ -3376,7 +3242,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self.dashboard_logger.debug(f"HTTP ошибка в handle: {type(e).__name__}")
 
     def handle_one_request(self):
-        """Обработка одного запроса с защитой от сетевых ошибок"""
         try:
             super().handle_one_request()
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
@@ -3549,7 +3414,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 pass
 
     def do_OPTIONS(self):
-        """Обработка OPTIONS запросов (для CORS)"""
         try:
             self.send_response(200)
             self.send_header('Access-Control-Allow-Origin', '*')
@@ -3848,9 +3712,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 </html>'''
 
 
-
 class WebDashboard(BaseModule):
-    """Веб-дашборд для мониторинга (исправлен - аутентификация, валидация, нет утечек)"""
 
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("Dashboard", config, event_bus, logger)
@@ -3893,12 +3755,10 @@ class WebDashboard(BaseModule):
             self.logger.info(f"🔐 Дашборд: логин '{self.username}', пароль '{self.password}'")
 
     def _generate_default_password(self) -> str:
-        """Генерация случайного пароля если не задан"""
         import secrets
         return secrets.token_urlsafe(16)
 
     def _init_handler_class(self) -> None:
-        """Инициализация класса обработчика (однократно)"""
         DashboardHandler.dashboard_stats = self.stats
         DashboardHandler.dashboard_logger = self.logger
         DashboardHandler.dashboard_lock = self._lock
@@ -3907,7 +3767,6 @@ class WebDashboard(BaseModule):
         DashboardHandler.dashboard_validate_ip = self._validate_ip
 
     def _check_auth(self, headers: Dict) -> bool:
-        """Проверка аутентификации (защита от timing attack)"""
         if not self.auth_enabled:
             return True
 
@@ -3942,7 +3801,6 @@ class WebDashboard(BaseModule):
         return False
 
     def _validate_ip(self, ip: str) -> bool:
-        """Строгая валидация IP адреса"""
         if not ip:
             return False
         pattern = r'^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$'
@@ -4000,7 +3858,6 @@ class WebDashboard(BaseModule):
         self.logger.info("Дашборд остановлен")
 
     def _decay_worker(self) -> None:
-        """Единый воркер для снижения счётчика активных угроз"""
         while self.running:
             try:
                 decay_count = self._decay_queue.get(timeout=30)
@@ -4051,7 +3908,6 @@ class WebDashboard(BaseModule):
             self.stats['blocked_ips'] += 1
 
     def reset_stats(self) -> None:
-        """Сброс статистики дашборда"""
         with self._lock:
             self.stats['total_packets'] = 0
             self.stats['total_alerts'] = 0
@@ -4065,7 +3921,6 @@ class WebDashboard(BaseModule):
         self.logger.info("Статистика дашборда сброшена")
 
     def get_status(self) -> Dict:
-        """Получить статус дашборда"""
         with self._lock:
             return {
                 'enabled': self.enabled,
@@ -4084,13 +3939,10 @@ class WebDashboard(BaseModule):
             }
 
     def _create_handler(self):
-        """Создание обработчика HTTP запросов (переиспользуем класс)"""
         return DashboardHandler
 
 
-
 class LDAPContextProvider(BaseModule):
-    """Получение контекста из Active Directory / LDAP (исправлен - реальное шифрование пароля)"""
 
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("LDAP", config, event_bus, logger)
@@ -4157,7 +4009,6 @@ class LDAPContextProvider(BaseModule):
         self.event_bus.subscribe('ldap.query.request', self.on_query_request)
 
     def _get_or_create_key(self) -> bytes:
-        """Получить или создать ключ шифрования"""
         key_path = Path('data/ldap_key.key')
         key_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -4173,7 +4024,6 @@ class LDAPContextProvider(BaseModule):
             return key
 
     def _get_bind_password(self) -> str:
-        """Получить пароль (с расшифровкой)"""
         if not self._bind_password_encrypted:
             return ""
         try:
@@ -4187,7 +4037,6 @@ class LDAPContextProvider(BaseModule):
             return ""
 
     def _sanitize_ldap_string(self, value: str, max_length: int = 200) -> str:
-        """Санирование строк из LDAP"""
         if not value:
             return ""
         safe = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', str(value))
@@ -4211,7 +4060,6 @@ class LDAPContextProvider(BaseModule):
         self._close_ldap_connection()
 
     def _get_ldap_connection(self):
-        """Получение LDAP соединения (с безопасной работой с паролем)"""
         with self._connection_lock:
             if self.ldap_connection is not None:
                 try:
@@ -4263,7 +4111,6 @@ class LDAPContextProvider(BaseModule):
                 return None
 
     def _close_ldap_connection(self) -> None:
-        """Закрытие LDAP соединения"""
         with self._connection_lock:
             if self.ldap_connection:
                 try:
@@ -4273,7 +4120,6 @@ class LDAPContextProvider(BaseModule):
                 self.ldap_connection = None
 
     def _test_ldap_connection(self) -> bool:
-        """Тестирование LDAP соединения"""
         conn = self._get_ldap_connection()
         if conn and conn.bound:
             self.logger.info("LDAP соединение успешно установлено")
@@ -4281,7 +4127,6 @@ class LDAPContextProvider(BaseModule):
         return False
 
     def _get_search_base(self) -> str:
-        """Получение базы поиска"""
         if self.base_dn:
             return self.base_dn
         if self.domain:
@@ -4289,14 +4134,12 @@ class LDAPContextProvider(BaseModule):
         return ""
 
     def _extract_cn_from_dn(self, dn: str) -> Optional[str]:
-        """Извлечение CN из DN"""
         for part in dn.split(','):
             if part.strip().upper().startswith('CN='):
                 return self._sanitize_ldap_string(part.strip()[3:], 100)
         return None
 
     def _sid_to_string(self, sid_bytes: bytes) -> str:
-        """Преобразование SID из байт в строку"""
         try:
             if not sid_bytes:
                 return ""
@@ -4313,7 +4156,6 @@ class LDAPContextProvider(BaseModule):
             return ""
 
     def _filetime_to_datetime(self, filetime: int) -> Optional[str]:
-        """Преобразование Windows FILETIME в datetime"""
         if filetime == 0 or filetime == 0x7FFFFFFFFFFFFFFF:
             return None
         try:
@@ -4325,7 +4167,6 @@ class LDAPContextProvider(BaseModule):
             return None
 
     def on_login(self, data: Dict) -> None:
-        """Обогащение события входа LDAP контекстом"""
         username = data.get('username', '')
         src_ip = data.get('src_ip', '')
 
@@ -4341,7 +4182,6 @@ class LDAPContextProvider(BaseModule):
                 })
 
     def on_alert(self, alert: Dict) -> None:
-        """Добавление LDAP контекста к алерту"""
         src_ip = alert.get('src_ip', '')
         username = alert.get('username')
 
@@ -4372,7 +4212,6 @@ class LDAPContextProvider(BaseModule):
                     alert['explanation'] = f'Атака на привилегированную учётную запись {username}!'
 
     def on_query_request(self, data: Dict) -> None:
-        """Обработка запроса к LDAP"""
         query_type = data.get('type', '')
         query_value = data.get('value', '')
         request_id = data.get('request_id', '')
@@ -4392,7 +4231,6 @@ class LDAPContextProvider(BaseModule):
         })
 
     def _find_username_by_ip(self, ip: str) -> Optional[str]:
-        """Поиск username по IP в кэше"""
         with self._lock:
             for username, context in self.user_cache.items():
                 if ip in context.get('recent_ips', []):
@@ -4400,7 +4238,6 @@ class LDAPContextProvider(BaseModule):
         return None
 
     def get_user_context(self, username: str) -> Dict:
-        """Получить контекст пользователя из LDAP"""
         with self._lock:
             if username in self.user_cache:
                 cached = self.user_cache[username]
@@ -4425,7 +4262,6 @@ class LDAPContextProvider(BaseModule):
         return context
 
     def _get_username_variants(self, username: str) -> List[str]:
-        """Получение вариантов username для поиска"""
         variants = [username]
         if '\\' in username:
             variants.append(username.split('\\')[1])
@@ -4437,7 +4273,6 @@ class LDAPContextProvider(BaseModule):
         return variants
 
     def _fetch_user_context_ldap(self, username: str) -> Optional[Dict]:
-        """Реальный запрос к LDAP для получения контекста пользователя"""
         conn = self._get_ldap_connection()
         if not conn:
             return None
@@ -4537,7 +4372,6 @@ class LDAPContextProvider(BaseModule):
             return None
 
     def _get_recent_logon_ips(self, username: str) -> List[str]:
-        """Получение недавних IP из логов входа (исправлено - без утечки подписок)"""
         ips = []
 
         try:
@@ -4575,7 +4409,6 @@ class LDAPContextProvider(BaseModule):
         return ips
 
     def _create_basic_context(self, username: str) -> Dict:
-        """Создание базового контекста когда LDAP недоступен"""
         context = {
             'username': username,
             'display_name': username,
@@ -4606,12 +4439,10 @@ class LDAPContextProvider(BaseModule):
         return context
 
     def is_privileged_account(self, username: str) -> bool:
-        """Проверка, является ли учётная запись привилегированной"""
         ctx = self.get_user_context(username)
         return ctx.get('is_privileged', False)
 
     def get_group_members(self, group_name: str) -> List[str]:
-        """Получить членов группы из LDAP"""
         with self._lock:
             if group_name in self.group_cache:
                 cached = self.group_cache[group_name]
@@ -4633,7 +4464,6 @@ class LDAPContextProvider(BaseModule):
         return members
 
     def _fetch_group_members_ldap(self, group_identifier: str, use_filter: bool = True) -> List[str]:
-        """Реальный запрос к LDAP для получения членов группы"""
         conn = self._get_ldap_connection()
         if not conn:
             return []
@@ -4670,7 +4500,6 @@ class LDAPContextProvider(BaseModule):
             return []
 
     def get_computer_info(self, computer_name: str) -> Dict:
-        """Получить информацию о компьютере из AD"""
         with self._lock:
             if computer_name in self.computer_cache:
                 cached = self.computer_cache[computer_name]
@@ -4695,7 +4524,6 @@ class LDAPContextProvider(BaseModule):
         return info
 
     def _fetch_computer_info_ldap(self, computer_name: str) -> Optional[Dict]:
-        """Запрос информации о компьютере из LDAP"""
         conn = self._get_ldap_connection()
         if not conn:
             return None
@@ -4745,7 +4573,6 @@ class LDAPContextProvider(BaseModule):
             return None
 
     def _cache_refresh_loop(self) -> None:
-        """Периодическое обновление кэша"""
         while self.running:
             time.sleep(self.cache_ttl // 2)
 
@@ -4760,7 +4587,6 @@ class LDAPContextProvider(BaseModule):
                         del cache_dict[key]
 
     def search_users(self, query: str, limit: int = 10) -> List[Dict]:
-        """Поиск пользователей в LDAP"""
         conn = self._get_ldap_connection()
         if not conn:
             return []
@@ -4795,7 +4621,6 @@ class LDAPContextProvider(BaseModule):
             return []
 
     def get_domain_controllers(self) -> List[str]:
-        """Получение списка контроллеров домена"""
         conn = self._get_ldap_connection()
         if not conn:
             return []
@@ -4824,7 +4649,6 @@ class LDAPContextProvider(BaseModule):
             return []
 
     def clear_cache(self) -> None:
-        """Очистка всего кэша"""
         with self._lock:
             self.user_cache.clear()
             self.group_cache.clear()
@@ -4832,9 +4656,7 @@ class LDAPContextProvider(BaseModule):
         self.logger.info("Кэш LDAP очищен")
 
 
-
 class EmailThreatAnalyzer(BaseModule):
-    """Анализ email угроз (фишинг, подозрительные вложения)"""
 
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("EmailAnalyzer", config, event_bus, logger)
@@ -4870,7 +4692,6 @@ class EmailThreatAnalyzer(BaseModule):
         self.running = False
 
     def on_email(self, data: Dict) -> None:
-        """Анализ email сообщения"""
         sender = data.get('sender', '')
         recipient = data.get('recipient', '')
         subject = data.get('subject', '')
@@ -4889,7 +4710,6 @@ class EmailThreatAnalyzer(BaseModule):
 
     def analyze_email(self, sender: str, subject: str, body: str,
                       attachments: List[str], headers: Dict = None) -> Dict:
-        """Анализ email на угрозы"""
         result = {
             'is_suspicious': False,
             'reasons': [],
@@ -5003,13 +4823,11 @@ class EmailThreatAnalyzer(BaseModule):
         return result
 
     def _extract_urls(self, text: str) -> List[str]:
-        """Извлечение URL из текста"""
         url_pattern = r'https?://[^\s<>"\'{}|\\^`\[\]]+|www\.[^\s<>"\'{}|\\^`\[\]]+'
         urls = re.findall(url_pattern, text, re.IGNORECASE)
         return urls
 
     def _is_suspicious_url(self, url: str) -> bool:
-        """Проверка URL на подозрительность (исправлена логика спуфинга)"""
         url_lower = url.lower()
 
         shorteners = {'bit.ly', 'tinyurl.com', 'goo.gl', 'ow.ly', 'is.gd', 'buff.ly', 'adf.ly', 'shorte.st', 'rb.gy',
@@ -5079,7 +4897,6 @@ class EmailThreatAnalyzer(BaseModule):
         return False
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         with self._lock:
             return {
                 'suspicious_senders': len(self.suspicious_senders),
@@ -5087,9 +4904,7 @@ class EmailThreatAnalyzer(BaseModule):
             }
 
 
-
 class EDRIntegration(BaseModule):
-    """Интеграция с EDR/антивирусами через Windows Event Logs / Sysmon / WMI (полная реальная версия)"""
 
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("EDR", config, event_bus, logger)
@@ -5209,7 +5024,6 @@ class EDRIntegration(BaseModule):
         self.event_bus.subscribe('wmi.event', self.on_wmi_event)
 
     def _init_windows_event_log(self) -> None:
-        """Инициализация чтения Windows Event Log"""
         if sys.platform != 'win32':
             self.logger.debug("Не Windows платформа, чтение Event Log отключено")
             return
@@ -5229,7 +5043,6 @@ class EDRIntegration(BaseModule):
             self.use_win32evtlog = False
 
     def _init_wmi(self) -> None:
-        """Инициализация WMI мониторинга"""
         if sys.platform != 'win32':
             return
 
@@ -5267,7 +5080,6 @@ class EDRIntegration(BaseModule):
         self.logger.info("EDR интеграция запущена")
 
     def stop(self) -> None:
-        """Остановка модуля"""
         self.running = False
 
         for log_name, handle in self.event_log_handles.items():
@@ -5286,7 +5098,6 @@ class EDRIntegration(BaseModule):
         self.wmi_watchers.clear()
 
     def on_edr_event(self, event: Dict) -> None:
-        """Обработка события от EDR"""
         event_type = event.get('event_type', 'unknown')
 
         if event_type == 'process':
@@ -5307,7 +5118,6 @@ class EDRIntegration(BaseModule):
             self._process_failed_login_event(event)
 
     def on_sysmon_event(self, event: Dict) -> None:
-        """Обработка события от Sysmon"""
         event_id = event.get('event_id', 0)
 
         if event_id == 1:
@@ -5348,7 +5158,6 @@ class EDRIntegration(BaseModule):
             self._process_tampering_event(event)
 
     def on_wmi_event(self, event: Dict) -> None:
-        """Обработка события от WMI"""
         event_class = event.get('class', '')
 
         if 'ProcessStart' in event_class:
@@ -5361,7 +5170,6 @@ class EDRIntegration(BaseModule):
             self._process_registry_event(event)
 
     def _windows_event_loop(self) -> None:
-        """Цикл чтения Windows Event Log (с пакетной обработкой)"""
         import win32evtlog
         import win32evtlogutil
         import pywintypes
@@ -5417,7 +5225,6 @@ class EDRIntegration(BaseModule):
             time.sleep(0.1)
 
     def _read_new_events_batch(self, log_name: str, handle, max_events: int = 50) -> List[Dict]:
-        """Пакетное чтение новых событий"""
         import win32evtlog
 
         flags = win32evtlog.EVENTLOG_FORWARDS_READ | win32evtlog.EVENTLOG_SEQUENTIAL_READ
@@ -5444,7 +5251,6 @@ class EDRIntegration(BaseModule):
 
 
     def _parse_windows_event(self, log_name: str, event) -> Optional[Dict]:
-        """Парсинг Windows Event в унифицированный формат"""
         import win32evtlogutil
 
         try:
@@ -5495,7 +5301,6 @@ class EDRIntegration(BaseModule):
             return None
 
     def _parse_security_event(self, event_id: int, result: Dict) -> None:
-        """Парсинг Security событий"""
         message = result.get('message', '')
         inserts = result.get('raw_inserts', [])
 
@@ -5624,7 +5429,6 @@ class EDRIntegration(BaseModule):
             result['group_name'] = self._extract_from_message(message, r'Group Name:\s+([^\r\n]+)')
 
     def _parse_sysmon_event(self, event_id: int, result: Dict) -> None:
-        """Парсинг Sysmon событий"""
         message = result.get('message', '')
 
         if event_id == 1:
@@ -5712,7 +5516,6 @@ class EDRIntegration(BaseModule):
             result['technique'] = self._extract_from_message(message, r'Type:\s*([^\r\n]+)')
 
     def _parse_powershell_event(self, event_id: int, result: Dict) -> None:
-        """Парсинг PowerShell событий"""
         message = result.get('message', '')
 
         result['event_type'] = 'powershell'
@@ -5739,7 +5542,6 @@ class EDRIntegration(BaseModule):
             result['command_line'] = self._extract_from_message(message, r'CommandLine=([^\r\n]+)')
 
     def _parse_wmi_log_event(self, event_id: int, result: Dict) -> None:
-        """Парсинг WMI событий из лога"""
         message = result.get('message', '')
 
         result['event_type'] = 'wmi'
@@ -5757,7 +5559,6 @@ class EDRIntegration(BaseModule):
             result['user'] = self._extract_from_message(message, r'User:\s*([^\r\n]+)')
 
     def _parse_task_scheduler_event(self, event_id: int, result: Dict) -> None:
-        """Парсинг Task Scheduler событий"""
         message = result.get('message', '')
 
         result['event_type'] = 'task_scheduler'
@@ -5778,7 +5579,6 @@ class EDRIntegration(BaseModule):
             result['result_code'] = self._extract_from_message(message, r'Result code:\s*([^\r\n]+)')
 
     def _parse_rdp_event(self, event_id: int, result: Dict) -> None:
-        """Парсинг RDP событий"""
         message = result.get('message', '')
 
         result['event_type'] = 'rdp'
@@ -5794,7 +5594,6 @@ class EDRIntegration(BaseModule):
             result['session_id'] = self._extract_from_message(message, r'Session ID:\s*(\d+)')
 
     def _extract_from_message(self, message: str, pattern: str) -> Optional[str]:
-        """Извлечение значения из сообщения по регулярному выражению"""
         import re
         match = re.search(pattern, message, re.IGNORECASE | re.DOTALL)
         if match:
@@ -5802,7 +5601,6 @@ class EDRIntegration(BaseModule):
         return None
 
     def _wmi_event_loop(self) -> None:
-        """Цикл мониторинга WMI событий"""
         if not self.use_wmi or not self.wmi_connection:
             return
 
@@ -5852,7 +5650,6 @@ class EDRIntegration(BaseModule):
                 pass
 
     def _create_wmi_watcher(self, query: str, handler: Callable):
-        """Создание WMI вотчера"""
         try:
             import wmi
 
@@ -5868,7 +5665,6 @@ class EDRIntegration(BaseModule):
             return None
 
     def _wmi_watcher_loop(self, watcher, handler) -> None:
-        """Цикл обработки WMI событий"""
         while self.running:
             try:
                 event = watcher(timeout_ms=1000)
@@ -5879,7 +5675,6 @@ class EDRIntegration(BaseModule):
                     self.logger.debug(f"Ошибка WMI вотчера: {e}")
 
     def _handle_wmi_process_start(self, event) -> None:
-        """Обработка WMI события создания процесса"""
         parsed = {
             'event_type': 'process',
             'source': 'wmi',
@@ -5892,7 +5687,6 @@ class EDRIntegration(BaseModule):
         self.event_bus.publish('wmi.event', parsed)
 
     def _handle_wmi_process_stop(self, event) -> None:
-        """Обработка WMI события завершения процесса"""
         parsed = {
             'event_type': 'process_terminated',
             'source': 'wmi',
@@ -5904,7 +5698,6 @@ class EDRIntegration(BaseModule):
         self.event_bus.publish('wmi.event', parsed)
 
     def _handle_wmi_service_change(self, event) -> None:
-        """Обработка WMI события изменения сервиса"""
         target = getattr(event, 'TargetInstance', None)
         if target:
             parsed = {
@@ -5921,7 +5714,6 @@ class EDRIntegration(BaseModule):
             self.event_bus.publish('wmi.event', parsed)
 
     def _handle_wmi_registry_change(self, event) -> None:
-        """Обработка WMI события изменения реестра"""
         parsed = {
             'event_type': 'registry',
             'source': 'wmi',
@@ -5931,7 +5723,6 @@ class EDRIntegration(BaseModule):
         self.event_bus.publish('wmi.event', parsed)
 
     def _process_process_event(self, event: Dict) -> None:
-        """Анализ события создания процесса"""
         self.process_events.append(event)
 
         result = self.analyze_process_event(event)
@@ -5941,7 +5732,6 @@ class EDRIntegration(BaseModule):
             self.logger.warning(f"Подозрительный процесс: {event.get('process_name')} (score={result['score']:.3f})")
 
     def analyze_process_event(self, event: Dict) -> Dict:
-        """Анализ события процесса"""
         result = {
             'is_suspicious': False,
             'reasons': [],
@@ -6097,7 +5887,6 @@ class EDRIntegration(BaseModule):
         return result
 
     def _process_file_event(self, event: Dict) -> None:
-        """Анализ файлового события"""
         self.file_events.append(event)
 
         filename = event.get('filename', '').lower()
@@ -6194,7 +5983,6 @@ class EDRIntegration(BaseModule):
             self.logger.warning(f"Подозрительная файловая операция: {filename} (score={result['score']:.3f})")
 
     def _process_registry_event(self, event: Dict) -> None:
-        """Анализ события реестра"""
         self.registry_events.append(event)
 
         key_path = event.get('key_path', '').lower()
@@ -6291,7 +6079,6 @@ class EDRIntegration(BaseModule):
             self.logger.warning(f"Подозрительное изменение реестра: {key_path} (score={result['score']:.3f})")
 
     def _process_network_event(self, event: Dict) -> None:
-        """Анализ сетевого события"""
         self.network_events.append(event)
 
         src_ip = event.get('src_ip', '')
@@ -6379,7 +6166,6 @@ class EDRIntegration(BaseModule):
             self.event_bus.publish('edr.network_threat', result)
 
     def _is_private_ip(self, ip: str) -> bool:
-        """Проверка приватного IP"""
         try:
             parts = ip.split('.')
             if len(parts) != 4:
@@ -6394,7 +6180,6 @@ class EDRIntegration(BaseModule):
             return False
 
     def _process_dns_event(self, event: Dict) -> None:
-        """Анализ DNS события"""
         self.dns_events.append(event)
 
         query = event.get('query_name', event.get('query', '')).lower()
@@ -6457,7 +6242,6 @@ class EDRIntegration(BaseModule):
             })
 
     def _process_remote_thread(self, event: Dict) -> None:
-        """Анализ создания удалённого потока (Process Injection)"""
         result = {
             'is_suspicious': True,
             'reasons': ['remote_thread_creation'],
@@ -6489,7 +6273,6 @@ class EDRIntegration(BaseModule):
         self.logger.warning(f"Обнаружено создание удалённого потока: {result['source_process']} -> {result['target_process']}")
 
     def _process_process_access(self, event: Dict) -> None:
-        """Анализ доступа к процессу"""
         target_process = event.get('target_process', '').lower()
         source_process = event.get('source_process', '').lower()
         granted_access = event.get('granted_access', '')
@@ -6521,7 +6304,6 @@ class EDRIntegration(BaseModule):
             self.logger.warning(f"Обнаружен доступ к LSASS от {source_process}")
 
     def _process_image_load_event(self, event: Dict) -> None:
-        """Анализ загрузки образа (DLL)"""
         self.image_load_events.append(event)
 
         image_loaded = event.get('image_loaded', '').lower()
@@ -6571,7 +6353,6 @@ class EDRIntegration(BaseModule):
             self.event_bus.publish('edr.dll_threat', result)
 
     def _process_process_terminated(self, event: Dict) -> None:
-        """Обработка завершения процесса"""
         process_name = event.get('process_name', '').lower()
         security_processes = ['msmpeng.exe', 'windefend.exe', 'msseces.exe', 'avp.exe']
 
@@ -6588,7 +6369,6 @@ class EDRIntegration(BaseModule):
             self.logger.warning(f"Завершён процесс безопасности: {process_name}")
 
     def _process_file_time_event(self, event: Dict) -> None:
-        """Обработка изменения времени файла (timestomping)"""
         result = {
             'is_suspicious': True,
             'reasons': ['file_time_manipulation'],
@@ -6604,7 +6384,6 @@ class EDRIntegration(BaseModule):
         self.event_bus.publish('edr.threat', result)
 
     def _process_alternate_data_stream(self, event: Dict) -> None:
-        """Обработка Alternate Data Stream"""
         result = {
             'is_suspicious': True,
             'reasons': ['ads_creation'],
@@ -6620,7 +6399,6 @@ class EDRIntegration(BaseModule):
         self.event_bus.publish('edr.threat', result)
 
     def _process_pipe_event(self, event: Dict) -> None:
-        """Обработка создания/подключения к именованному каналу"""
         pipe_name = event.get('pipe_name', '').lower()
 
         suspicious_pipes = ['lsarpc', 'samr', 'netlogon', 'spoolss', 'srvsvc', 'wkssvc']
@@ -6642,7 +6420,6 @@ class EDRIntegration(BaseModule):
                 break
 
     def _process_file_delete(self, event: Dict) -> None:
-        """Обработка удаления файла"""
         filename = event.get('filename', '').lower()
 
         important_files = ['.evtx', '.log', 'ntuser.dat', 'sam', 'system', 'security']
@@ -6664,7 +6441,6 @@ class EDRIntegration(BaseModule):
                 break
 
     def _process_clipboard_event(self, event: Dict) -> None:
-        """Обработка события буфера обмена"""
         process_name = event.get('process_name', '').lower()
 
         if process_name not in ['explorer.exe', 'chrome.exe', 'firefox.exe', 'notepad.exe']:
@@ -6679,7 +6455,6 @@ class EDRIntegration(BaseModule):
             self.event_bus.publish('edr.threat', result)
 
     def _process_tampering_event(self, event: Dict) -> None:
-        """Обработка события подмены процесса"""
         result = {
             'is_suspicious': True,
             'reasons': ['process_tampering'],
@@ -6695,17 +6470,14 @@ class EDRIntegration(BaseModule):
         self.event_bus.publish('edr.threat', result)
 
     def _process_wmi_process_start(self, event: Dict) -> None:
-        """Обработка WMI создания процесса"""
         event['source'] = 'wmi'
         self._process_process_event(event)
 
     def _process_wmi_process_stop(self, event: Dict) -> None:
-        """Обработка WMI завершения процесса"""
         event['source'] = 'wmi'
         self._process_process_terminated(event)
 
     def _process_wmi_service_change(self, event: Dict) -> None:
-        """Обработка изменения сервиса через WMI"""
         result = {
             'is_suspicious': False,
             'reasons': [],
@@ -6754,7 +6526,6 @@ class EDRIntegration(BaseModule):
             self.event_bus.publish('edr.threat', result)
 
     def _process_login_event(self, event: Dict) -> None:
-        """Обработка события входа"""
         self.event_bus.publish('auth.login', event)
 
         logon_type = event.get('logon_type', '')
@@ -6768,11 +6539,9 @@ class EDRIntegration(BaseModule):
             })
 
     def _process_failed_login_event(self, event: Dict) -> None:
-        """Обработка неудачного входа"""
         self.event_bus.publish('auth.failed', event)
 
     def _analysis_loop(self) -> None:
-        """Фоновый анализ событий"""
         while self.running:
             time.sleep(60)
 
@@ -6783,7 +6552,6 @@ class EDRIntegration(BaseModule):
             self._cleanup_old_events()
 
     def _detect_beaconing(self) -> None:
-        """Обнаружение C2 beaconing по сетевым соединениям (делегировано в EncryptedTrafficAnalyzer)"""
 
         unique_connections = set()
         cutoff = time.time() - 3600
@@ -6850,7 +6618,6 @@ class EDRIntegration(BaseModule):
                             f"Обнаружен beaconing процесса: {process_name} (интервал: {mean_interval:.1f}с, cv={cv:.3f})")
 
     def _analyze_event_chains(self) -> None:
-        """Анализ цепочек событий для обнаружения сложных атак (оптимизированный)"""
         cutoff = time.time() - 600
 
         processes_by_pid: Dict[int, Dict] = {}
@@ -6920,7 +6687,6 @@ class EDRIntegration(BaseModule):
                         break
 
     def _cleanup_old_events(self) -> None:
-        """Очистка старых событий"""
         cutoff = time.time() - 7200
 
         with self._lock:
@@ -6930,7 +6696,6 @@ class EDRIntegration(BaseModule):
                     buffer.popleft()
 
     def get_stats(self) -> Dict:
-        """Получить статистику EDR"""
         with self._lock:
             return {
                 'process_events': len(self.process_events),
@@ -6945,7 +6710,6 @@ class EDRIntegration(BaseModule):
 
 
 class PrometheusMetrics(BaseModule):
-    """Экспорт метрик в Prometheus"""
 
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("Prometheus", config, event_bus, logger)
@@ -7005,9 +6769,7 @@ class PrometheusMetrics(BaseModule):
             self.dns_threats_counter.inc()
 
 
-
 class TelegramNotifier(BaseModule):
-    """Уведомления в Telegram"""
 
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("Telegram", config, event_bus, logger)
@@ -7034,12 +6796,10 @@ class TelegramNotifier(BaseModule):
             self._session.close()
 
     def on_alert(self, alert: Dict) -> None:
-        """Уведомление об алерте"""
         msg = self._format_alert(alert)
         self._send_message(msg)
 
     def on_exfiltration(self, data: Dict) -> None:
-        """Уведомление об утечке данных"""
         msg = f"📤 *ОБНАРУЖЕНА УТЕЧКА ДАННЫХ*\n"
         msg += f"Источник: `{data.get('src_ip')}`\n"
         msg += f"Цель: `{data.get('dst_ip')}:{data.get('dst_port')}`\n"
@@ -7048,7 +6808,6 @@ class TelegramNotifier(BaseModule):
         self._send_message(msg)
 
     def on_dns_threat(self, data: Dict) -> None:
-        """Уведомление о DNS угрозе"""
         if data.get('score', 0) > 0.5:
             msg = f"🌐 *DNS УГРОЗА*\n"
             msg += f"Источник: `{data.get('src_ip')}`\n"
@@ -7058,7 +6817,6 @@ class TelegramNotifier(BaseModule):
             self._send_message(msg)
 
     def on_uba_anomaly(self, data: Dict) -> None:
-        """Уведомление об аномалии поведения"""
         if data.get('score', 0) > 0.6:
             msg = f"👤 *АНОМАЛИЯ ПОВЕДЕНИЯ*\n"
             msg += f"Пользователь: `{data.get('username')}`\n"
@@ -7068,7 +6826,6 @@ class TelegramNotifier(BaseModule):
             self._send_message(msg)
 
     def _format_alert(self, alert: Dict) -> str:
-        """Форматирование алерта"""
         severity_emoji = {
             'CRITICAL': '🔴', 'HIGH': '🟠', 'MEDIUM': '🟡', 'LOW': '🟢'
         }
@@ -7095,7 +6852,6 @@ class TelegramNotifier(BaseModule):
         return msg
 
     def _send_message(self, text: str) -> None:
-        """Отправка сообщения в Telegram (токен в заголовке, не в URL)"""
         if not self.enabled or not self.token or not self._session:
             return
 
@@ -7118,9 +6874,7 @@ class TelegramNotifier(BaseModule):
             self.logger.error(f"Telegram error: {type(e).__name__}")
 
 
-
 class BaselineProfiler:
-    """Построение базового профиля поведения (оптимизированная версия)"""
 
     def __init__(self):
         self.profiles: Dict[str, Dict] = defaultdict(lambda: {
@@ -7153,7 +6907,6 @@ class BaselineProfiler:
     def update(self, device: str, size: int, port: int, entropy: float,
                dst_ip: str = '', src_ip: str = '', protocol: int = 0,
                tcp_flags: int = 0) -> None:
-        """Обновление профиля (исправлено - единая блокировка)"""
         now = datetime.now()
         current_time = time.time()
 
@@ -7218,7 +6971,6 @@ class BaselineProfiler:
             self._cached_stats.pop(f"{device}_score", None)
 
     def _cleanup_old_data(self, device: str, profile: Dict, current_time: float) -> None:
-        """Очистка устаревших данных в профиле"""
         cutoff_time = current_time - 86400
 
         if 'packet_sizes' in profile:
@@ -7252,7 +7004,6 @@ class BaselineProfiler:
 
     def get_score(self, device: str, size: int, port: int, entropy: float,
                   dst_ip: str = '', protocol: int = 0, tcp_flags: int = 0) -> float:
-        """Получение оценки аномальности (исправлено - безопасный кэш)"""
 
         cache_key = f"{device}_score"
         cached = self._cached_stats.get(cache_key)
@@ -7288,7 +7039,6 @@ class BaselineProfiler:
 
     def _calculate_score_fast(self, device: str, size: int, port: int,
                               entropy: float, dst_ip: str, cached: Dict) -> float:
-        """Быстрое вычисление с использованием кэшированных данных (исправлено - защита от нуля)"""
         scores = []
         weights = []
 
@@ -7340,7 +7090,6 @@ class BaselineProfiler:
     def _calculate_score_full(self, device: str, size: int, port: int,
                               entropy: float, dst_ip: str, protocol: int,
                               profile: Dict) -> float:
-        """Полное вычисление оценки аномальности"""
         scores = []
         weights = []
         now = datetime.now()
@@ -7418,7 +7167,6 @@ class BaselineProfiler:
         return 0.3
 
     def get_profile(self, device: str) -> Optional[Dict]:
-        """Получить профиль устройства (безопасное копирование)"""
         with self._profile_lock:
             if device in self.profiles:
                 p = self.profiles[device]
@@ -7438,7 +7186,6 @@ class BaselineProfiler:
         return None
 
     def reset_profile(self, device: str) -> bool:
-        """Сброс профиля устройства"""
         with self._profile_lock:
             if device in self.profiles:
                 del self.profiles[device]
@@ -7448,12 +7195,10 @@ class BaselineProfiler:
         return False
 
     def get_all_devices(self) -> List[str]:
-        """Получить список всех устройств"""
         with self._profile_lock:
             return list(self.profiles.keys())
 
     def get_summary_stats(self) -> Dict:
-        """Общая статистика по всем профилям"""
         with self._profile_lock:
             total_packets = sum(p['total_packets'] for p in self.profiles.values())
             total_bytes = sum(p['total_bytes'] for p in self.profiles.values())
@@ -7470,7 +7215,6 @@ class BaselineProfiler:
 
 
 class AttackChainTracker:
-    """Отслеживание цепочек атак (Kill Chain) с автоматической очисткой и учётом хронологии"""
 
     def __init__(self):
         self.chains: Dict[str, Dict] = defaultdict(lambda: {
@@ -7529,13 +7273,11 @@ class AttackChainTracker:
         self._start_cleanup()
 
     def _start_cleanup(self) -> None:
-        """Запуск фоновой очистки"""
         self._running = True
         self._cleanup_thread = threading.Thread(target=self._cleanup_loop, daemon=True, name="AttackChain-Cleanup")
         self._cleanup_thread.start()
 
     def _cleanup_loop(self) -> None:
-        """Фоновый цикл очистки устаревших цепочек"""
         while self._running:
             time.sleep(300)
             cleaned = self.cleanup(max_age=3600)
@@ -7543,7 +7285,6 @@ class AttackChainTracker:
                 logging.getLogger('SHARD').debug(f"Очищено {cleaned} устаревших цепочек атак")
 
     def cleanup(self, max_age: int = 3600) -> int:
-        """Очистка устаревших цепочек"""
         with self._lock:
             now = time.time()
             expired = [ip for ip, chain in self.chains.items()
@@ -7553,13 +7294,11 @@ class AttackChainTracker:
             return len(expired)
 
     def stop(self) -> None:
-        """Остановка очистки"""
         self._running = False
         if self._cleanup_thread and self._cleanup_thread.is_alive():
             self._cleanup_thread.join(timeout=2)
 
     def add_event(self, src_ip: str, attack_type: str, score: float, dst_port: int = 0) -> Dict:
-        """Добавление события в цепочку"""
         with self._lock:
             chain = self.chains[src_ip]
 
@@ -7613,7 +7352,6 @@ class AttackChainTracker:
             }
 
     def _determine_stage(self, chain: Dict) -> str:
-        """Определение текущей стадии атаки с учётом хронологии"""
         if not chain.get('events'):
             return 'unknown'
 
@@ -7649,7 +7387,6 @@ class AttackChainTracker:
         return current_stage if current_stage != 'unknown' else 'reconnaissance'
 
     def get_chain(self, src_ip: str) -> Optional[Dict]:
-        """Получить цепочку атак"""
         with self._lock:
             if src_ip in self.chains:
                 chain = self.chains[src_ip]
@@ -7669,7 +7406,6 @@ class AttackChainTracker:
         return None
 
     def get_active_chains(self, min_severity: str = 'LOW') -> List[Dict]:
-        """Получить активные цепочки атак"""
         severity_order = {'INFO': 0, 'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'CRITICAL': 4}
         min_level = severity_order.get(min_severity, 1)
 
@@ -7684,7 +7420,6 @@ class AttackChainTracker:
         return sorted(active, key=lambda x: x['event_count'], reverse=True)
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         with self._lock:
             total_chains = len(self.chains)
             active_chains = sum(1 for c in self.chains.values()
@@ -7702,7 +7437,6 @@ class AttackChainTracker:
             }
 
     def reset_chain(self, src_ip: str) -> bool:
-        """Сброс цепочки для IP"""
         with self._lock:
             if src_ip in self.chains:
                 del self.chains[src_ip]
@@ -7710,16 +7444,13 @@ class AttackChainTracker:
         return False
 
     def reset_all(self) -> int:
-        """Сброс всех цепочек"""
         with self._lock:
             count = len(self.chains)
             self.chains.clear()
             return count
 
 
-
 class LateralMovementDetector:
-    """Обнаружение горизонтального перемещения в сети (оптимизированный)"""
 
     def __init__(self, local_networks: List[str] = None):
         self.local_networks = local_networks or ['192.168.', '10.', '172.16.', '127.']
@@ -7735,7 +7466,6 @@ class LateralMovementDetector:
 
     def add_connection(self, src_ip: str, dst_ip: str, dst_port: int,
                        username: str = None, service: str = None) -> Optional[Dict]:
-        """Добавление внутреннего соединения (оптимизированное)"""
         if not self.is_local(src_ip) or not self.is_local(dst_ip):
             return None
 
@@ -7824,7 +7554,6 @@ class LateralMovementDetector:
         return None
 
     def _cleanup_index(self, cutoff: float) -> None:
-        """Очистка индекса с ограничением размера"""
         max_index_size = 10000
 
         for src_ip in list(self._src_index.keys()):
@@ -7841,9 +7570,7 @@ class LateralMovementDetector:
                 del self._src_index[src_ip]
 
 
-
 class SmartFirewall(BaseModule):
-    """Умный файрвол с градацией ответа"""
 
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("Firewall", config, event_bus, logger)
@@ -7882,17 +7609,14 @@ class SmartFirewall(BaseModule):
         self.running = False
 
     def add_to_whitelist(self, ip: str) -> None:
-        """Добавить IP в белый список"""
         with self._lock:
             self.whitelist.add(ip)
 
     def remove_from_whitelist(self, ip: str) -> None:
-        """Удалить IP из белого списка"""
         with self._lock:
             self.whitelist.discard(ip)
 
     def check_rate_limit(self, src_ip: str, dst_port: int) -> bool:
-        """Проверка rate limit"""
         if src_ip in self.whitelist:
             return True
 
@@ -7912,7 +7636,6 @@ class SmartFirewall(BaseModule):
             return True
 
     def is_blocked(self, ip: str, port: int = None) -> bool:
-        """Проверка, заблокирован ли IP/порт"""
         with self._lock:
             if ip in self.whitelist:
                 return False
@@ -7927,7 +7650,6 @@ class SmartFirewall(BaseModule):
             return False
 
     def on_alert(self, alert: Dict) -> None:
-        """Обработка алерта"""
         if not self.auto_block:
             return
 
@@ -7964,7 +7686,6 @@ class SmartFirewall(BaseModule):
         self._apply_action(src_ip, dst_port, action, alert)
 
     def on_exfiltration(self, data: Dict) -> None:
-        """Немедленная реакция на утечку данных"""
         if not self.auto_block:
             return
 
@@ -7974,7 +7695,6 @@ class SmartFirewall(BaseModule):
             self.logger.critical(f"🚨 НЕМЕДЛЕННАЯ БЛОКИРОВКА из-за утечки данных: {src_ip}")
 
     def _apply_action(self, src_ip: str, dst_port: int, action: str, context: Dict = None) -> None:
-        """Применение действия"""
         if src_ip in self.whitelist:
             return
 
@@ -8005,7 +7725,6 @@ class SmartFirewall(BaseModule):
             })
 
     def _validate_ip(self, ip: str) -> bool:
-        """Валидация IP адреса перед использованием в командах"""
         if not ip:
             return False
 
@@ -8026,11 +7745,9 @@ class SmartFirewall(BaseModule):
         return True
 
     def _validate_port(self, port: int) -> bool:
-        """Валидация порта"""
         return isinstance(port, int) and 0 < port < 65536
 
     def _validate_ip_strict(self, ip: str) -> bool:
-        """Строгая валидация IP адреса"""
         if not ip:
             return False
 
@@ -8052,7 +7769,6 @@ class SmartFirewall(BaseModule):
         return True
 
     def block_ip(self, ip: str, duration: int = 3600) -> bool:
-        """Блокировка IP с проверкой существующей блокировки"""
         if not self._validate_ip_strict(ip):
             self.logger.error(f"Некорректный IP адрес: {ip}")
             return False
@@ -8117,7 +7833,6 @@ class SmartFirewall(BaseModule):
         return False
 
     def unblock_ip(self, ip: str) -> bool:
-        """Разблокировка IP (безопасная версия)"""
         if not self._validate_ip_strict(ip):
             return False
 
@@ -8155,7 +7870,6 @@ class SmartFirewall(BaseModule):
             return False
 
     def block_port(self, ip: str, port: int) -> bool:
-        """Блокировка порта для конкретного IP"""
         if not self._validate_ip(ip) or not self._validate_port(port):
             self.logger.error(f"Некорректный IP {ip} или порт {port}")
             return False
@@ -8202,7 +7916,6 @@ class SmartFirewall(BaseModule):
             return False
 
     def add_iptables_chain(self) -> bool:
-        """Создание отдельной цепочки iptables для SHARD (однократно)"""
         if os.name == 'nt':
             return True
 
@@ -8241,7 +7954,6 @@ class SmartFirewall(BaseModule):
             return False
 
     def _cleanup_loop(self) -> None:
-        """Очистка истёкших блокировок и снижение уровней угрозы (исправлен deadlock)"""
         while self.running:
             time.sleep(60)
             now = time.time()
@@ -8292,7 +8004,6 @@ class SmartFirewall(BaseModule):
                     self.logger.debug(f"Ошибка разблокировки {ip}: {e}")
 
     def _unblock_ip_internal(self, ip: str) -> None:
-        """Внутренний метод разблокировки без дополнительных проверок"""
         if ip in self.blocked_ips:
             del self.blocked_ips[ip]
         if ip in self.blocked_ports:
@@ -8305,7 +8016,6 @@ class SmartFirewall(BaseModule):
             del self.rate_limits[ip]
 
     def flush_blocks(self) -> int:
-        """Сброс всех блокировок"""
         count = 0
 
         try:
@@ -8348,9 +8058,7 @@ class SmartFirewall(BaseModule):
             return 0
 
 
-
 class AlertExplainer:
-    """Объяснение алертов на естественном языке"""
 
     def __init__(self):
         self.reason_templates = {
@@ -8393,7 +8101,6 @@ class AlertExplainer:
         }
 
     def explain(self, alert: Dict, context: Dict = None) -> str:
-        """Сгенерировать объяснение алерта"""
         attack_type = alert.get('attack_type', 'Unknown')
         score = alert.get('score', 0)
         src_ip = alert.get('src_ip', 'unknown')
@@ -8452,7 +8159,6 @@ class AlertExplainer:
         return explanation
 
     def _get_recommendation(self, attack_type: str, score: float) -> str:
-        """Получить рекомендацию"""
         recommendations = {
             'Brute Force': "Включить блокировку после N попыток, проверить сложность паролей.",
             'Port Scan': "Проверить правила файрвола, закрыть неиспользуемые порты.",
@@ -8475,9 +8181,7 @@ class AlertExplainer:
         return recommendations.get(attack_type, "Провести дополнительный анализ.")
 
 
-
 class EncryptedTrafficAnalyzer(BaseModule):
-    """Анализ зашифрованного трафика (TLS/JA3/Beaconing) с очисткой сессий"""
 
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("EncryptedTraffic", config, event_bus, logger)
@@ -8510,21 +8214,18 @@ class EncryptedTrafficAnalyzer(BaseModule):
         self.event_bus.subscribe('packet.received', self.on_packet)
 
     def start(self) -> None:
-        """Запуск анализатора"""
         self.running = True
         self._cleanup_thread = threading.Thread(target=self._cleanup_loop, daemon=True, name="TLS-Cleanup")
         self._cleanup_thread.start()
         self.logger.info("Анализатор зашифрованного трафика запущен")
 
     def stop(self) -> None:
-        """Остановка анализатора"""
         self.running = False
         if self._cleanup_thread and self._cleanup_thread.is_alive():
             self._cleanup_thread.join(timeout=2)
         self.logger.info("Анализатор зашифрованного трафика остановлен")
 
     def _cleanup_loop(self) -> None:
-        """Фоновый цикл очистки устаревших сессий"""
         while self.running:
             time.sleep(self._cleanup_interval)
             cleaned = self._cleanup_old_sessions()
@@ -8533,7 +8234,6 @@ class EncryptedTrafficAnalyzer(BaseModule):
             self._last_cleanup = time.time()
 
     def _cleanup_old_sessions(self) -> int:
-        """Очистка устаревших TLS сессий"""
         with self._lock:
             now = time.time()
             expired = []
@@ -8560,7 +8260,6 @@ class EncryptedTrafficAnalyzer(BaseModule):
             return len(expired)
 
     def on_packet(self, data: Dict) -> None:
-        """Обработка пакета"""
         if not self.running:
             return
 
@@ -8585,7 +8284,6 @@ class EncryptedTrafficAnalyzer(BaseModule):
                 })
 
     def analyze_tls(self, packet) -> Dict:
-        """Анализ TLS трафика"""
         from scapy.all import TCP, Raw, IP
 
         result = {
@@ -8672,7 +8370,6 @@ class EncryptedTrafficAnalyzer(BaseModule):
         return result
 
     def _compute_ja3(self, payload: bytes) -> str:
-        """Вычисление JA3 хеша"""
         try:
             ja3_str = f"{payload[1]:02x}{payload[2]:02x}"
             if len(payload) > 50:
@@ -8682,7 +8379,6 @@ class EncryptedTrafficAnalyzer(BaseModule):
             return "unknown"
 
     def _compute_ja3s(self, payload: bytes) -> str:
-        """Вычисление JA3S хеша"""
         try:
             ja3s_str = f"{payload[1]:02x}{payload[2]:02x}"
             if len(payload) > 40:
@@ -8692,7 +8388,6 @@ class EncryptedTrafficAnalyzer(BaseModule):
             return "unknown"
 
     def _extract_sni(self, payload: bytes) -> Optional[str]:
-        """Извлечение SNI из Client Hello"""
         try:
             sni_marker = b'\x00\x00'
             idx = payload.find(sni_marker)
@@ -8706,7 +8401,6 @@ class EncryptedTrafficAnalyzer(BaseModule):
         return None
 
     def _is_suspicious_sni(self, sni: str) -> bool:
-        """Проверка SNI на подозрительность"""
         suspicious_patterns = [
             '.tk', '.ml', '.ga', '.cf', '.gq',
             'update', 'secure', 'bank', 'account',
@@ -8726,7 +8420,6 @@ class EncryptedTrafficAnalyzer(BaseModule):
         return False
 
     def _calculate_entropy(self, data: bytes) -> float:
-        """Вычисление энтропии"""
         if not data:
             return 0.0
         freq = {}
@@ -8736,7 +8429,6 @@ class EncryptedTrafficAnalyzer(BaseModule):
         return entropy / 8.0
 
     def _detect_beaconing(self, packet) -> float:
-        """Обнаружение C2 beaconing (безопасная проверка слоёв)"""
         from scapy.all import IP
 
         if not packet.haslayer(IP):
@@ -8800,7 +8492,6 @@ class EncryptedTrafficAnalyzer(BaseModule):
             return beacon_score
 
     def get_session_info(self, session_key: str) -> Optional[Dict]:
-        """Получить информацию о TLS сессии"""
         with self._lock:
             if session_key in self.tls_sessions:
                 session = self.tls_sessions[session_key]
@@ -8812,7 +8503,6 @@ class EncryptedTrafficAnalyzer(BaseModule):
         return None
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         with self._lock:
             return {
                 'active_sessions': len(self.tls_sessions),
@@ -8824,19 +8514,15 @@ class EncryptedTrafficAnalyzer(BaseModule):
             }
 
     def add_malicious_ja3(self, ja3_hash: str, name: str, severity: str = 'HIGH') -> None:
-        """Добавить вредоносный JA3"""
         with self._lock:
             self.malicious_ja3[ja3_hash] = (name, severity)
         self.logger.info(f"Добавлен вредоносный JA3: {name}")
 
     def cleanup_now(self) -> int:
-        """Принудительная очистка сессий"""
         return self._cleanup_old_sessions()
 
 
-
 class WebApplicationFirewall(BaseModule):
-    """Веб-файрвол для защиты от веб-атак (исправлен - персистентность, безопасные счётчики, увеличен maxlen)"""
 
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("WAF", config, event_bus, logger)
@@ -8856,7 +8542,6 @@ class WebApplicationFirewall(BaseModule):
             self.event_bus.subscribe('dpi.http', self.on_http)
 
     def _load_rules(self) -> List[Tuple[str, str, str, float]]:
-        """Загрузка правил WAF"""
         return [
             ('SQLi_Union', r'union\s+select', 'CRITICAL', 0.8),
             ('SQLi_Or', r"'\\s*or\\s*'1'\\s*=\\s*'1", 'CRITICAL', 0.8),
@@ -8871,7 +8556,6 @@ class WebApplicationFirewall(BaseModule):
         ]
 
     def _load_blocked_ips(self) -> None:
-        """Загрузка заблокированных IP из файла"""
         try:
             if self.blocked_file.exists():
                 with open(self.blocked_file, 'r', encoding='utf-8') as f:
@@ -8882,7 +8566,6 @@ class WebApplicationFirewall(BaseModule):
             self.logger.warning(f"Ошибка загрузки блокировок WAF: {e}")
 
     def _save_blocked_ips(self) -> None:
-        """Сохранение заблокированных IP в файл"""
         try:
             self.blocked_file.parent.mkdir(parents=True, exist_ok=True)
             with open(self.blocked_file, 'w', encoding='utf-8') as f:
@@ -8903,7 +8586,6 @@ class WebApplicationFirewall(BaseModule):
         self.running = False
 
     def _check_rate_limit(self, src_ip: str) -> bool:
-        """Проверка rate limit (исправлен TOCTOU)"""
         with self._lock:
             if src_ip in self.blocked_patterns:
                 return False
@@ -8938,7 +8620,6 @@ class WebApplicationFirewall(BaseModule):
             return True
 
     def on_packet(self, data: Dict) -> None:
-        """Анализ пакетов"""
         packet = data.get('packet')
         if not packet:
             return
@@ -8962,7 +8643,6 @@ class WebApplicationFirewall(BaseModule):
             self.logger.debug(f"WAF ошибка: {e}")
 
     def on_http(self, data: Dict) -> None:
-        """Анализ HTTP запросов"""
         src_ip = data.get('src_ip', 'unknown')
 
         if not self._check_rate_limit(src_ip):
@@ -8987,7 +8667,6 @@ class WebApplicationFirewall(BaseModule):
                 self.event_bus.publish('waf.alert', body_result)
 
     def _analyze_payload(self, payload: bytes, src_ip: str) -> Dict:
-        """Анализ бинарной нагрузки"""
         result = {
             'is_attack': False,
             'threats': [],
@@ -9005,7 +8684,6 @@ class WebApplicationFirewall(BaseModule):
         return result
 
     def _analyze_text(self, text: str, context: str) -> Dict:
-        """Анализ текста на атаки"""
         result = {
             'is_attack': False,
             'threats': [],
@@ -9035,12 +8713,10 @@ class WebApplicationFirewall(BaseModule):
         return result
 
     def add_rule(self, name: str, pattern: str, severity: str, score: float) -> None:
-        """Добавить правило WAF"""
         self.rules.append((name, pattern, severity, score))
         self.logger.info(f"Добавлено правило WAF: {name}")
 
     def unblock_ip(self, ip: str) -> bool:
-        """Разблокировка IP в WAF"""
         with self._lock:
             if ip in self.blocked_patterns:
                 self.blocked_patterns.remove(ip)
@@ -9050,7 +8726,6 @@ class WebApplicationFirewall(BaseModule):
         return False
 
     def get_stats(self) -> Dict:
-        """Статистика WAF"""
         with self._lock:
             return {
                 'total_rules': len(self.rules),
@@ -9060,9 +8735,7 @@ class WebApplicationFirewall(BaseModule):
             }
 
 
-
 class JA3Fingerprinter(BaseModule):
-    """JA3 фингерпринтинг для обнаружения вредоносного ПО"""
 
     MALICIOUS_JA3 = {
         '6734f37431670b3ab4292b8f60f29984': ('Trickbot', 'CRITICAL'),
@@ -9090,7 +8763,6 @@ class JA3Fingerprinter(BaseModule):
         self.running = False
 
     def on_packet(self, data: Dict) -> None:
-        """Обработка пакета"""
         packet = data.get('packet')
         if not packet:
             return
@@ -9135,7 +8807,6 @@ class JA3Fingerprinter(BaseModule):
             self.logger.debug(f"JA3 ошибка: {e}")
 
     def _fingerprint(self, payload: bytes) -> Optional[str]:
-        """Вычисление JA3 фингерпринта (полная версия)"""
         if len(payload) < 6 or payload[0] != 0x16 or payload[5] != 0x01:
             return None
 
@@ -9220,14 +8891,12 @@ class JA3Fingerprinter(BaseModule):
             return None
 
     def _is_malicious(self, ja3_hash: str) -> Tuple[bool, Optional[str], Optional[str]]:
-        """Проверка JA3 на вредоносность"""
         if ja3_hash in self.MALICIOUS_JA3:
             name, severity = self.MALICIOUS_JA3[ja3_hash]
             return True, name, severity
         return False, None, None
 
     def get_ja3_for_ip(self, ip: str) -> Optional[str]:
-        """Получить JA3 для IP"""
         with self._lock:
             for key, data in self.ja3_cache.items():
                 if key.startswith(ip):
@@ -9235,14 +8904,11 @@ class JA3Fingerprinter(BaseModule):
         return None
 
     def add_malicious_ja3(self, ja3_hash: str, name: str, severity: str = 'HIGH') -> None:
-        """Добавить вредоносный JA3"""
         self.MALICIOUS_JA3[ja3_hash] = (name, severity)
         self.logger.info(f"Добавлен вредоносный JA3: {name}")
 
 
-
 class DeepPacketInspector(BaseModule):
-    """Глубокий анализ пакетов (HTTP/DNS) с пакетной обработкой"""
 
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("DPI", config, event_bus, logger)
@@ -9276,13 +8942,11 @@ class DeepPacketInspector(BaseModule):
         self.logger.info("DPI остановлен")
 
     def _flush_loop(self) -> None:
-        """Фоновый сброс буферов"""
         while self.running:
             time.sleep(self._flush_interval)
             self._flush_buffers()
 
     def _flush_buffers(self) -> None:
-        """Пакетная публикация событий"""
         with self._buffer_lock:
             if not self._http_buffer and not self._dns_buffer and not self._suspicious_buffer:
                 return
@@ -9309,7 +8973,6 @@ class DeepPacketInspector(BaseModule):
                 f"Сброшено: {len(http_events)} HTTP, {len(dns_events)} DNS, {len(suspicious_events)} подозрительных")
 
     def on_packet(self, data: Dict) -> None:
-        """Обработка пакета (с фильтрацией и буферизацией)"""
         packet = data.get('packet')
         if not packet:
             return
@@ -9363,7 +9026,6 @@ class DeepPacketInspector(BaseModule):
             self.logger.debug(f"DPI ошибка: {e}")
 
     def _check_suspicious_http_fast(self, http_info: Dict) -> Optional[Dict]:
-        """Быстрая проверка подозрительных HTTP запросов"""
         uri = http_info.get('uri', '')
         user_agent = http_info.get('user_agent', '')
         method = http_info.get('method', '')
@@ -9412,7 +9074,6 @@ class DeepPacketInspector(BaseModule):
         return None
 
     def _parse_http(self, payload: bytes) -> Optional[Dict]:
-        """Парсинг HTTP"""
         try:
             text = payload.decode('utf-8', errors='ignore')
             lines = text.split('\r\n')
@@ -9466,7 +9127,6 @@ class DeepPacketInspector(BaseModule):
             return None
 
     def _parse_dns(self, payload: bytes) -> Optional[Dict]:
-        """Парсинг DNS"""
         if len(payload) < 12:
             return None
 
@@ -9516,7 +9176,6 @@ class DeepPacketInspector(BaseModule):
             return None
 
     def get_stats(self) -> Dict:
-        """Получить статистику DPI"""
         with self._buffer_lock:
             return {
                 'http_buffer_size': len(self._http_buffer),
@@ -9527,12 +9186,10 @@ class DeepPacketInspector(BaseModule):
             }
 
     def flush_now(self) -> None:
-        """Принудительный сброс буферов"""
         self._flush_buffers()
 
 
 class OTIoTSecurity(BaseModule):
-    """Безопасность OT/IoT устройств"""
 
     INDUSTRIAL_PORTS = {
         502: 'Modbus',
@@ -9584,7 +9241,6 @@ class OTIoTSecurity(BaseModule):
         self.running = False
 
     def on_packet(self, data: Dict) -> None:
-        """Анализ OT/IoT трафика"""
         dst_port = data.get('dst_port', 0)
         src_port = data.get('src_port', 0)
         src_ip = data.get('src_ip', 'unknown')
@@ -9627,7 +9283,6 @@ class OTIoTSecurity(BaseModule):
             })
 
     def _update_device(self, ip: str, protocol: str, port: int, category: str) -> None:
-        """Обновление информации об устройстве"""
         with self._lock:
             device = self.devices[ip]
             device['last_seen'] = time.time()
@@ -9637,7 +9292,6 @@ class OTIoTSecurity(BaseModule):
             device['category'] = category
 
     def get_devices(self, category: str = None) -> List[Dict]:
-        """Получить список OT/IoT устройств"""
         with self._lock:
             devices = []
             for ip, info in self.devices.items():
@@ -9654,7 +9308,6 @@ class OTIoTSecurity(BaseModule):
             return devices
 
     def get_stats(self) -> Dict:
-        """Статистика OT/IoT устройств"""
         with self._lock:
             ot_count = sum(1 for d in self.devices.values() if d.get('category') == 'OT/ICS')
             iot_count = sum(1 for d in self.devices.values() if d.get('category') == 'IoT')
@@ -9667,9 +9320,7 @@ class OTIoTSecurity(BaseModule):
             }
 
 
-
 class ThreatGNN:
-    """Графовая нейронная сеть для анализа угроз"""
 
     def __init__(self, in_channels: int = 8, hidden_channels: int = 32):
         self.in_channels = in_channels
@@ -9679,7 +9330,6 @@ class ThreatGNN:
         self._init_model()
 
     def _init_model(self) -> None:
-        """Инициализация GNN модели"""
         try:
             if torch is None or torch_nn is None:
                 self.use_gnn = False
@@ -9719,7 +9369,6 @@ class ThreatGNN:
             self.use_gnn = False
 
     def predict_risk(self, node_features: List, edge_index: List) -> Dict[str, float]:
-        """Предсказание риска для узлов графа"""
         if self.use_gnn and self.model and torch is not None:
             try:
                 x = torch.tensor(node_features, dtype=torch.float32)
@@ -9735,7 +9384,6 @@ class ThreatGNN:
         return self._pagerank_fallback(node_features, edge_index)
 
     def _pagerank_fallback(self, node_features: List, edge_index: List) -> Dict[str, float]:
-        """Корректный PageRank для НАПРАВЛЕННОГО графа угроз"""
         num_nodes = len(node_features)
         if num_nodes == 0:
             return {}
@@ -9790,9 +9438,7 @@ class ThreatGNN:
         return {str(k): v for k, v in scores.items()}
 
 
-
 class SelfSupervisedEncoder:
-    """Самообучающийся энкодер для обнаружения аномалий (исправлен - Welford, проверки None)"""
 
     def __init__(self, input_dim: int = 156, hidden_dim: int = 128, latent_dim: int = 64):
         self.input_dim = input_dim
@@ -9811,7 +9457,6 @@ class SelfSupervisedEncoder:
         self._init_model()
 
     def _init_model(self) -> None:
-        """Инициализация модели автоэнкодера"""
         try:
             if torch is None or torch_nn is None:
                 self.use_torch = False
@@ -9865,7 +9510,6 @@ class SelfSupervisedEncoder:
             self.use_torch = False
 
     def train_step(self, batch: List[List[float]]) -> Optional[float]:
-        """Один шаг обучения (исправлено - проверка размера батча для BatchNorm)"""
         if not self.use_torch or not self.model or not self.optimizer:
             return None
 
@@ -9917,7 +9561,6 @@ class SelfSupervisedEncoder:
         except Exception as e:
             return None
     def _recompute_statistics(self) -> None:
-        """Пересчёт статистики из буфера"""
         if not self.training_buffer:
             return
 
@@ -9927,7 +9570,6 @@ class SelfSupervisedEncoder:
         self._loss_m2 = sum((v - self._loss_mean) ** 2 for v in values)
 
     def get_anomaly_score(self, features: List[float]) -> float:
-        """Получение оценки аномальности (O(1) с Welford)"""
         if not self.use_torch or not self.model:
             return 0.5
 
@@ -9964,7 +9606,6 @@ class SelfSupervisedEncoder:
             return 0.5
 
     def encode(self, features: List[float]) -> Optional[List[float]]:
-        """Получить латентное представление"""
         if not self.use_torch or not self.model:
             return None
 
@@ -9979,7 +9620,6 @@ class SelfSupervisedEncoder:
             return None
 
     def get_statistics(self) -> Dict:
-        """Получить статистику обучения"""
         with self._loss_lock:
             variance = self._loss_m2 / self._loss_count if self._loss_count > 1 else 0.0
             return {
@@ -9991,7 +9631,6 @@ class SelfSupervisedEncoder:
             }
 
     def reset_statistics(self) -> None:
-        """Сброс статистики"""
         with self._loss_lock:
             self._loss_count = 0
             self._loss_mean = 0.0
@@ -9999,7 +9638,6 @@ class SelfSupervisedEncoder:
             self.training_buffer.clear()
 
 class MachineLearningEngine(BaseModule):
-    """ML движок с дообучением и Deep Learning моделями (LSTM + VAE + Transformer)"""
 
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("ML", config, event_bus, logger)
@@ -10060,7 +9698,6 @@ class MachineLearningEngine(BaseModule):
         self.event_bus.subscribe('packet.features', self.on_features)
 
     def _init_shap(self) -> None:
-        """Инициализация SHAP объяснителя"""
         if not self.explain_with_shap:
             return
 
@@ -10073,7 +9710,6 @@ class MachineLearningEngine(BaseModule):
         self.logger.debug("SHAP будет инициализирован при накоплении данных")
 
     def _initialize_shap_explainer(self, background_samples: List[List[float]]) -> None:
-        """Создание SHAP объяснителя с фоновыми данными"""
         if not self.explain_with_shap or shap_module is None:
             return
 
@@ -10107,7 +9743,6 @@ class MachineLearningEngine(BaseModule):
             self.explain_with_shap = False
 
     def _is_scaler_fitted(self) -> bool:
-        """Проверка что scaler обучен"""
         if self.scaler is None:
             return False
         try:
@@ -10116,7 +9751,6 @@ class MachineLearningEngine(BaseModule):
             return False
 
     def _get_class_index(self, attack_type: str) -> int:
-        """Получение индекса класса для SHAP"""
         class_map = {
             'Normal': 0,
             'DoS': 1,
@@ -10129,7 +9763,6 @@ class MachineLearningEngine(BaseModule):
         return class_map.get(attack_type, 0)
 
     def explain_prediction(self, features: List[float]) -> Dict:
-        """Подробное объяснение предсказания"""
         if not self.explain_with_shap or not self.shap_explainer:
             return {'error': 'SHAP не инициализирован'}
 
@@ -10180,7 +9813,6 @@ class MachineLearningEngine(BaseModule):
             return {'error': str(e)}
 
     def _load_models(self) -> None:
-        """Загрузка моделей"""
         try:
             import joblib
 
@@ -10219,7 +9851,6 @@ class MachineLearningEngine(BaseModule):
             self._init_isolation_forest()
 
     def _init_features(self) -> None:
-        """Инициализация признаков"""
         self.features = [f'payload_byte_{i + 1}' for i in range(150)]
         self.features.extend([
             'payload_entropy', 'packet_size', 'protocol',
@@ -10227,7 +9858,6 @@ class MachineLearningEngine(BaseModule):
         ])
 
     def _init_isolation_forest(self) -> None:
-        """Инициализация Isolation Forest"""
         if sklearn_ensemble:
             from sklearn.ensemble import IsolationForest
             import numpy as np
@@ -10276,7 +9906,6 @@ class MachineLearningEngine(BaseModule):
             )
 
     def _init_xgboost(self) -> None:
-        """Инициализация XGBoost с предустановленными классами"""
         if xgboost_module:
             self.models['xgb'] = xgboost_module.XGBClassifier(
                 n_estimators=100,
@@ -10317,7 +9946,6 @@ class MachineLearningEngine(BaseModule):
         self.logger.info("ML остановлен, модели сохранены")
 
     def _autosave_loop(self) -> None:
-        """Периодическое автосохранение моделей"""
         while self.running:
             time.sleep(60)
             with self._save_lock:
@@ -10327,7 +9955,6 @@ class MachineLearningEngine(BaseModule):
                     self._last_save = time.time()
 
     def _save_models(self) -> None:
-        """Атомарное сохранение моделей"""
         if not joblib:
             return
 
@@ -10364,7 +9991,6 @@ class MachineLearningEngine(BaseModule):
             self.logger.error(f"Ошибка сохранения: {e}")
 
     def _load_history_async(self) -> None:
-        """Асинхронная загрузка исторических данных"""
         try:
             import sqlite3
 
@@ -10400,7 +10026,6 @@ class MachineLearningEngine(BaseModule):
             self.logger.warning(f"Ошибка загрузки истории: {e}")
 
     def on_features(self, data: Dict) -> None:
-        """Обработка признаков"""
         features = data.get('features')
         if features:
             src_ip = data.get('src_ip', 'unknown')
@@ -10447,7 +10072,6 @@ class MachineLearningEngine(BaseModule):
                         self._samples_since_init += 1
 
     def _predict(self, features: List[float], device: str = "unknown") -> Dict:
-        """Предсказание с использованием ML и DL моделей"""
         result = {
             'is_attack': False,
             'score': 0.0,
@@ -10603,7 +10227,6 @@ class MachineLearningEngine(BaseModule):
         return result
 
     def _retrain_loop(self) -> None:
-        """Цикл дообучения"""
         while self.running:
             time.sleep(self.retrain_interval)
 
@@ -10613,7 +10236,6 @@ class MachineLearningEngine(BaseModule):
                     self._retrain()
 
     def _retrain(self) -> None:
-        """Дообучение моделей"""
         with self._lock:
             normal = list(self.normal_buffer)
             attacks = list(self.attack_buffer)
@@ -10695,7 +10317,6 @@ class MachineLearningEngine(BaseModule):
             self.logger.debug(traceback.format_exc())
 
     def _attack_to_id(self, attack_type: str) -> int:
-        """Преобразование типа атаки в ID"""
         mapping = {
             'Normal': 0, 'DoS': 1, 'DDoS': 2, 'Brute Force': 3,
             'Web Attack': 4, 'Botnet': 5, 'Port Scan': 8
@@ -10703,7 +10324,6 @@ class MachineLearningEngine(BaseModule):
         return mapping.get(attack_type, 99)
 
     def get_stats(self) -> Dict:
-        """Получить статистику ML"""
         with self._lock:
             stats = {
                 'normal_buffer_size': len(self.normal_buffer),
@@ -10726,7 +10346,6 @@ class MachineLearningEngine(BaseModule):
             return stats
 
     def save_now(self) -> None:
-        """Принудительное сохранение моделей"""
         with self._save_lock:
             self._save_models()
             self._models_dirty = False
@@ -10734,16 +10353,13 @@ class MachineLearningEngine(BaseModule):
         self.logger.info("Модели сохранены принудительно")
 
     def reset_buffers(self) -> None:
-        """Очистка буферов обучения"""
         with self._lock:
             self.normal_buffer.clear()
             self.attack_buffer.clear()
         self.logger.info("Буферы обучения очищены")
 
 
-
 class ThreatGraphNetwork:
-    """Графовая модель угроз для анализа связей (исправлен - правильный PageRank, инкрементальное обновление)"""
 
     def __init__(self):
         self.graph: Dict[str, Dict] = {}
@@ -10755,7 +10371,6 @@ class ThreatGraphNetwork:
         self._full_propagation_interval = 300
 
     def add_edge(self, src: str, dst: str, weight: float = 1.0) -> None:
-        """Добавление направленной связи между узлами"""
         with self._lock:
             for ip in (src, dst):
                 if ip not in self.graph:
@@ -10789,7 +10404,6 @@ class ThreatGraphNetwork:
             self._dirty_nodes.add(dst)
 
     def mark_attack(self, ip: str, score: float, attack_type: str = None) -> None:
-        """Отметка атаки на узле (инкрементально)"""
         with self._lock:
             if ip in self.graph:
                 self.graph[ip]['attacks'] += 1
@@ -10808,7 +10422,6 @@ class ThreatGraphNetwork:
                     self._dirty_nodes.add(neighbor)
 
     def propagate_risk(self, iterations: int = 10, force_full: bool = False) -> Dict[str, float]:
-        """Распространение риска по графу (с инкрементальным обновлением)"""
         with self._lock:
             now = time.time()
 
@@ -10822,7 +10435,6 @@ class ThreatGraphNetwork:
             return dict(self.risk_scores)
 
     def _propagate_incremental(self, iterations: int) -> None:
-        """Инкрементальное распространение риска (только изменённые узлы)"""
         damping = 0.85
 
         for _ in range(iterations):
@@ -10847,7 +10459,6 @@ class ThreatGraphNetwork:
                 self.risk_scores[ip] = score
 
     def _propagate_full(self, iterations: int) -> None:
-        """Полное распространение риска (PageRank)"""
         for ip, data in self.graph.items():
             self.risk_scores[ip] = data['risk']
 
@@ -10870,7 +10481,6 @@ class ThreatGraphNetwork:
             self.risk_scores = new_scores
 
     def _pagerank_fallback(self, node_features: List, edge_index: List) -> Dict[str, float]:
-        """Корректный PageRank для НАПРАВЛЕННОГО графа угроз"""
         num_nodes = len(node_features)
         if num_nodes == 0:
             return {}
@@ -10919,7 +10529,6 @@ class ThreatGraphNetwork:
         return {str(k): v for k, v in scores.items()}
 
     def detect_communities(self) -> Dict[str, int]:
-        """Обнаружение сообществ в графе (упрощённый Louvain)"""
         with self._lock:
             nodes = list(self.graph.keys())
             if not nodes:
@@ -10964,7 +10573,6 @@ class ThreatGraphNetwork:
             return dict(self.communities)
 
     def get_high_risk_subgraph(self, threshold: float = 0.5) -> Dict:
-        """Получить подграф высокого риска"""
         self.propagate_risk()
 
         high_risk_nodes = {
@@ -10993,7 +10601,6 @@ class ThreatGraphNetwork:
         return subgraph
 
     def get_stats(self) -> Dict:
-        """Статистика графа"""
         with self._lock:
             return {
                 'total_nodes': len(self.graph),
@@ -11005,7 +10612,6 @@ class ThreatGraphNetwork:
             }
 
     def cleanup_old_nodes(self, max_age: int = 86400) -> int:
-        """Очистка устаревших узлов"""
         with self._lock:
             now = time.time()
             expired = [ip for ip, data in self.graph.items()
@@ -11022,7 +10628,6 @@ class ThreatGraphNetwork:
 
 
 class AdvancedLearner(BaseModule):
-    """Продвинутое обучение (Baseline + ThreatGraph)"""
 
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("AdvancedLearner", config, event_bus, logger)
@@ -11047,7 +10652,6 @@ class AdvancedLearner(BaseModule):
         self.running = False
 
     def on_packet(self, data: Dict) -> None:
-        """Обработка пакета (с сэмплированием для производительности)"""
         self._packet_counter += 1
         if self._packet_counter % self._sample_rate != 0:
             return
@@ -11095,7 +10699,6 @@ class AdvancedLearner(BaseModule):
                 self.logger.debug(f"Ошибка анализа пакета: {e}")
 
     def _calculate_packet_entropy(self, packet) -> float:
-        """Вычисление энтропии пакета"""
         try:
             from scapy.all import Raw
             if packet.haslayer(Raw):
@@ -11111,7 +10714,6 @@ class AdvancedLearner(BaseModule):
         return 0.0
 
     def on_alert(self, alert: Dict) -> None:
-        """Обновление графа при алерте"""
         src_ip = alert.get('src_ip', '')
         dst_ip = alert.get('dst_ip', '')
 
@@ -11126,13 +10728,11 @@ class AdvancedLearner(BaseModule):
             self.threat_graph.add_edge(src_ip, dst_ip, weight=alert.get('score', 0.5) * 2)
 
     def on_exfiltration(self, data: Dict) -> None:
-        """Обновление графа при утечке данных"""
         src_ip = data.get('src_ip', '')
         if src_ip:
             self.threat_graph.mark_attack(src_ip, 0.9, 'Data Exfiltration')
 
     def _graph_analysis_loop(self) -> None:
-        """Периодический анализ графа"""
         while self.running:
             time.sleep(300)
 
@@ -11147,14 +10747,11 @@ class AdvancedLearner(BaseModule):
                 self.event_bus.publish('threat_graph.cluster', high_risk)
 
     def get_device_risk(self, ip: str) -> float:
-        """Получить риск устройства"""
         self.threat_graph.propagate_risk()
         return self.threat_graph.risk_scores.get(ip, 0.0)
 
 
-
 class HoneypotService(BaseModule):
-    """Сервис-ловушка для обнаружения атак"""
 
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("Honeypot", config, event_bus, logger)
@@ -11181,7 +10778,6 @@ class HoneypotService(BaseModule):
             srv.stop()
 
     def _on_connection(self, src_ip: str, port: int, data: bytes = None) -> None:
-        """Обработка подключения к ловушке"""
 
         print(f"🔥🔥🔥 HONEYPOT CONNECTION: {src_ip}:{port} 🔥🔥🔥")
         try:
@@ -11230,7 +10826,6 @@ class HoneypotService(BaseModule):
 _GLOBAL_HONEYPOT_SEMAPHORE = threading.Semaphore(100)
 
 class _HoneypotServer:
-    """Отдельный сервер-ловушка с ограничением подключений"""
 
     def __init__(self, port: int, event_bus: EventBus, logger, callback: Callable):
         self.port = port
@@ -11296,7 +10891,6 @@ class _HoneypotServer:
             pass
 
     def _handle_connection(self, conn: socket.socket, addr: Tuple[str, int]) -> None:
-        """Обработка одного подключения"""
         try:
             with self._conn_lock:
                 self._active_connections += 1
@@ -11336,7 +10930,6 @@ class _HoneypotServer:
                 self._connection_semaphore.release()
 
     def _get_banner(self) -> bytes:
-        """Получить обобщённый баннер для порта (без раскрытия версий)"""
         banners = {
             22: b"SSH-2.0-OpenSSH\r\n",
             80: b"HTTP/1.1 200 OK\r\nServer: Apache\r\n\r\n<html><h1>Welcome</h1></html>",
@@ -11350,7 +10943,6 @@ class _HoneypotServer:
         return banners.get(self.port, b"")
 
     def get_stats(self) -> Dict:
-        """Получить статистику сервера"""
         with self._conn_lock:
             return {
                 'port': self.port,
@@ -11361,7 +10953,6 @@ class _HoneypotServer:
 
 
 class AgenticAIAnalyst(BaseModule):
-    """Агентный ИИ для расследования инцидентов (исправлен - защита от race condition, дедупликация)"""
 
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("AgenticAI", config, event_bus, logger)
@@ -11401,7 +10992,6 @@ class AgenticAIAnalyst(BaseModule):
 
     @staticmethod
     def _create_ttl_set(max_size: int = 500):
-        """Создаёт TTL set с FIFO удалением и потокобезопасностью"""
         from collections import OrderedDict
 
         class TTLSet:
@@ -11863,9 +11453,7 @@ class AgenticAIAnalyst(BaseModule):
         self.logger.info("Статистика Agentic AI сброшена")
 
 
-
 class TrafficCapture(BaseModule):
-    """Захват сетевого трафика"""
 
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("Capture", config, event_bus, logger)
@@ -11889,7 +11477,6 @@ class TrafficCapture(BaseModule):
         self.stats_reset_time = time.time()
 
     def set_features_extractor(self, extractor: Callable) -> None:
-        """Установка экстрактора признаков"""
         self.features_extractor = extractor
 
     def start(self) -> None:
@@ -11905,7 +11492,6 @@ class TrafficCapture(BaseModule):
         self.running = False
 
     def _get_interface(self) -> str:
-        """Получение сетевого интерфейса"""
         if self.interface == 'auto' and scapy_all:
             try:
                 from scapy.all import conf
@@ -11915,7 +11501,6 @@ class TrafficCapture(BaseModule):
         return self.interface
 
     def _worker(self) -> None:
-        """Рабочий поток обработки пакетов"""
         while self.running:
             try:
                 packet = self.packet_queue.get(timeout=1)
@@ -11926,7 +11511,6 @@ class TrafficCapture(BaseModule):
                 self.logger.debug(f"Ошибка обработки пакета: {e}")
 
     def _process_packet(self, packet) -> None:
-        """Обработка одного пакета (исправлены блокировки)"""
         try:
             from scapy.all import IP, TCP, UDP, Raw
 
@@ -11996,14 +11580,12 @@ class TrafficCapture(BaseModule):
             self.logger.debug(f"Ошибка парсинга пакета: {e}")
 
     def _is_local_ip(self, ip: str) -> bool:
-        """Быстрая проверка локальности IP"""
         for net in self.local_networks:
             if ip.startswith(net):
                 return True
         return False
 
     def _update_flow_stats(self, flow_key: str, packet_size: int) -> None:
-        """Обновление статистики потока"""
         with self._flows_lock:
             if flow_key not in self.active_flows:
                 self.active_flows[flow_key] = {
@@ -12022,7 +11604,6 @@ class TrafficCapture(BaseModule):
                 self._cleanup_old_flows()
 
     def _cleanup_old_flows(self) -> None:
-        """Очистка устаревших потоков"""
         now = time.time()
         timeout = 300
 
@@ -12035,7 +11616,6 @@ class TrafficCapture(BaseModule):
             del self.active_flows[key]
 
     def capture_loop(self) -> None:
-        """Основной цикл захвата с автоматическим перезапуском при ошибках"""
         if not scapy_all:
             self.logger.error("Scapy не установлен. Захват трафика недоступен.")
             return
@@ -12104,7 +11684,6 @@ class TrafficCapture(BaseModule):
 
                 time.sleep(delay)
     def get_stats(self) -> Dict:
-        """Статистика захвата"""
         with self._stats_lock:
             packets = self.packet_count
             bytes_count = self.bytes_count
@@ -12136,7 +11715,6 @@ class TrafficCapture(BaseModule):
         }
 
     def reset_stats(self) -> None:
-        """Сброс статистики (исправлено - используем правильные блокировки)"""
         with self._stats_lock:
             self.packet_count = 0
             self.bytes_count = 0
@@ -12152,7 +11730,6 @@ class TrafficCapture(BaseModule):
 
 
 class AttackSimulator(BaseModule):
-    """Симулятор атак для тестирования"""
 
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("Simulator", config, event_bus, logger)
@@ -12181,7 +11758,6 @@ class AttackSimulator(BaseModule):
         self.running = False
 
     def _loop(self) -> None:
-        """Основной цикл симуляции"""
         while self.running:
             time.sleep(random.uniform(5, 15))
 
@@ -12217,9 +11793,7 @@ class AttackSimulator(BaseModule):
                 self.event_bus.publish('exfiltration.detected', exfil_alert)
 
 
-
 class SIEMStorage(BaseModule):
-    """Хранилище SIEM (исправлено - WAL checkpoint, пул соединений, ограничения)"""
 
     def __init__(self, config, event_bus, logger):
         super().__init__("SIEM", config, event_bus, logger)
@@ -12264,7 +11838,6 @@ class SIEMStorage(BaseModule):
 
 
     def _init_sqlite(self) -> None:
-        """Инициализация пула соединений SQLite с партициями по датам"""
         try:
             db_dir = Path(self.sqlite_path).parent
             if db_dir and str(db_dir) != '' and not db_dir.exists():
@@ -12329,7 +11902,6 @@ class SIEMStorage(BaseModule):
             self.sqlite_path = ':memory:'
 
     def _get_sqlite_connection(self) -> sqlite3.Connection:
-        """Получить соединение из пула"""
         try:
             conn = self._sqlite_pool.get(timeout=1)
             self._active_connections.add(conn)
@@ -12341,7 +11913,6 @@ class SIEMStorage(BaseModule):
             return conn
 
     def _return_sqlite_connection(self, conn: sqlite3.Connection) -> None:
-        """Вернуть соединение в пул"""
         try:
             if conn:
                 self._active_connections.discard(conn)
@@ -12350,7 +11921,6 @@ class SIEMStorage(BaseModule):
             conn.close()
 
     def _init_timescale(self) -> None:
-        """Инициализация TimescaleDB"""
         if not self.timescale_enabled:
             return
         try:
@@ -12361,7 +11931,6 @@ class SIEMStorage(BaseModule):
             self.timescale_enabled = False
 
     def _init_elasticsearch(self) -> None:
-        """Инициализация Elasticsearch"""
         if not self.es_enabled:
             return
         try:
@@ -12378,7 +11947,6 @@ class SIEMStorage(BaseModule):
         self.logger.info(f"SIEM запущен (SQLite: {self.sqlite_path})")
 
     def stop(self) -> None:
-        """Остановка с принудительным закрытием соединений"""
         self.running = False
         self._flush_alerts()
 
@@ -12405,13 +11973,11 @@ class SIEMStorage(BaseModule):
             self.pg_pool.closeall()
 
     def _flush_loop(self) -> None:
-        """Периодический сброс буфера алертов"""
         while self.running:
             time.sleep(self._alert_flush_interval)
             self._flush_alerts()
 
     def _checkpoint_loop(self) -> None:
-        """Периодический checkpoint WAL файла"""
         while self.running:
             time.sleep(300)
 
@@ -12437,7 +12003,6 @@ class SIEMStorage(BaseModule):
 
     
     def _flush_alerts(self) -> None:
-        """Пакетная запись алертов в БД (с ограничением размера)"""
         if not self._alert_buffer:
             return
 
@@ -12506,7 +12071,6 @@ class SIEMStorage(BaseModule):
                 self._return_sqlite_connection(conn)
 
     def on_alert(self, alert: Dict) -> None:
-        """Сохранение алерта (буферизованная версия)"""
         with self._alert_buffer_lock:
             alert_copy = alert.copy()
 
@@ -12539,7 +12103,6 @@ class SIEMStorage(BaseModule):
         pass
 
     def on_query_request(self, data: Dict) -> None:
-        """Обработка запроса алертов"""
         request_id = data.get('request_id')
         src_ip = data.get('src_ip')
         time_range = data.get('time_range', 1800)
@@ -12575,7 +12138,6 @@ class SIEMStorage(BaseModule):
                 self._return_sqlite_connection(conn)
 
     def on_ips_request(self, data: Dict) -> None:
-        """Обработка запроса IP для пользователя"""
         request_id = data.get('request_id')
         username = data.get('username')
         hours = data.get('hours', 24)
@@ -12610,7 +12172,6 @@ class SIEMStorage(BaseModule):
             time.sleep(300)
 
     def query_alerts(self, src_ip: str = None, attack_type: str = None, limit: int = 100) -> List[Dict]:
-        """Запрос алертов с валидацией"""
         if not isinstance(limit, int) or limit < 1:
             limit = 100
         limit = min(limit, 1000)
@@ -12670,9 +12231,7 @@ class SIEMStorage(BaseModule):
                 self._return_sqlite_connection(conn)
 
 
-
 class ShardEnterprise:
-    """Главный класс SHARD Enterprise SIEM"""
 
     def __init__(self, config_path: str = "config.yaml", enable_simulation: bool = False, no_capture: bool = False, event_bus=None):
         self.config = ConfigManager(config_path)
@@ -12690,7 +12249,6 @@ class ShardEnterprise:
         self._setup_signal_handlers()
 
     def _init_modules(self) -> None:
-        """Инициализация всех модулей"""
 
         self.modules = [
             PrometheusMetrics(self.config, self.event_bus, self.logger_service),
@@ -12738,7 +12296,6 @@ class ShardEnterprise:
         self.event_bus.subscribe('alert.detected', self._enrich_alert)
 
     def _extract_features(self, packet) -> Optional[List[float]]:
-        """Извлечение признаков из пакета для ML"""
         try:
             from scapy.all import IP, TCP, UDP, Raw
 
@@ -12787,7 +12344,6 @@ class ShardEnterprise:
             return None
 
     def _enrich_alert(self, alert: Dict) -> None:
-        """Обогащение алерта дополнительной информацией"""
 
         self.logger.info(f"🔔 ALERT: {alert.get('attack_type')} from {alert.get('src_ip')}")
 
@@ -12818,7 +12374,6 @@ class ShardEnterprise:
         alert['is_internal_dst'] = any(dst_ip.startswith(net) for net in local_networks) if dst_ip else False
 
     def _print_banner(self) -> None:
-        """Вывод баннера"""
         banner = """
 ╔══════════════════════════════════════════════════════════════════════════╗
 ║                                                                          ║
@@ -12862,7 +12417,6 @@ class ShardEnterprise:
         self.logger.info("=" * 70)
 
     def _setup_signal_handlers(self) -> None:
-        """Настройка обработчиков сигналов"""
         import signal
 
         def signal_handler(sig, frame):
@@ -12874,7 +12428,6 @@ class ShardEnterprise:
         signal.signal(signal.SIGTERM, signal_handler)
 
     def start(self) -> None:
-        """Запуск всех модулей"""
         self.logger.info("🚀 Запуск SHARD Enterprise...")
 
         for module in self.modules:
@@ -12910,7 +12463,6 @@ class ShardEnterprise:
                 self.stop()
 
     def stop(self) -> None:
-        """Остановка всех модулей"""
         self.logger.info("\n⏹️ Остановка SHARD Enterprise...")
 
         for module in reversed(self.modules):
@@ -12934,7 +12486,6 @@ class ShardEnterprise:
         self.logger.info("=" * 70)
 
     def get_status(self) -> Dict:
-        """Получить статус системы"""
         return {
             'uptime': time.time() - self.start_time,
             'modules': [
@@ -12953,14 +12504,11 @@ class ShardEnterprise:
         }
 
     def reload_config(self) -> None:
-        """Перезагрузка конфигурации"""
         self.config = ConfigManager(self.config.config_path)
         self.logger.info("Конфигурация перезагружена")
 
 
-
 def main():
-    """Главная функция запуска"""
     import argparse
 
     parser = argparse.ArgumentParser(

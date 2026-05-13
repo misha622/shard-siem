@@ -29,9 +29,7 @@ import requests
 import yaml
 
 
-
 class AttackPhase(Enum):
-    """Фазы атаки по MITRE ATT&CK"""
     RECONNAISSANCE = "Reconnaissance"
     RESOURCE_DEVELOPMENT = "Resource Development"
     INITIAL_ACCESS = "Initial Access"
@@ -49,7 +47,6 @@ class AttackPhase(Enum):
 
 
 class FindingSeverity(Enum):
-    """Серьёзность находки"""
     CRITICAL = "CRITICAL"
     HIGH = "HIGH"
     MEDIUM = "MEDIUM"
@@ -59,7 +56,6 @@ class FindingSeverity(Enum):
 
 @dataclass
 class RedTeamConfig:
-    """Конфигурация Red Team Automation"""
 
     enabled: bool = True
     mode: str = "safe"
@@ -85,7 +81,6 @@ class RedTeamConfig:
 
 @dataclass
 class Finding:
-    """Находка пентеста"""
     id: str
     name: str
     description: str
@@ -102,9 +97,7 @@ class Finding:
     raw_output: Optional[str] = None
 
 
-
 class BaseScanner:
-    """Базовый класс для всех сканеров"""
 
     def __init__(self, config: RedTeamConfig, logger=None):
         self.config = config
@@ -114,11 +107,9 @@ class BaseScanner:
         self._lock = threading.RLock()
 
     def run(self, target: str) -> List[Finding]:
-        """Запуск сканирования"""
         raise NotImplementedError
 
     def _run_command(self, cmd: List[str], timeout: int = 300) -> Tuple[int, str, str]:
-        """Безопасный запуск команды"""
         try:
             allowed_commands = ['nmap', 'gobuster', 'nikto', 'sqlmap', 'hydra', 'enum4linux',
                                 'whatweb', 'wpscan', 'searchsploit', 'msfconsole', 'dirb', 'ffuf']
@@ -145,14 +136,12 @@ class BaseScanner:
             return -1, "", str(e)
 
     def _add_finding(self, finding: Finding):
-        """Добавление находки"""
         with self._lock:
             self.findings.append(finding)
             if self.logger:
                 self.logger.info(f"🔍 Finding: [{finding.severity.value}] {finding.name} on {finding.target}")
 
     def _save_evidence(self, finding_id: str, data: str):
-        """Сохранение доказательства"""
         if not self.config.save_evidence:
             return
 
@@ -166,12 +155,9 @@ class BaseScanner:
         return str(filename)
 
 
-
 class PortScanner(BaseScanner):
-    """Сканер портов через Nmap"""
 
     def run(self, target: str) -> List[Finding]:
-        """Запуск сканирования портов"""
         self._running = True
         self.findings = []
 
@@ -198,7 +184,6 @@ class PortScanner(BaseScanner):
         return self.findings
 
     def _parse_nmap(self, output: str, target: str, proto: str = 'tcp') -> List[Finding]:
-        """Парсинг вывода Nmap"""
         findings = []
 
         port_pattern = r'(\d+)/(tcp|udp)\s+(\w+)\s+(\w+)\s*(.*)'
@@ -246,7 +231,6 @@ class PortScanner(BaseScanner):
         return findings
 
     def _get_port_remediation(self, port: int, service: str) -> str:
-        """Рекомендации по порту"""
         recommendations = {
             21: "Disable FTP or use SFTP/FTPS instead",
             23: "Disable Telnet, use SSH instead",
@@ -256,12 +240,9 @@ class PortScanner(BaseScanner):
         return recommendations.get(port, f"Review if {service} needs to be exposed")
 
 
-
 class WebVulnerabilityScanner(BaseScanner):
-    """Сканер веб-уязвимостей через Nikto"""
 
     def run(self, target: str, port: int = None) -> List[Finding]:
-        """Запуск сканирования веб-уязвимостей"""
         self._running = True
         self.findings = []
 
@@ -295,7 +276,6 @@ class WebVulnerabilityScanner(BaseScanner):
         return self.findings
 
     def _parse_nikto(self, output: str, target: str, port: int = None) -> List[Finding]:
-        """Парсинг вывода Nikto"""
         findings = []
 
         for line in output.split('\n'):
@@ -321,7 +301,6 @@ class WebVulnerabilityScanner(BaseScanner):
         return findings
 
     def _parse_whatweb(self, output: str, target: str, port: int = None) -> Optional[Finding]:
-        """Парсинг вывода WhatWeb"""
         if not output.strip():
             return None
 
@@ -338,12 +317,9 @@ class WebVulnerabilityScanner(BaseScanner):
         )
 
 
-
 class DirectoryScanner(BaseScanner):
-    """Сканер директорий через Gobuster"""
 
     def run(self, target: str, port: int = None) -> List[Finding]:
-        """Запуск сканирования директорий"""
         self._running = True
         self.findings = []
 
@@ -379,7 +355,6 @@ class DirectoryScanner(BaseScanner):
         return self.findings
 
     def _parse_gobuster(self, output: str, target: str, port: int = None) -> List[Finding]:
-        """Парсинг вывода Gobuster"""
         findings = []
 
         sensitive_paths = ['admin', 'login', 'wp-admin', 'phpmyadmin', '.git', '.env', 'backup', 'config']
@@ -408,12 +383,9 @@ class DirectoryScanner(BaseScanner):
         return findings
 
 
-
 class SQLInjectionScanner(BaseScanner):
-    """Сканер SQL инъекций через SQLMap"""
 
     def run(self, target: str, port: int = None) -> List[Finding]:
-        """Запуск сканирования SQL инъекций"""
         self._running = True
         self.findings = []
 
@@ -451,12 +423,9 @@ class SQLInjectionScanner(BaseScanner):
         return self.findings
 
 
-
 class PasswordBruteForceScanner(BaseScanner):
-    """Сканер слабых паролей через Hydra"""
 
     def run(self, target: str, service: str, port: int = None) -> List[Finding]:
-        """Запуск проверки паролей (только в safe mode с предупреждением)"""
         self._running = True
         self.findings = []
 
@@ -500,7 +469,6 @@ class PasswordBruteForceScanner(BaseScanner):
         return self.findings
 
     def _get_default_port(self, service: str) -> int:
-        """Порт по умолчанию для сервиса"""
         ports = {
             'ssh': 22,
             'ftp': 21,
@@ -516,12 +484,7 @@ class PasswordBruteForceScanner(BaseScanner):
         return ports.get(service, 0)
 
 
-
 class RedTeamEngine:
-    """
-    Основной движок Red Team Automation
-    Координирует все сканеры и генерирует отчёты
-    """
 
     def __init__(self, config: RedTeamConfig = None, logger=None):
         self.config = config or RedTeamConfig()
@@ -549,16 +512,6 @@ class RedTeamEngine:
         self._running = False
 
     def run_full_assessment(self, target: str, scope: List[str] = None) -> Dict:
-        """
-        Запуск полной оценки безопасности цели
-
-        Args:
-            target: Основная цель
-            scope: Дополнительные цели в области
-
-        Returns:
-            Отчёт с результатами
-        """
         self._running = True
         start_time = time.time()
 
@@ -640,11 +593,9 @@ class RedTeamEngine:
         return report
 
     def run_quick_scan(self, target: str) -> List[Finding]:
-        """Быстрое сканирование (только порты)"""
         return self.port_scanner.run(target)
 
     def generate_report(self, target: str, findings: List[Finding], duration: float) -> Dict:
-        """Генерация отчёта"""
         by_severity = defaultdict(list)
         for f in findings:
             by_severity[f.severity.value].append({
@@ -683,7 +634,6 @@ class RedTeamEngine:
         }
 
     def _map_to_mitre(self, findings: List[Finding]) -> Dict:
-        """Маппинг находок на MITRE ATT&CK"""
         tactics = defaultdict(set)
 
         phase_to_tactic = {
@@ -710,7 +660,6 @@ class RedTeamEngine:
         return {k: list(v) for k, v in tactics.items()}
 
     def _generate_recommendations(self, findings: List[Finding]) -> List[str]:
-        """Генерация рекомендаций"""
         recommendations = set()
 
         for f in sorted(findings, key=lambda x: x.severity.value, reverse=True):
@@ -727,7 +676,6 @@ class RedTeamEngine:
         return list(recommendations)[:10]
 
     def save_report(self, report: Dict, filename: str = None) -> str:
-        """Сохранение отчёта"""
         if not filename:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             target = report['scan_info']['target'].replace('.', '_').replace(':', '_')
@@ -742,7 +690,6 @@ class RedTeamEngine:
         return str(report_path)
 
     def generate_html_report(self, report: Dict) -> str:
-        """Генерация HTML отчёта"""
         summary = report['summary']
 
         html = f"""<!DOCTYPE html>
@@ -819,20 +766,16 @@ class RedTeamEngine:
         return html
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         with self._lock:
             return dict(self.stats)
 
     def get_last_scan(self) -> Optional[Dict]:
-        """Получить последнее сканирование"""
         if self.scan_history:
             return self.scan_history[-1]
         return None
 
 
-
 class ShardRedTeamIntegration:
-    """Интеграция Red Team Automation в SHARD"""
 
     def __init__(self, config: Dict = None):
         self.config = RedTeamConfig()
@@ -841,7 +784,6 @@ class ShardRedTeamIntegration:
         self.logger = None
 
     def setup(self, event_bus, logger):
-        """Настройка интеграции"""
         self.event_bus = event_bus
         self.logger = logger
         self.engine = RedTeamEngine(self.config, logger)
@@ -851,7 +793,6 @@ class ShardRedTeamIntegration:
             event_bus.subscribe('redteam.quick', self.on_quick_scan)
 
     def on_scan_request(self, data: Dict):
-        """Обработка запроса сканирования"""
         target = data.get('target', '')
         scope = data.get('scope', [])
 
@@ -889,7 +830,6 @@ class ShardRedTeamIntegration:
         threading.Thread(target=run_scan, daemon=True).start()
 
     def on_quick_scan(self, data: Dict):
-        """Быстрое сканирование"""
         target = data.get('target', '')
         if not target:
             return
@@ -912,7 +852,6 @@ class ShardRedTeamIntegration:
             })
 
     def _publish_alert(self, finding: Dict, target: str):
-        """Публикация находки как алерта"""
         if self.event_bus:
             severity = finding.get('severity', 'HIGH')
             self.event_bus.publish('alert.detected', {
@@ -932,27 +871,22 @@ class ShardRedTeamIntegration:
             })
 
     def scan_target(self, target: str, scope: List[str] = None) -> Dict:
-        """Синхронное сканирование цели"""
         if not self.engine:
             self.engine = RedTeamEngine(self.config, self.logger)
         return self.engine.run_full_assessment(target, scope)
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         if self.engine:
             return self.engine.get_stats()
         return {}
 
     def get_last_report(self) -> Optional[Dict]:
-        """Получить последний отчёт"""
         if self.engine:
             return self.engine.get_last_scan()
         return None
 
 
-
 def test_red_team():
-    """Тестирование Red Team Automation"""
     print("=" * 60)
     print("🧪 ТЕСТИРОВАНИЕ RED TEAM AUTOMATION")
     print("=" * 60)

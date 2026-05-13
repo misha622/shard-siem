@@ -9,10 +9,6 @@ import json
 
 
 class ActiveLearningEngine:
-    """
-    Активное обучение для SHARD
-    Спрашивает у администратора в спорных случаях
-    """
 
     def __init__(self, model, uncertainty_threshold=0.3):
         self.model = model
@@ -33,23 +29,19 @@ class ActiveLearningEngine:
         self.active_model = None
 
     def _uncertainty_sampling(self, probabilities):
-        """Сэмплирование по неопределённости (least confidence)"""
         uncertainties = 1 - np.max(probabilities, axis=1)
         return np.argsort(uncertainties)[-self.batch_size:]
 
     def _margin_sampling(self, probabilities):
-        """Сэмплирование по маржинальной разнице"""
         sorted_probs = np.sort(probabilities, axis=1)
         margins = sorted_probs[:, -1] - sorted_probs[:, -2]
         return np.argsort(margins)[:self.batch_size]
 
     def _entropy_sampling(self, probabilities):
-        """Сэмплирование по энтропии"""
         entropies = -np.sum(probabilities * np.log(probabilities + 1e-10), axis=1)
         return np.argsort(entropies)[-self.batch_size:]
 
     def _diversity_sampling(self, features, labeled_indices, batch_size=10):
-        """Сэмплирование для максимального разнообразия"""
         if len(labeled_indices) < 2:
             return self._random_sampling(len(features), batch_size)
 
@@ -61,13 +53,9 @@ class ActiveLearningEngine:
         return diverse_indices
 
     def _random_sampling(self, n_samples, batch_size):
-        """Случайное сэмплирование"""
         return random.sample(range(n_samples), min(batch_size, n_samples))
 
     def add_uncertain_sample(self, features, prediction, confidence, raw_prediction):
-        """
-        Добавляет образец с низкой уверенностью в буфер
-        """
         if confidence < self.uncertainty_threshold:
             self.uncertainty_buffer.append({
                 'features': features,
@@ -82,9 +70,6 @@ class ActiveLearningEngine:
         return False
 
     def request_human_review(self, strategy='uncertainty', batch_size=5):
-        """
-        Запрашивает у администратора разметку неопределённых образцов
-        """
         if len(self.uncertainty_buffer) < batch_size:
             return []
 
@@ -159,9 +144,6 @@ class ActiveLearningEngine:
         return reviewed_samples
 
     def retrain_on_feedback(self, reviewed_samples):
-        """
-        Дообучение модели на размеченных образцах
-        """
         if not reviewed_samples:
             return
 
@@ -176,7 +158,6 @@ class ActiveLearningEngine:
         print(f"✅ Модель дообучена на {len(reviewed_samples)} новых образцах")
 
     def _save_training_data(self, X, y):
-        """Сохраняет новые данные для дообучения"""
         data_file = 'active_learning_data.npz'
 
         try:
@@ -190,7 +171,6 @@ class ActiveLearningEngine:
         np.savez(data_file, X=X_all, y=y_all)
 
     def get_statistics(self):
-        """Статистика активного обучения"""
         return {
             'uncertainty_buffer_size': len(self.uncertainty_buffer),
             'total_queries': len(self.query_history),
@@ -200,10 +180,6 @@ class ActiveLearningEngine:
 
 
 class UncertaintyAwareDetector:
-    """
-    Детектор, учитывающий неопределённость предсказаний
-    Интеграция с SHARD
-    """
 
     def __init__(self, base_detector, active_learning_engine):
         self.detector = base_detector
@@ -211,9 +187,6 @@ class UncertaintyAwareDetector:
         self.uncertainty_threshold = 0.3
 
     def predict_with_uncertainty(self, features, n_estimates=10):
-        """
-        Предсказание с оценкой неопределённости (Monte Carlo Dropout)
-        """
         predictions = []
         confidences = []
 
@@ -241,9 +214,6 @@ class UncertaintyAwareDetector:
         }
 
     def process_packet(self, features):
-        """
-        Обработка пакета с учётом неопределённости
-        """
         result = self.predict_with_uncertainty(features)
 
         if result['needs_review']:

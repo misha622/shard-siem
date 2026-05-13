@@ -30,9 +30,7 @@ import requests
 import yaml
 
 
-
 class IOCType(Enum):
-    """Типы индикаторов компрометации"""
     IP = "ip"
     IPV4 = "ipv4"
     IPV6 = "ipv6"
@@ -61,7 +59,6 @@ class IOCType(Enum):
 
 
 class IOCSeverity(Enum):
-    """Серьёзность индикатора"""
     CRITICAL = "CRITICAL"
     HIGH = "HIGH"
     MEDIUM = "MEDIUM"
@@ -70,7 +67,6 @@ class IOCSeverity(Enum):
 
 
 class IOCStatus(Enum):
-    """Статус индикатора"""
     ACTIVE = "ACTIVE"
     EXPIRED = "EXPIRED"
     REVOKED = "REVOKED"
@@ -79,7 +75,6 @@ class IOCStatus(Enum):
 
 
 class TLPMarking(Enum):
-    """Traffic Light Protocol маркировка"""
     RED = "RED"
     AMBER = "AMBER"
     GREEN = "GREEN"
@@ -88,7 +83,6 @@ class TLPMarking(Enum):
 
 
 class ConfidenceLevel(Enum):
-    """Уровень уверенности"""
     HIGH = 100
     MEDIUM = 75
     LOW = 50
@@ -98,7 +92,6 @@ class ConfidenceLevel(Enum):
 
 @dataclass
 class TIPConfig:
-    """Конфигурация Threat Intelligence Platform"""
 
     db_path: str = "./data/tip/iocs.db"
 
@@ -145,7 +138,6 @@ class TIPConfig:
 
 @dataclass
 class Indicator:
-    """Индикатор компрометации (IOC)"""
     id: str
     type: IOCType
     value: str
@@ -172,7 +164,6 @@ class Indicator:
 
 @dataclass
 class ThreatReport:
-    """Отчёт об угрозе"""
     id: str
     name: str
     description: str
@@ -191,9 +182,7 @@ class ThreatReport:
     raw_stix: Optional[Dict] = None
 
 
-
 class IOCDatabase:
-    """База данных индикаторов компрометации"""
 
     def __init__(self, db_path: str):
         self.db_path = db_path
@@ -201,7 +190,6 @@ class IOCDatabase:
         self._init_db()
 
     def _init_db(self):
-        """Инициализация базы данных"""
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
 
         with self._lock:
@@ -291,7 +279,6 @@ class IOCDatabase:
             conn.close()
 
     def upsert_ioc(self, ioc: Indicator) -> bool:
-        """Вставка или обновление IOC"""
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             try:
@@ -335,7 +322,6 @@ class IOCDatabase:
                 conn.close()
 
     def get_ioc(self, ioc_id: str = None, ioc_type: IOCType = None, value: str = None) -> Optional[Indicator]:
-        """Получить IOC по ID или типу/значению"""
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             conn.row_factory = sqlite3.Row
@@ -358,7 +344,6 @@ class IOCDatabase:
                     severity: IOCSeverity = None, status: IOCStatus = None,
                     source: str = None, tlp: TLPMarking = None,
                     limit: int = 1000) -> List[Indicator]:
-        """Поиск IOC"""
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             conn.row_factory = sqlite3.Row
@@ -399,7 +384,6 @@ class IOCDatabase:
                 conn.close()
 
     def _row_to_ioc(self, row) -> Indicator:
-        """Конвертация строки в Indicator"""
         return Indicator(
             id=row['id'],
             type=IOCType(row['type']),
@@ -426,7 +410,6 @@ class IOCDatabase:
         )
 
     def add_sighting(self, ioc_id: str, source: str = "SHARD", context: Dict = None):
-        """Добавление наблюдения IOC"""
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             try:
@@ -442,7 +425,6 @@ class IOCDatabase:
                 conn.close()
 
     def mark_false_positive(self, ioc_id: str):
-        """Отметить как ложное срабатывание"""
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             try:
@@ -453,7 +435,6 @@ class IOCDatabase:
                 conn.close()
 
     def get_stats(self) -> Dict:
-        """Статистика базы данных"""
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             try:
@@ -490,7 +471,6 @@ class IOCDatabase:
                 conn.close()
 
     def update_feed_status(self, feed_name: str, fetched: int = 0, error: str = None):
-        """Обновление статуса фида"""
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             try:
@@ -503,9 +483,7 @@ class IOCDatabase:
                 conn.close()
 
 
-
 class IOCEnricher:
-    """Обогащение индикаторов данными из внешних источников"""
 
     def __init__(self, config: TIPConfig, logger=None):
         self.config = config
@@ -514,7 +492,6 @@ class IOCEnricher:
         self._lock = threading.RLock()
 
     def enrich(self, ioc: Indicator) -> Indicator:
-        """Обогащение индикатора"""
         cache_key = f"{ioc.type.value}:{ioc.value}"
 
         with self._lock:
@@ -547,7 +524,6 @@ class IOCEnricher:
         return ioc
 
     def _enrich_ip(self, ip: str) -> Dict:
-        """Обогащение IP адреса"""
         enrichment = {}
 
         try:
@@ -600,7 +576,6 @@ class IOCEnricher:
         return enrichment
 
     def _enrich_domain(self, domain: str) -> Dict:
-        """Обогащение домена"""
         enrichment = {}
 
         try:
@@ -642,7 +617,6 @@ class IOCEnricher:
         return enrichment
 
     def _enrich_hash(self, file_hash: str) -> Dict:
-        """Обогащение хеша файла"""
         enrichment = {}
 
         vt_key = os.environ.get('VIRUSTOTAL_KEY', '')
@@ -669,7 +643,6 @@ class IOCEnricher:
         return enrichment
 
     def _enrich_url(self, url: str) -> Dict:
-        """Обогащение URL"""
         enrichment = {}
 
         try:
@@ -704,16 +677,13 @@ class IOCEnricher:
         return enrichment
 
 
-
 class FeedParser:
-    """Парсер внешних фидов threat intelligence"""
 
     def __init__(self, config: TIPConfig, logger=None):
         self.config = config
         self.logger = logger
 
     def parse_otx(self, data: Dict) -> List[Indicator]:
-        """Парсинг AlienVault OTX"""
         iocs = []
 
         for pulse in data.get('results', []):
@@ -742,7 +712,6 @@ class FeedParser:
         return iocs
 
     def parse_csv_list(self, data: str, feed_name: str) -> List[Indicator]:
-        """Парсинг CSV/списка"""
         iocs = []
 
         for line in data.split('\n'):
@@ -769,7 +738,6 @@ class FeedParser:
         return iocs
 
     def parse_tor_list(self, data: str) -> List[Indicator]:
-        """Парсинг списка Tor exit nodes"""
         iocs = []
 
         for line in data.split('\n'):
@@ -794,7 +762,6 @@ class FeedParser:
         return iocs
 
     def _map_otx_type(self, otx_type: str) -> IOCType:
-        """Маппинг типов OTX на IOCType"""
         mapping = {
             'IPv4': IOCType.IPV4,
             'IPv6': IOCType.IPV6,
@@ -811,7 +778,6 @@ class FeedParser:
         return mapping.get(otx_type, IOCType.URL)
 
     def _detect_type(self, value: str) -> Optional[IOCType]:
-        """Определение типа IOC по значению"""
         try:
             ipaddress.ip_address(value)
             return IOCType.IP
@@ -842,12 +808,9 @@ class FeedParser:
         return None
 
 
-
 class STIXConverter:
-    """Конвертация между STIX 2.1 и внутренним форматом"""
 
     def to_stix_bundle(self, indicators: List[Indicator]) -> Dict:
-        """Конвертация в STIX Bundle"""
         bundle = {
             "type": "bundle",
             "id": f"bundle--{uuid.uuid4()}",
@@ -871,7 +834,6 @@ class STIXConverter:
         return bundle
 
     def _indicator_to_stix(self, ioc: Indicator) -> Dict:
-        """Конвертация Indicator в STIX Indicator"""
         stix_id = f"indicator--{uuid.uuid4()}"
 
         pattern = self._to_stix_pattern(ioc)
@@ -904,7 +866,6 @@ class STIXConverter:
         return stix_indicator
 
     def _to_stix_pattern(self, ioc: Indicator) -> str:
-        """Конвертация в STIX pattern"""
         if ioc.type == IOCType.IP or ioc.type == IOCType.IPV4:
             return f"[ipv4-addr:value = '{ioc.value}']"
         elif ioc.type == IOCType.IPV6:
@@ -925,7 +886,6 @@ class STIXConverter:
             return f"[artifact:payload_bin = '{ioc.value}']"
 
     def _to_stix_indicator_types(self, ioc: Indicator) -> List[str]:
-        """Определение indicator_types для STIX"""
         types = ["malicious-activity"]
 
         if ioc.type in [IOCType.IP, IOCType.IPV4, IOCType.IPV6]:
@@ -938,7 +898,6 @@ class STIXConverter:
         return list(set(types))
 
     def _to_stix_marking(self, tlp: TLPMarking) -> str:
-        """Конвертация TLP в STIX marking"""
         mapping = {
             TLPMarking.RED: "marking-definition--5e57c739-391a-4eb3-b6be-7d15ca92d5ed",
             TLPMarking.AMBER: "marking-definition--f88d31f6-486f-44da-b317-01333bde0b82",
@@ -948,7 +907,6 @@ class STIXConverter:
         return mapping.get(tlp, "marking-definition--613f2e26-407d-48c7-9eca-b8e91df99dc9")
 
     def from_stix_bundle(self, bundle: Dict) -> List[Indicator]:
-        """Конвертация из STIX Bundle"""
         indicators = []
 
         for obj in bundle.get('objects', []):
@@ -960,7 +918,6 @@ class STIXConverter:
         return indicators
 
     def _stix_to_indicator(self, obj: Dict) -> Optional[Indicator]:
-        """Конвертация STIX Indicator в Indicator"""
         try:
             pattern = obj.get('pattern', '')
 
@@ -1006,12 +963,7 @@ class STIXConverter:
             return None
 
 
-
 class TIPEngine:
-    """
-    Основной движок Threat Intelligence Platform
-    Управляет сбором, обогащением и распространением IOC
-    """
 
     def __init__(self, config: TIPConfig = None, logger=None):
         self.config = config or TIPConfig()
@@ -1033,7 +985,6 @@ class TIPEngine:
         self._update_thread = None
 
     def start(self):
-        """Запуск движка"""
         self._running = True
         self._update_thread = threading.Thread(target=self._update_loop, daemon=True)
         self._update_thread.start()
@@ -1042,7 +993,6 @@ class TIPEngine:
             self.logger.info("🚀 Threat Intelligence Platform started")
 
     def stop(self):
-        """Остановка движка"""
         self._running = False
         if self._update_thread:
             self._update_thread.join(timeout=5)
@@ -1051,13 +1001,11 @@ class TIPEngine:
             self.logger.info("🛑 Threat Intelligence Platform stopped")
 
     def _update_loop(self):
-        """Цикл обновления фидов"""
         while self._running:
             self.fetch_all_feeds()
             time.sleep(self.config.update_interval_hours * 3600)
 
     def fetch_all_feeds(self) -> int:
-        """Загрузка всех включённых фидов"""
         total_fetched = 0
 
         for feed in self.config.feeds:
@@ -1081,7 +1029,6 @@ class TIPEngine:
         return total_fetched
 
     def fetch_feed(self, feed: Dict) -> int:
-        """Загрузка одного фида"""
         response = requests.get(feed['url'], timeout=60, headers={'User-Agent': 'SHARD-TIP/5.0'})
 
         if response.status_code != 200:
@@ -1112,7 +1059,6 @@ class TIPEngine:
         return saved
 
     def add_ioc(self, ioc: Indicator, auto_enrich: bool = True) -> bool:
-        """Добавление индикатора"""
         if not ioc.id:
             ioc.id = f"IOC-{ioc.type.value}-{hash(ioc.value) % 1000000:06d}"
 
@@ -1130,7 +1076,6 @@ class TIPEngine:
         return self.database.upsert_ioc(ioc)
 
     def lookup(self, value: str, ioc_type: Optional[IOCType] = None) -> Optional[Indicator]:
-        """Поиск индикатора"""
         if ioc_type:
             return self.database.get_ioc(ioc_type=ioc_type, value=value)
 
@@ -1141,11 +1086,9 @@ class TIPEngine:
         return None
 
     def search(self, query: str, limit: int = 100) -> List[Indicator]:
-        """Поиск индикаторов"""
         return self.database.search_iocs(query=query, limit=limit)
 
     def check_alert(self, alert: Dict) -> List[Indicator]:
-        """Проверка алерта на наличие IOC"""
         matched_iocs = []
 
         src_ip = alert.get('src_ip')
@@ -1173,7 +1116,6 @@ class TIPEngine:
         return matched_iocs
 
     def export_stix(self, ioc_ids: List[str] = None, query: str = None) -> str:
-        """Экспорт в STIX формат"""
         if ioc_ids:
             iocs = []
             for ioc_id in ioc_ids:
@@ -1189,7 +1131,6 @@ class TIPEngine:
         return json.dumps(bundle, indent=2)
 
     def import_stix(self, stix_data: str) -> int:
-        """Импорт из STIX"""
         try:
             bundle = json.loads(stix_data)
             iocs = self.stix_converter.from_stix_bundle(bundle)
@@ -1206,17 +1147,14 @@ class TIPEngine:
             return 0
 
     def mark_false_positive(self, ioc_id: str):
-        """Отметить как ложное срабатывание"""
         self.database.mark_false_positive(ioc_id)
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         db_stats = self.database.get_stats()
         with self._lock:
             return {**db_stats, **self.stats}
 
     def get_top_iocs(self, limit: int = 10) -> List[Dict]:
-        """Получить топ IOC по sightings"""
         iocs = self.database.search_iocs(status=IOCStatus.ACTIVE, limit=1000)
         iocs.sort(key=lambda x: x.sightings, reverse=True)
 
@@ -1234,9 +1172,7 @@ class TIPEngine:
         ]
 
 
-
 class ShardTIPIntegration:
-    """Интеграция Threat Intelligence Platform в SHARD"""
 
     def __init__(self, config: Dict = None):
         self.config = TIPConfig()
@@ -1245,7 +1181,6 @@ class ShardTIPIntegration:
         self.logger = None
 
     def setup(self, event_bus, logger):
-        """Настройка интеграции"""
         self.event_bus = event_bus
         self.logger = logger
         self.engine = TIPEngine(self.config, logger)
@@ -1256,7 +1191,6 @@ class ShardTIPIntegration:
             event_bus.subscribe('tip.export', self.on_export_request)
 
     def start(self):
-        """Запуск интеграции"""
         if self.engine:
             self.engine.start()
 
@@ -1264,12 +1198,10 @@ class ShardTIPIntegration:
             self.logger.info("🚀 Threat Intelligence Platform запущена")
 
     def stop(self):
-        """Остановка интеграции"""
         if self.engine:
             self.engine.stop()
 
     def on_alert(self, alert: Dict):
-        """Обработка алерта - проверка IOC"""
         if not self.engine:
             return
 
@@ -1304,7 +1236,6 @@ class ShardTIPIntegration:
                 self.logger.warning(f"🔍 Alert matched {len(matched_iocs)} IOCs")
 
     def on_lookup_request(self, data: Dict):
-        """Обработка запроса lookup"""
         value = data.get('value', '')
         ioc_type = data.get('type')
 
@@ -1336,7 +1267,6 @@ class ShardTIPIntegration:
                 })
 
     def on_export_request(self, data: Dict):
-        """Обработка запроса экспорта"""
         format_type = data.get('format', 'stix')
         ioc_ids = data.get('ioc_ids')
         query = data.get('query')
@@ -1354,7 +1284,6 @@ class ShardTIPIntegration:
 
     def add_ioc(self, ioc_type: str, value: str, severity: str = "MEDIUM",
                 tags: List[str] = None, source: str = "manual") -> bool:
-        """Добавить IOC вручную"""
         if self.engine:
             try:
                 ioc = Indicator(
@@ -1370,7 +1299,6 @@ class ShardTIPIntegration:
         return False
 
     def lookup(self, value: str) -> Optional[Dict]:
-        """Поиск IOC"""
         if self.engine:
             ioc = self.engine.lookup(value)
             if ioc:
@@ -1389,21 +1317,17 @@ class ShardTIPIntegration:
         return None
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         if self.engine:
             return self.engine.get_stats()
         return {}
 
     def fetch_feeds(self) -> int:
-        """Принудительная загрузка фидов"""
         if self.engine:
             return self.engine.fetch_all_feeds()
         return 0
 
 
-
 def test_tip():
-    """Тестирование Threat Intelligence Platform"""
     print("=" * 60)
     print("🧪 ТЕСТИРОВАНИЕ THREAT INTELLIGENCE PLATFORM")
     print("=" * 60)

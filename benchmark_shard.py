@@ -66,7 +66,6 @@ running = True
 
 
 def send_packet(host, port, payload, is_attack=False):
-    """Отправка одного пакета с замером latency"""
     try:
         start = time.perf_counter()
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -91,7 +90,6 @@ def send_packet(host, port, payload, is_attack=False):
 
 
 def traffic_worker(worker_id):
-    """Рабочий поток — генерирует трафик"""
     for _ in range(PACKETS_PER_WORKER):
         if not running:
             break
@@ -110,7 +108,6 @@ def traffic_worker(worker_id):
 
 
 def resource_monitor():
-    """Мониторинг CPU и RAM во время теста"""
     start = time.time()
     cpu_samples = []
     mem_samples = []

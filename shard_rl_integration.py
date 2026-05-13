@@ -34,7 +34,6 @@ class DQN(nn.Module):
         return self.net(x)
 
 
-
 ACTIONS = {
     0: ('ignore', 'Игнорировать', 0),
     1: ('log_increased', 'Усилить логирование', 10),
@@ -44,7 +43,6 @@ ACTIONS = {
 }
 
 class RLDefenseAgent:
-    """RL агент для автономной защиты"""
     
     def __init__(self, model_path='./models/rl_defense/dqn_model.pt'):
         self.model_path = Path(model_path)
@@ -65,7 +63,6 @@ class RLDefenseAgent:
         self._load()
     
     def _load(self):
-        """Загрузка обученной RL модели"""
         try:
             if self.model_path.exists():
                 checkpoint = torch.load(self.model_path, map_location='cpu', weights_only=False)
@@ -91,7 +88,6 @@ class RLDefenseAgent:
             logger.error(f"Ошибка загрузки RL модели: {e}")
     
     def _extract_state(self, alert: Dict) -> np.ndarray:
-        """Извлечение состояния из алерта для RL агента"""
         try:
             attack_type = alert.get('attack_type', 'Unknown')
             severity_str = alert.get('severity', 'LOW')
@@ -118,12 +114,6 @@ class RLDefenseAgent:
             return np.zeros(10, dtype=np.float32)
     
     def decide_action(self, alert: Dict) -> Tuple[int, str, str]:
-        """
-        Принятие решения RL агентом.
-        
-        Returns:
-            (action_id, action_name, action_description)
-        """
         if not self.loaded:
             severity = alert.get('severity', 'LOW')
             score = alert.get('score', 0)
@@ -169,11 +159,9 @@ class RLDefenseAgent:
             return 2, 'throttle', 'Замедление трафика (fallback)'
     
     def get_action_cost(self, action_id: int) -> int:
-        """Стоимость действия"""
         return ACTIONS.get(action_id, ('unknown', 'Неизвестно', 0))[2]
     
     def get_stats(self) -> Dict:
-        """Статистика RL агента"""
         return {
             **self.stats,
             'loaded': self.loaded,

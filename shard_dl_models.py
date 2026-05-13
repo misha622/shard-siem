@@ -74,10 +74,8 @@ except ImportError:
     logger.warning("⚠️ Scikit-learn not installed")
 
 
-
 @dataclass
 class DLModelConfig:
-    """Конфигурация Deep Learning моделей"""
 
     lstm_enabled: bool = True
     lstm_sequence_length: int = 100
@@ -135,23 +133,19 @@ class DLModelConfig:
     cache_ttl: int = 60
 
     def save(self, path: str):
-        """Сохранение конфигурации"""
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         with open(path, 'w') as f:
             json.dump(self.__dict__, f, indent=2)
 
     @classmethod
     def load(cls, path: str) -> 'DLModelConfig':
-        """Загрузка конфигурации"""
         with open(path, 'r') as f:
             data = json.load(f)
         return cls(**data)
 
 
-
 if TORCH_AVAILABLE:
     class PositionalEncoding(nn.Module):
-        """Позиционное кодирование для Transformer"""
 
         def __init__(self, d_model: int, max_len: int = 5000, dropout: float = 0.1):
             super().__init__()
@@ -167,10 +161,7 @@ if TORCH_AVAILABLE:
             self.register_buffer('pe', pe)
 
         def forward(self, x):
-            """
-            Args:
-                x: (batch_size, seq_len, d_model)
-            """
+            
             x = x + self.pe[:x.size(1)]
             return self.dropout(x)
 
@@ -178,14 +169,6 @@ if TORCH_AVAILABLE:
 if TORCH_AVAILABLE:
 
     class LSTMAutoencoder(nn.Module):
-        """
-        LSTM Autoencoder для обнаружения аномалий в последовательностях.
-
-        Особенности:
-        - Двунаправленный LSTM
-        - Attention механизм
-        - Residual connections
-        """
 
         def __init__(self, config: DLModelConfig):
             super().__init__()
@@ -324,14 +307,6 @@ if TORCH_AVAILABLE:
 
 if TORCH_AVAILABLE:
     class TransformerAnomalyDetector(nn.Module):
-        """
-        Transformer для обнаружения аномалий.
-
-        Особенности:
-        - Multi-head self-attention
-        - Positional encoding
-        - Residual connections + LayerNorm
-        """
 
         def __init__(self, config: DLModelConfig):
             super().__init__()
@@ -420,14 +395,6 @@ if TORCH_AVAILABLE:
 if TORCH_AVAILABLE:
 
     class VAEAnomalyDetector(nn.Module):
-        """
-        Variational Autoencoder для обнаружения аномалий.
-
-        Особенности:
-        - Reparameterization trick
-        - BatchNorm + Dropout
-        - KL annealing
-        """
 
         def __init__(self, config: DLModelConfig):
             super().__init__()
@@ -546,17 +513,7 @@ if TORCH_AVAILABLE:
                 return score, mse, score > 0.5
 
 
-
 class DeepLearningEnsemble:
-    """
-    Ансамбль Deep Learning моделей с динамическими весами.
-
-    Особенности:
-    - LSTM Autoencoder + Transformer + VAE
-    - Взвешенное голосование
-    - Адаптивные пороги
-    - Онлайн-обучение
-    """
 
     def __init__(self, config: DLModelConfig = None):
         self.config = config or DLModelConfig()
@@ -637,12 +594,10 @@ class DeepLearningEnsemble:
                     f"with models: {list(self.models.keys())}")
 
     def _load_all_models(self):
-        """Загрузка всех сохранённых моделей"""
         for name in self.models.keys():
             self._load_model(name)
 
     def _load_model(self, name: str):
-        """Загрузка модели"""
         model_path = Path(self.config.model_dir) / f'{name}_model.pt'
 
         if model_path.exists() and name in self.models:
@@ -664,7 +619,6 @@ class DeepLearningEnsemble:
                 logger.warning(f"⚠️ Failed to load {name} model: {e}")
 
     def _save_model(self, name: str):
-        """Сохранение модели"""
         if name not in self.models:
             return
 
@@ -686,12 +640,6 @@ class DeepLearningEnsemble:
             logger.error(f"❌ Failed to save {name} model: {e}")
 
     def add_sequence(self, device: str, features: List[float]) -> Optional[np.ndarray]:
-        """
-        Добавление признаков в буфер последовательности.
-
-        Returns:
-            np.ndarray если накоплена полная последовательность, иначе None
-        """
         self.sequence_buffer[device].append(features)
 
         if len(self.sequence_buffer[device]) >= self.config.lstm_sequence_length:
@@ -701,16 +649,6 @@ class DeepLearningEnsemble:
         return None
 
     def predict(self, sequence: np.ndarray, raw_features: List[float]) -> Dict:
-        """
-        Взвешенное предсказание ансамбля.
-
-        Args:
-            sequence: Последовательность для LSTM/Transformer (seq_len, input_dim)
-            raw_features: Текущие признаки для VAE (input_dim,)
-
-        Returns:
-            Dict с результатами
-        """
         start_time = time.time()
         self.stats['total_predictions'] += 1
 
@@ -806,7 +744,6 @@ class DeepLearningEnsemble:
         return result
 
     def _make_cache_key(self, sequence: np.ndarray, features: List[float]) -> str:
-        """Создаёт ключ кэша"""
         seq_flat = sequence[-5:].flatten()
         quantized_seq = np.round(seq_flat[:20], 3)
         quantized_feat = np.round(features[:10], 3)
@@ -815,7 +752,6 @@ class DeepLearningEnsemble:
         return hashlib.md5(combined.tobytes()).hexdigest()
 
     def train_lstm(self, normal_sequences: np.ndarray, epochs: int = None, verbose: int = 1) -> Dict:
-        """Обучение LSTM Autoencoder"""
         if 'lstm' not in self.models:
             return {'error': 'LSTM model not available'}
 
@@ -872,7 +808,6 @@ class DeepLearningEnsemble:
         return history
 
     def train_vae(self, normal_data: np.ndarray, epochs: int = None, verbose: int = 1) -> Dict:
-        """Обучение VAE"""
         if 'vae' not in self.models:
             return {'error': 'VAE model not available'}
 
@@ -936,7 +871,6 @@ class DeepLearningEnsemble:
         return history
 
     def _calibrate_threshold(self, name: str, normal_data: np.ndarray):
-        """Калибровка порога на нормальных данных"""
         if name not in self.models:
             return
 
@@ -971,7 +905,6 @@ class DeepLearningEnsemble:
             logger.info(f"✅ Calibrated {name} threshold: {threshold:.4f}")
 
     def online_retrain(self):
-        """Онлайн дообучение на накопленных данных"""
         if len(self.online_buffer) < self.config.min_samples_retrain:
             return
 
@@ -985,7 +918,6 @@ class DeepLearningEnsemble:
         self.online_buffer.clear()
 
     def _online_retrain_vae(self, data: np.ndarray):
-        """Онлайн дообучение VAE"""
         model = self.models['vae']
         optimizer = self.optimizers['vae']
 
@@ -1012,9 +944,6 @@ class DeepLearningEnsemble:
 
     def add_feedback(self, sequence: np.ndarray, features: List[float],
                      true_label: int, model_predictions: Dict):
-        """
-        Добавление обратной связи для обновления весов.
-        """
         self.feedback_buffer.append({
             'sequence': sequence,
             'features': features,
@@ -1027,7 +956,6 @@ class DeepLearningEnsemble:
             self._update_ensemble_weights()
 
     def _update_ensemble_weights(self):
-        """Обновление весов ансамбля на основе производительности"""
         if len(self.feedback_buffer) < 20:
             return
 
@@ -1080,7 +1008,6 @@ class DeepLearningEnsemble:
         self.feedback_buffer.clear()
 
     def save_all(self):
-        """Сохранение всех моделей"""
         for name in self.models.keys():
             if self.is_trained.get(name, False):
                 self._save_model(name)
@@ -1096,7 +1023,6 @@ class DeepLearningEnsemble:
         logger.info("✅ All models saved")
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         return {
             'models': {
                 name: {
@@ -1122,17 +1048,7 @@ class DeepLearningEnsemble:
         }
 
 
-
 class DeepLearningEngine:
-    """
-    Интеграционный слой для Deep Learning моделей в SHARD.
-
-    Особенности:
-    - Автоматическое управление последовательностями
-    - Фоновое онлайн-обучение
-    - Кэширование предсказаний
-    - Мониторинг
-    """
 
     def __init__(self, config: Dict = None):
         self.config = DLModelConfig()
@@ -1155,7 +1071,6 @@ class DeepLearningEngine:
         logger.info("✅ DeepLearningEngine initialized")
 
     def start(self):
-        """Запуск движка"""
         self._running = True
 
         if self.config.online_learning_enabled:
@@ -1169,7 +1084,6 @@ class DeepLearningEngine:
         logger.info("🚀 DeepLearningEngine started")
 
     def stop(self):
-        """Остановка движка"""
         self._running = False
 
         if self._retrain_thread:
@@ -1180,7 +1094,6 @@ class DeepLearningEngine:
         logger.info("🛑 DeepLearningEngine stopped")
 
     def _retrain_loop(self):
-        """Фоновый цикл дообучения"""
         while self._running:
             time.sleep(self.config.retrain_interval)
 
@@ -1190,16 +1103,6 @@ class DeepLearningEngine:
             self.ensemble.online_retrain()
 
     def predict(self, device: str, features: List[float]) -> Dict:
-        """
-        Предсказание для устройства.
-
-        Args:
-            device: Идентификатор устройства
-            features: Вектор признаков
-
-        Returns:
-            Dict с результатами
-        """
         self.stats['total_packets'] += 1
 
         sequence = self.ensemble.add_sequence(device, features)
@@ -1224,7 +1127,6 @@ class DeepLearningEngine:
 
     def add_feedback(self, device: str, features: List[float],
                      true_label: int, model_predictions: Dict):
-        """Добавление обратной связи"""
         sequence = list(self.ensemble.sequence_buffer[device])
 
         if len(sequence) >= self.config.lstm_sequence_length:
@@ -1232,15 +1134,12 @@ class DeepLearningEngine:
             self.ensemble.add_feedback(seq_array, features, true_label, model_predictions)
 
     def train_lstm(self, normal_sequences: np.ndarray, epochs: int = None) -> Dict:
-        """Обучение LSTM модели"""
         return self.ensemble.train_lstm(normal_sequences, epochs)
 
     def train_vae(self, normal_data: np.ndarray, epochs: int = None) -> Dict:
-        """Обучение VAE модели"""
         return self.ensemble.train_vae(normal_data, epochs)
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         return {
             'engine': {
                 **self.stats,
@@ -1251,7 +1150,6 @@ class DeepLearningEngine:
         }
 
     def reset_stats(self):
-        """Сброс статистики"""
         self.stats = {
             'total_packets': 0,
             'predictions_made': 0,
@@ -1259,9 +1157,7 @@ class DeepLearningEngine:
         }
 
 
-
 def test_dl_models():
-    """Тестирование DL моделей"""
     print("=" * 60)
     print("🧪 TESTING DEEP LEARNING MODELS")
     print("=" * 60)

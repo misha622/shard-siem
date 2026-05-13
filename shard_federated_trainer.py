@@ -27,7 +27,6 @@ CONFIG = {
 
 
 class FederatedClientSimulator:
-    """Симулирует клиентов с разными данными (non-IID)"""
     
     def __init__(self, client_id: int, total_clients: int):
         self.client_id = client_id
@@ -37,7 +36,6 @@ class FederatedClientSimulator:
         self.data = self._generate_local_dataset()
     
     def _generate_client_data_bias(self):
-        """Каждый клиент видит разные типы атак"""
         attack_types = ['SQL Injection', 'Brute Force', 'DDoS', 'Port Scan', 
                        'C2 Beacon', 'DNS Tunnel', 'XSS', 'Lateral Movement',
                        'Data Exfiltration', 'Botnet', 'Ransomware', 'Phishing', 'Zero-Day']
@@ -55,7 +53,6 @@ class FederatedClientSimulator:
         return {k: v/total for k, v in distribution.items()}
     
     def _generate_local_dataset(self) -> Tuple[np.ndarray, np.ndarray]:
-        """Генерирует локальный датасет с учётом специализации клиента"""
         n_samples = random.randint(200, 500)
         n_features = 13
         
@@ -79,7 +76,6 @@ class FederatedClientSimulator:
         return self.data
     
     def get_data_summary(self) -> Dict:
-        """Метаданные о данных (без раскрытия самих данных)"""
         X, y = self.data
         return {
             'client_id': self.client_id,
@@ -90,9 +86,7 @@ class FederatedClientSimulator:
         }
 
 
-
 class FederatedModel:
-    """Модель для федеративного обучения"""
     
     def __init__(self, n_features=13, n_classes=13):
         self.model = nn.Sequential(
@@ -107,16 +101,13 @@ class FederatedModel:
         self.n_classes = n_classes
     
     def get_weights(self) -> List[np.ndarray]:
-        """Получить веса модели как список numpy массивов"""
         return [p.data.numpy() for p in self.model.parameters()]
     
     def set_weights(self, weights: List[np.ndarray]):
-        """Установить веса модели"""
         for p, w in zip(self.model.parameters(), weights):
             p.data = torch.tensor(w, dtype=torch.float32)
     
     def train_local(self, X, y, epochs=5, lr=0.001) -> List[np.ndarray]:
-        """Локальное обучение на данных клиента"""
         criterion = nn.CrossEntropyLoss()
         optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
         
@@ -140,7 +131,6 @@ class FederatedModel:
         return self.get_weights()
     
     def evaluate(self, X, y) -> float:
-        """Оценка точности"""
         self.model.eval()
         with torch.no_grad():
             X_t = torch.tensor(X, dtype=torch.float32)
@@ -151,9 +141,7 @@ class FederatedModel:
         return acc
 
 
-
 class FederatedServer:
-    """Центральный сервер федеративного обучения"""
     
     def __init__(self, n_features=13, n_classes=13):
         self.global_model = FederatedModel(n_features, n_classes)
@@ -162,7 +150,6 @@ class FederatedServer:
         self.accuracy_history = []
     
     def register_clients(self, num_clients: int):
-        """Регистрация клиентов"""
         for i in range(num_clients):
             self.clients[i] = FederatedClientSimulator(i, num_clients)
         logger.info(f"Зарегистрировано клиентов: {len(self.clients)}")
@@ -177,10 +164,6 @@ class FederatedServer:
                 logger.info(f"      {at}: {prob:.0%}")
     
     def aggregate_weights(self, client_weights: List[Tuple[List[np.ndarray], int]]) -> List[np.ndarray]:
-        """
-        FedAvg: взвешенное усреднение весов клиентов
-        Вес клиента пропорционален размеру его данных
-        """
         total_samples = sum(n for _, n in client_weights)
         new_weights = None
         
@@ -195,9 +178,6 @@ class FederatedServer:
         return new_weights
     
     def secure_aggregate(self, client_updates: List[Tuple[List[np.ndarray], int]]) -> List[np.ndarray]:
-        """
-        Secure Aggregation с добавлением шума для differential privacy
-        """
         aggregated = self.aggregate_weights(client_updates)
         
         noise_scale = 0.001
@@ -209,7 +189,6 @@ class FederatedServer:
         return noisy_weights
     
     def train_round(self, round_num: int) -> Dict:
-        """Один раунд федеративного обучения"""
         num_selected = max(2, int(len(self.clients) * CONFIG['fraction_fit']))
         selected_clients = random.sample(list(self.clients.keys()), num_selected)
         
@@ -256,7 +235,6 @@ class FederatedServer:
         return self.round_history[-1]
     
     def train(self, rounds: int = None):
-        """Полный цикл федеративного обучения"""
         rounds = rounds or CONFIG['federation_rounds']
         
         logger.info(f"\n🚀 Запуск федеративного обучения")
@@ -292,12 +270,7 @@ class FederatedServer:
         return self.global_model
 
 
-
 def demo_federated_learning():
-    """
-    Демонстрация: как SHARD использует федеративное обучение
-    для улучшения моделей без раскрытия данных клиентов
-    """
     logger.info("="*60)
     logger.info("🧠 SHARD FEDERATED LEARNING — ДЕМОНСТРАЦИЯ")
     logger.info("="*60)

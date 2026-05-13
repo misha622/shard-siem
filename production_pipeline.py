@@ -41,9 +41,7 @@ PIPELINE_CONFIG = {
 }
 
 
-
 class FalsePositiveController:
-    """Контроль и подавление ложных срабатываний"""
 
     def __init__(self, config: dict):
         self.config = config
@@ -59,7 +57,6 @@ class FalsePositiveController:
         }
 
     def record_alert(self, rule_id: str, is_false_positive: bool = False):
-        """Запись алерта для отслеживания FP"""
         if not is_false_positive:
             return
 
@@ -82,7 +79,6 @@ class FalsePositiveController:
                 self.suppress_rule(rule_id)
 
     def suppress_rule(self, rule_id: str):
-        """Подавление правила из-за FP"""
         with self._lock:
             self.suppressed_rules.add(rule_id)
             self.stats['total_fp_suppressed'] += 1
@@ -94,12 +90,10 @@ class FalsePositiveController:
             )
 
     def is_suppressed(self, rule_id: str) -> bool:
-        """Проверка подавлено ли правило"""
         with self._lock:
             return rule_id in self.suppressed_rules
 
     def unsuppress_rule(self, rule_id: str):
-        """Восстановление правила"""
         with self._lock:
             self.suppressed_rules.discard(rule_id)
             if rule_id in self.fp_counter:
@@ -108,7 +102,6 @@ class FalsePositiveController:
             self.stats['active_suppressions'] = len(self.suppressed_rules)
 
     def should_alert(self, rule_id: str, confidence: float) -> bool:
-        """Проверка стоит ли создавать алерт"""
         if self.is_suppressed(rule_id):
             return False
         if confidence < self.config['min_confidence']:
@@ -120,9 +113,7 @@ class FalsePositiveController:
             return dict(self.stats)
 
 
-
 class PipelineMonitor:
-    """Мониторинг production pipeline"""
 
     def __init__(self, config: dict):
         self.config = config
@@ -150,7 +141,6 @@ class PipelineMonitor:
         threading.Thread(target=self._health_check_loop, daemon=True, name="HealthCheck").start()
 
     def _metrics_loop(self):
-        """Сбор метрик"""
         last_packets = 0
         last_alerts = 0
         last_time = time.time()
@@ -181,17 +171,14 @@ class PipelineMonitor:
                 self._check_thresholds()
 
     def _health_check_loop(self):
-        """Проверка здоровья"""
         while self._running:
             time.sleep(self.config['health_check_interval'])
             self._health_check()
 
     def _health_check(self):
-        """Проверка здоровья всех компонентов"""
         pass
 
     def _check_thresholds(self):
-        """Проверка порогов и алертов"""
         warnings = []
 
         if self.metrics['cpu_percent'] > self.config['cpu_threshold']:
@@ -228,9 +215,7 @@ class PipelineMonitor:
         self._running = False
 
 
-
 class ProductionPipeline:
-    """Production pipeline для SHARD"""
 
     def __init__(self, config: dict = None):
         self.config = config or PIPELINE_CONFIG
@@ -245,7 +230,6 @@ class ProductionPipeline:
         self.logger = logging.getLogger("SHARD-Pipeline")
 
     def _setup_logging(self):
-        """Настройка structured logging"""
         logging.basicConfig(
             level=logging.INFO,
             format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
@@ -256,7 +240,6 @@ class ProductionPipeline:
         )
 
     def start(self):
-        """Запуск production pipeline"""
         self.logger.info("=" * 60)
         self.logger.info("🚀 SHARD PRODUCTION PIPELINE STARTING")
         self.logger.info("=" * 60)
@@ -274,7 +257,6 @@ class ProductionPipeline:
             self.stop()
 
     def _start_shard(self):
-        """Запуск SHARD с защитой от падений"""
         try:
             sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
             from run_shard import EnhancedShardEnterprise
@@ -296,7 +278,6 @@ class ProductionPipeline:
             self._handle_crash()
 
     def _hook_alerts(self):
-        """Перехват алертов для FP контроля"""
         if not self.shard or not self.shard.event_bus:
             return
 
@@ -313,11 +294,9 @@ class ProductionPipeline:
         self.shard.event_bus.subscribe('alert.detected', alert_filter)
 
     def report_false_positive(self, rule_id: str):
-        """Сообщить о ложном срабатывании"""
         self.fp_controller.record_alert(rule_id, is_false_positive=True)
 
     def _handle_crash(self):
-        """Обработка падения"""
         if not self.config['restart_on_crash']:
             return
 
@@ -338,7 +317,6 @@ class ProductionPipeline:
         self._start_shard()
 
     def stop(self):
-        """Graceful shutdown"""
         self.logger.info("Stopping production pipeline...")
         self._running = False
 
@@ -353,7 +331,6 @@ class ProductionPipeline:
         self._print_final_stats()
 
     def _print_final_stats(self):
-        """Вывод финальной статистики"""
         metrics = self.monitor.get_metrics()
         fp_stats = self.fp_controller.get_stats()
 
@@ -369,14 +346,12 @@ class ProductionPipeline:
         self.logger.info("=" * 60)
 
     def get_status(self) -> dict:
-        """Получить статус pipeline"""
         return {
             'running': self._running,
             'restart_count': self.restart_count,
             'metrics': self.monitor.get_metrics(),
             'fp_control': self.fp_controller.get_stats(),
         }
-
 
 
 def main():

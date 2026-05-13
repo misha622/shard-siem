@@ -30,9 +30,7 @@ import yaml
 import xml.etree.ElementTree as ET
 
 
-
 class CVESeverity(Enum):
-    """Уровни серьёзности CVE"""
     CRITICAL = "CRITICAL"
     HIGH = "HIGH"
     MEDIUM = "MEDIUM"
@@ -41,7 +39,6 @@ class CVESeverity(Enum):
 
 
 class CVEStatus(Enum):
-    """Статус CVE в инфраструктуре"""
     VULNERABLE = "VULNERABLE"
     PATCHED = "PATCHED"
     NOT_AFFECTED = "NOT_AFFECTED"
@@ -50,7 +47,6 @@ class CVEStatus(Enum):
 
 @dataclass
 class CVEIntelligenceConfig:
-    """Конфигурация CVE Intelligence"""
 
     nvd_api_url: str = "https://services.nvd.nist.gov/rest/json/cves/2.0"
     cve_database_path: str = "./data/cve/cve.db"
@@ -74,10 +70,8 @@ class CVEIntelligenceConfig:
     reports_dir: str = "./data/cve/reports/"
 
 
-
 @dataclass
 class CVE:
-    """Модель CVE"""
     cve_id: str
     description: str
     published_date: str
@@ -95,7 +89,6 @@ class CVE:
     patch_links: List[str] = field(default_factory=list)
 
     def get_severity(self) -> CVESeverity:
-        """Получить серьёзность"""
         score = self.cvss_v3_score or self.cvss_v2_score or 0
         if score >= 9.0:
             return CVESeverity.CRITICAL
@@ -110,7 +103,6 @@ class CVE:
 
 @dataclass
 class Software:
-    """Модель установленного ПО"""
     name: str
     version: str
     vendor: Optional[str] = None
@@ -123,7 +115,6 @@ class Software:
 
 @dataclass
 class VulnerabilityMatch:
-    """Совпадение CVE с установленным ПО"""
     software: Software
     cve: CVE
     status: CVEStatus = CVEStatus.UNKNOWN
@@ -133,9 +124,7 @@ class VulnerabilityMatch:
     remediation: Optional[str] = None
 
 
-
 class CVEDatabase:
-    """Локальная база данных CVE (SQLite)"""
 
     def __init__(self, db_path: str):
         self.db_path = db_path
@@ -143,7 +132,6 @@ class CVEDatabase:
         self._init_db()
 
     def _init_db(self):
-        """Инициализация базы данных"""
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
 
         with self._lock:
@@ -213,7 +201,6 @@ class CVEDatabase:
             conn.close()
 
     def upsert_cve(self, cve: CVE) -> bool:
-        """Вставка или обновление CVE"""
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             try:
@@ -250,7 +237,6 @@ class CVEDatabase:
                 conn.close()
 
     def get_cve(self, cve_id: str) -> Optional[CVE]:
-        """Получить CVE по ID"""
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             conn.row_factory = sqlite3.Row
@@ -264,7 +250,6 @@ class CVEDatabase:
 
     def search_cves(self, query: str = None, min_cvss: float = 0,
                     limit: int = 100) -> List[CVE]:
-        """Поиск CVE"""
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             conn.row_factory = sqlite3.Row
@@ -285,7 +270,6 @@ class CVEDatabase:
                 conn.close()
 
     def _row_to_cve(self, row) -> CVE:
-        """Конвертация строки в CVE"""
         raw_data = json.loads(row['raw_data'] or '{}')
         return CVE(
             cve_id=row['cve_id'],
@@ -306,7 +290,6 @@ class CVEDatabase:
         )
 
     def add_software(self, software: Software) -> int:
-        """Добавление ПО"""
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             try:
@@ -330,7 +313,6 @@ class CVEDatabase:
                 conn.close()
 
     def get_all_software(self) -> List[Software]:
-        """Получить всё ПО"""
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             conn.row_factory = sqlite3.Row
@@ -350,7 +332,6 @@ class CVEDatabase:
                 conn.close()
 
     def add_match(self, match: VulnerabilityMatch) -> bool:
-        """Добавление совпадения"""
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             try:
@@ -384,7 +365,6 @@ class CVEDatabase:
                 conn.close()
 
     def get_vulnerable_software(self, min_risk: float = 7.0) -> List[Dict]:
-        """Получить уязвимое ПО"""
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             conn.row_factory = sqlite3.Row
@@ -405,7 +385,6 @@ class CVEDatabase:
                 conn.close()
 
     def get_stats(self) -> Dict:
-        """Статистика базы данных"""
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             try:
@@ -434,9 +413,7 @@ class CVEDatabase:
                 conn.close()
 
 
-
 class NVDClient:
-    """Клиент для National Vulnerability Database API"""
 
     def __init__(self, config: CVEIntelligenceConfig):
         self.config = config
@@ -451,14 +428,12 @@ class NVDClient:
         self.last_request_time = 0
 
     def _rate_limit(self):
-        """Соблюдение rate limit"""
         elapsed = time.time() - self.last_request_time
         if elapsed < self.rate_limit_delay:
             time.sleep(self.rate_limit_delay - elapsed)
         self.last_request_time = time.time()
 
     def fetch_cve(self, cve_id: str) -> Optional[CVE]:
-        """Получение информации о конкретном CVE"""
         self._rate_limit()
 
         try:
@@ -484,7 +459,6 @@ class NVDClient:
             return None
 
     def fetch_recent_cves(self, start_index: int = 0, results_per_page: int = 100) -> List[CVE]:
-        """Получение недавних CVE"""
         self._rate_limit()
 
         cves = []
@@ -511,7 +485,6 @@ class NVDClient:
         return cves
 
     def fetch_modified_cves(self, hours: int = 24) -> List[CVE]:
-        """Получение изменённых CVE за последние N часов"""
         self._rate_limit()
 
         cves = []
@@ -542,7 +515,6 @@ class NVDClient:
         return cves
 
     def _parse_cve(self, data: Dict) -> Optional[CVE]:
-        """Парсинг CVE из JSON"""
         try:
             cve_id = data['id']
             descriptions = data.get('descriptions', [])
@@ -606,9 +578,7 @@ class NVDClient:
             return None
 
 
-
 class ExploitDBClient:
-    """Клиент для проверки наличия эксплоитов"""
 
     def __init__(self, config: CVEIntelligenceConfig):
         self.config = config
@@ -616,7 +586,6 @@ class ExploitDBClient:
         self._load_exploit_db()
 
     def _load_exploit_db(self):
-        """Загрузка базы эксплоитов"""
         db_path = Path(self.config.exploit_db_path) / 'files_exploits.csv'
         if db_path.exists():
             try:
@@ -637,12 +606,10 @@ class ExploitDBClient:
                 print(f"Error loading ExploitDB: {e}")
 
     def check_exploit(self, cve_id: str) -> Tuple[bool, List[str]]:
-        """Проверка наличия эксплоита"""
         links = self.exploit_map.get(cve_id, [])
         return len(links) > 0, links
 
     def download_exploit_db(self):
-        """Скачивание свежей базы ExploitDB"""
         import zipfile
         import io
 
@@ -665,9 +632,7 @@ class ExploitDBClient:
         return False
 
 
-
 class SoftwareScanner:
-    """Сканер установленного программного обеспечения"""
 
     def __init__(self):
         self.scanners = {
@@ -680,7 +645,6 @@ class SoftwareScanner:
         }
 
     def scan_system(self) -> List[Software]:
-        """Сканирование системы"""
         software = []
 
         if os.name == 'nt':
@@ -691,7 +655,6 @@ class SoftwareScanner:
         return software
 
     def scan_dependencies(self, project_path: str) -> List[Software]:
-        """Сканирование зависимостей проекта"""
         software = []
         path = Path(project_path)
 
@@ -710,7 +673,6 @@ class SoftwareScanner:
         return software
 
     def _scan_linux(self) -> List[Software]:
-        """Сканирование Linux (dpkg/rpm)"""
         software = []
 
         try:
@@ -752,7 +714,6 @@ class SoftwareScanner:
         return software
 
     def _scan_windows(self) -> List[Software]:
-        """Сканирование Windows (реестр)"""
         software = []
 
         try:
@@ -798,7 +759,6 @@ class SoftwareScanner:
         return software
 
     def _scan_python_packages(self, project_path: Path) -> List[Software]:
-        """Сканирование Python пакетов"""
         software = []
 
         try:
@@ -820,7 +780,6 @@ class SoftwareScanner:
         return software
 
     def _scan_node_packages(self, project_path: Path) -> List[Software]:
-        """Сканирование Node.js пакетов"""
         software = []
         package_json = project_path / 'package.json'
 
@@ -845,7 +804,6 @@ class SoftwareScanner:
         return software
 
     def _scan_go_modules(self, project_path: Path) -> List[Software]:
-        """Сканирование Go модулей"""
         software = []
         go_mod = project_path / 'go.mod'
 
@@ -868,7 +826,6 @@ class SoftwareScanner:
         return software
 
     def _scan_docker_images(self, project_path: Path) -> List[Software]:
-        """Сканирование Docker образов"""
         software = []
 
         try:
@@ -892,9 +849,7 @@ class SoftwareScanner:
         return software
 
 
-
 class CVEMatcher:
-    """Сопоставление CVE с установленным ПО"""
 
     def __init__(self, database: CVEDatabase):
         self.database = database
@@ -902,7 +857,6 @@ class CVEMatcher:
         self._build_index()
 
     def _build_index(self):
-        """Построение индекса CPE -> CVE"""
         cves = self.database.search_cves(min_cvss=0, limit=100000)
 
         for cve in cves:
@@ -910,7 +864,6 @@ class CVEMatcher:
                 self.cpe_to_cve[cpe].append(cve.cve_id)
 
     def match_software(self, software: Software) -> List[VulnerabilityMatch]:
-        """Поиск CVE для ПО"""
         matches = []
 
         cpes = self._generate_cpes(software)
@@ -956,7 +909,6 @@ class CVEMatcher:
         return matches
 
     def _generate_cpes(self, software: Software) -> List[str]:
-        """Генерация возможных CPE для ПО"""
         cpes = []
         name = software.name.lower()
         version = software.version
@@ -970,14 +922,12 @@ class CVEMatcher:
         return cpes
 
     def _version_in_range(self, version: str, cve: CVE) -> bool:
-        """Проверка версии в диапазоне"""
         for product in cve.affected_products:
             if version in product:
                 return True
         return False
 
     def _calculate_risk_score(self, software: Software, cve: CVE) -> float:
-        """Расчёт риска для конкретного ПО"""
         base_score = cve.cvss_v3_score or cve.cvss_v2_score or 5.0
         risk = base_score / 10.0
 
@@ -991,7 +941,6 @@ class CVEMatcher:
         return risk
 
     def _get_remediation(self, cve: CVE) -> Optional[str]:
-        """Получение рекомендаций по исправлению"""
         if cve.patch_available:
             return f"Update to patched version. References: {', '.join(cve.references[:3])}"
 
@@ -1004,12 +953,7 @@ class CVEMatcher:
             return "Monitor for updates."
 
 
-
 class CVEIntelligenceEngine:
-    """
-    Движок CVE Intelligence
-    Объединяет все компоненты для анализа уязвимостей
-    """
 
     def __init__(self, config: CVEIntelligenceConfig = None):
         self.config = config or CVEIntelligenceConfig()
@@ -1031,7 +975,6 @@ class CVEIntelligenceEngine:
         self._update_thread = None
 
     def start(self):
-        """Запуск движка"""
         self._running = True
 
         if self.config.auto_update:
@@ -1041,20 +984,17 @@ class CVEIntelligenceEngine:
         print("🚀 CVE Intelligence Engine запущен")
 
     def stop(self):
-        """Остановка движка"""
         self._running = False
         if self._update_thread:
             self._update_thread.join(timeout=5)
         print("🛑 CVE Intelligence Engine остановлен")
 
     def _update_loop(self):
-        """Цикл обновления CVE"""
         while self._running:
             self.update_cve_database()
             time.sleep(self.config.update_interval_hours * 3600)
 
     def update_cve_database(self, max_cves: int = None) -> int:
-        """Обновление базы CVE"""
         max_cves = max_cves or self.config.max_cves_per_update
         fetched = 0
 
@@ -1084,7 +1024,6 @@ class CVEIntelligenceEngine:
         return fetched
 
     def scan_infrastructure(self) -> List[VulnerabilityMatch]:
-        """Сканирование инфраструктуры на уязвимости"""
         matches = []
 
         print("🔍 Сканирование инфраструктуры...")
@@ -1109,7 +1048,6 @@ class CVEIntelligenceEngine:
         return matches
 
     def scan_project(self, project_path: str) -> List[VulnerabilityMatch]:
-        """Сканирование проекта (зависимостей)"""
         matches = []
 
         print(f"🔍 Сканирование проекта: {project_path}")
@@ -1134,7 +1072,6 @@ class CVEIntelligenceEngine:
         return matches
 
     def check_cve(self, cve_id: str) -> Optional[CVE]:
-        """Проверка конкретного CVE"""
         cve = self.database.get_cve(cve_id)
         if cve and time.time() - float(cve.last_modified_date) < self.config.cache_ttl:
             return cve
@@ -1149,7 +1086,6 @@ class CVEIntelligenceEngine:
         return cve
 
     def get_vulnerability_report(self) -> Dict:
-        """Получить отчёт об уязвимостях"""
         vulnerable = self.database.get_vulnerable_software(min_risk=0)
 
         critical = [v for v in vulnerable if v.get('risk_score', 0) >= 0.9]
@@ -1176,7 +1112,6 @@ class CVEIntelligenceEngine:
         }
 
     def generate_report(self, format: str = 'json') -> str:
-        """Генерация отчёта"""
         report_data = self.get_vulnerability_report()
 
         if format == 'json':
@@ -1187,7 +1122,6 @@ class CVEIntelligenceEngine:
             return self._to_text(report_data)
 
     def _to_html(self, report_data: Dict) -> str:
-        """HTML отчёт"""
         summary = report_data['summary']
 
         html = f"""<!DOCTYPE html>
@@ -1268,7 +1202,6 @@ class CVEIntelligenceEngine:
         return html
 
     def _to_text(self, report_data: Dict) -> str:
-        """Текстовый отчёт"""
         lines = []
         lines.append("=" * 80)
         lines.append("SHARD CVE INTELLIGENCE REPORT")
@@ -1294,7 +1227,6 @@ class CVEIntelligenceEngine:
         return '\n'.join(lines)
 
     def save_report(self, filename: str = None) -> str:
-        """Сохранение отчёта"""
         if not filename:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             filename = f"cve_report_{timestamp}.json"
@@ -1309,7 +1241,6 @@ class CVEIntelligenceEngine:
         return str(report_path)
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         with self._lock:
             return {
                 **self.stats,
@@ -1317,9 +1248,7 @@ class CVEIntelligenceEngine:
             }
 
 
-
 class ShardCVEIntelligenceIntegration:
-    """Интеграция CVE Intelligence в SHARD"""
 
     def __init__(self, config: Dict = None):
         self.config = CVEIntelligenceConfig()
@@ -1328,7 +1257,6 @@ class ShardCVEIntelligenceIntegration:
         self.logger = None
 
     def setup(self, event_bus, logger):
-        """Настройка интеграции"""
         self.event_bus = event_bus
         self.logger = logger
 
@@ -1337,7 +1265,6 @@ class ShardCVEIntelligenceIntegration:
             event_bus.subscribe('cve.scan', self.on_scan_infrastructure)
 
     def start(self):
-        """Запуск интеграции"""
         self.engine.start()
 
         if self.config.scan_installed_software:
@@ -1347,11 +1274,9 @@ class ShardCVEIntelligenceIntegration:
             self.logger.info("🚀 CVE Intelligence запущен")
 
     def stop(self):
-        """Остановка интеграции"""
         self.engine.stop()
 
     def _initial_scan(self):
-        """Первоначальное сканирование"""
         time.sleep(5)
         matches = self.engine.scan_infrastructure()
 
@@ -1360,7 +1285,6 @@ class ShardCVEIntelligenceIntegration:
                 self._publish_alert(match)
 
     def _publish_alert(self, match: VulnerabilityMatch):
-        """Публикация уязвимости как алерта"""
         if self.event_bus:
             severity = 'CRITICAL' if match.risk_score >= 0.9 else 'HIGH'
             self.event_bus.publish('alert.detected', {
@@ -1383,7 +1307,6 @@ class ShardCVEIntelligenceIntegration:
                     f"🔴 Уязвимость: {match.software.name} → {match.cve.cve_id} (Risk: {match.risk_score:.0%})")
 
     def on_check_cve(self, data: Dict):
-        """Обработка запроса проверки CVE"""
         cve_id = data.get('cve_id', '')
         cve = self.engine.check_cve(cve_id)
 
@@ -1400,7 +1323,6 @@ class ShardCVEIntelligenceIntegration:
             })
 
     def on_scan_infrastructure(self, data: Dict):
-        """Обработка запроса сканирования"""
         matches = self.engine.scan_infrastructure()
 
         for match in matches:
@@ -1416,21 +1338,16 @@ class ShardCVEIntelligenceIntegration:
             })
 
     def scan_project(self, project_path: str) -> List[VulnerabilityMatch]:
-        """Сканирование проекта"""
         return self.engine.scan_project(project_path)
 
     def get_report(self) -> Dict:
-        """Получить отчёт"""
         return self.engine.get_vulnerability_report()
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         return self.engine.get_stats()
 
 
-
 def test_cve_intelligence():
-    """Тестирование CVE Intelligence"""
     print("=" * 60)
     print("🧪 ТЕСТИРОВАНИЕ CVE INTELLIGENCE")
     print("=" * 60)

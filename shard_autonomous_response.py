@@ -20,10 +20,8 @@ from datetime import datetime, timedelta
 import numpy as np
 
 
-
 @dataclass
 class AutonomousResponseConfig:
-    """Конфигурация автономной реакции"""
 
     confidence_threshold_block_temp: float = 0.85
     confidence_threshold_block_perm: float = 0.95
@@ -49,9 +47,7 @@ class AutonomousResponseConfig:
     history_path: str = './data/autonomous_history.json'
 
 
-
 class DefenseAction:
-    """Защитные действия"""
 
     ACTIONS = {
         0: ('none', 'Ничего не делать', 0),
@@ -80,12 +76,7 @@ class DefenseAction:
         return 0
 
 
-
 class AutonomousResponseEngine:
-    """
-    Движок автономной реакции.
-    Принимает решения на основе RL, контекста и истории.
-    """
 
     def __init__(self, config: AutonomousResponseConfig = None):
         self.config = config or AutonomousResponseConfig()
@@ -115,14 +106,12 @@ class AutonomousResponseEngine:
         self._load_history()
 
     def set_components(self, firewall, rl_agent, event_bus, logger):
-        """Установка компонентов"""
         self.firewall = firewall
         self.rl_agent = rl_agent
         self.event_bus = event_bus
         self.logger = logger
 
     def _load_history(self):
-        """Загрузка истории действий"""
         try:
             path = Path(self.config.history_path)
             if path.exists():
@@ -135,7 +124,6 @@ class AutonomousResponseEngine:
             print(f"⚠️ Ошибка загрузки истории: {e}")
 
     def _save_history(self):
-        """Сохранение истории"""
         try:
             path = Path(self.config.history_path)
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -148,7 +136,6 @@ class AutonomousResponseEngine:
             print(f"⚠️ Ошибка сохранения истории: {e}")
 
     def _is_whitelisted(self, ip: str) -> bool:
-        """Проверка, в белом ли списке IP"""
         if ip in self.config.whitelist_ips:
             return True
 
@@ -164,7 +151,6 @@ class AutonomousResponseEngine:
         return False
 
     def _check_limits(self, action_id: int) -> bool:
-        """Проверка лимитов на действия"""
         now = time.time()
 
         while self.hourly_blocks and now - self.hourly_blocks[0] > 3600:
@@ -185,7 +171,6 @@ class AutonomousResponseEngine:
         return True
 
     def _check_cooldown(self, ip: str) -> bool:
-        """Проверка cooldown для IP"""
         if ip not in self.ip_action_history:
             return True
 
@@ -197,12 +182,6 @@ class AutonomousResponseEngine:
         return time.time() - last_action_time >= self.config.action_cooldown
 
     def on_alert(self, alert: Dict) -> Optional[Dict]:
-        """
-        Обработка алерта и принятие решения о реакции.
-
-        Returns:
-            Dict с информацией о выполненном действии или None
-        """
         with self._lock:
             confidence = alert.get('confidence', alert.get('score', 0))
             severity = alert.get('severity', 'LOW')
@@ -264,10 +243,6 @@ class AutonomousResponseEngine:
             return action_record
 
     def _decide_action(self, alert: Dict) -> int:
-        """
-        Принятие решения о действии.
-        Использует RL если доступен, иначе правила.
-        """
         confidence = alert.get('confidence', alert.get('score', 0))
         severity = alert.get('severity', 'LOW')
         attack_type = alert.get('attack_type', '')
@@ -295,7 +270,6 @@ class AutonomousResponseEngine:
         return 0
 
     def _alert_to_state(self, alert: Dict) -> Dict:
-        """Преобразование алерта в состояние для RL"""
         return {
             'alert_score': alert.get('score', 0),
             'confidence': alert.get('confidence', 0),
@@ -308,7 +282,6 @@ class AutonomousResponseEngine:
         }
 
     def _execute_action(self, action_id: int, alert: Dict) -> Dict:
-        """Выполнение действия"""
         src_ip = alert.get('src_ip', '')
         result = {'success': False, 'action': DefenseAction.get_name(action_id)}
 
@@ -377,9 +350,6 @@ class AutonomousResponseEngine:
         return result
 
     def get_recommendation(self, alert: Dict) -> Dict:
-        """
-        Получить рекомендацию без выполнения действия.
-        """
         action_id = self._decide_action(alert)
         action_name = DefenseAction.get_name(action_id)
         cost = DefenseAction.get_cost(action_id)
@@ -393,7 +363,6 @@ class AutonomousResponseEngine:
         }
 
     def _get_confidence_required(self, action_id: int) -> float:
-        """Получить требуемую уверенность для действия"""
         if action_id == 5:
             return self.config.confidence_threshold_block_perm
         elif action_id == 4:
@@ -403,7 +372,6 @@ class AutonomousResponseEngine:
         return 0.0
 
     def _get_reason(self, alert: Dict, action_id: int) -> str:
-        """Получить объяснение рекомендации"""
         attack_type = alert.get('attack_type', 'Unknown')
         confidence = alert.get('confidence', 0)
 
@@ -416,7 +384,6 @@ class AutonomousResponseEngine:
         return reasons.get(action_id, "Автоматическая рекомендация")
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         with self._lock:
             return {
                 **self.stats,
@@ -428,7 +395,6 @@ class AutonomousResponseEngine:
             }
 
     def rollback_last_action(self) -> bool:
-        """Откат последнего действия"""
         with self._lock:
             if not self.action_history:
                 return False
@@ -447,12 +413,7 @@ class AutonomousResponseEngine:
             return False
 
 
-
 class LLMSecurityAnalyst:
-    """
-    AI аналитик на основе локальной LLM.
-    Генерирует человеко-читаемые отчёты об инцидентах.
-    """
 
     def __init__(self, model_path: str = None):
         self.model = None
@@ -466,7 +427,6 @@ class LLMSecurityAnalyst:
             self._try_ollama()
 
     def _init_llama_cpp(self, model_path: str):
-        """Инициализация llama.cpp"""
         try:
             from llama_cpp import Llama
             self.model = Llama(
@@ -481,7 +441,6 @@ class LLMSecurityAnalyst:
             print("⚠️ llama-cpp-python не установлен. Используем fallback.")
 
     def _try_ollama(self):
-        """Попытка подключения к Ollama"""
         try:
             import requests
             response = requests.get('http://localhost:11434/api/tags', timeout=2)
@@ -493,9 +452,6 @@ class LLMSecurityAnalyst:
             print("⚠️ Ollama не доступен. Используем fallback.")
 
     def analyze_alert(self, alert: Dict, context: Dict = None) -> str:
-        """
-        Генерация экспертного заключения по алерту.
-        """
         context = context or {}
 
         cache_key = f"{alert.get('attack_type')}_{alert.get('severity')}_{alert.get('score', 0):.1f}"
@@ -515,7 +471,6 @@ class LLMSecurityAnalyst:
         return response
 
     def _build_prompt(self, alert: Dict, context: Dict) -> str:
-        """Построение промпта для LLM"""
         attack_type = alert.get('attack_type', 'Unknown')
         src_ip = alert.get('src_ip', 'unknown')
         dst_ip = alert.get('dst_ip', 'N/A')
@@ -551,7 +506,6 @@ class LLMSecurityAnalyst:
         return prompt
 
     def _call_model(self, prompt: str) -> str:
-        """Вызов модели"""
         try:
             if self.model_type == 'llama' and self.model:
                 response = self.model(prompt, max_tokens=250, stop=["\n\n", "---"], echo=False)
@@ -573,13 +527,11 @@ class LLMSecurityAnalyst:
         return self._fallback_analysis(alert=None)
 
     def _fallback_analysis(self, alert: Dict = None) -> str:
-        """Запасной анализ без LLM"""
         if alert:
             return f"**Что произошло**: Обнаружена атака типа {alert.get('attack_type')}. **Оценка угрозы**: Уровень {alert.get('severity')}. **Рекомендация**: Проверить источник {alert.get('src_ip')}."
         return "**Что произошло**: Обнаружена подозрительная активность. **Оценка угрозы**: Требуется анализ. **Рекомендация**: Проверить логи."
 
     def analyze_investigation(self, investigation: Dict) -> str:
-        """Анализ расследования"""
         prompt = f"""Ты — эксперт по кибербезопасности. Подготовь краткий отчёт по расследованию инцидента.
 
 ДАННЫЕ РАССЛЕДОВАНИЯ:
@@ -603,9 +555,7 @@ class LLMSecurityAnalyst:
         }
 
 
-
 class ShardAutonomousIntegration:
-    """Интеграция автономной реакции и LLM в SHARD"""
 
     def __init__(self, config: Dict = None):
         self.config = AutonomousResponseConfig()
@@ -615,11 +565,9 @@ class ShardAutonomousIntegration:
         self.llm_analyst = LLMSecurityAnalyst(llm_model)
 
     def setup(self, firewall, rl_agent, event_bus, logger):
-        """Настройка компонентов"""
         self.response_engine.set_components(firewall, rl_agent, event_bus, logger)
 
     def on_alert(self, alert: Dict) -> Dict:
-        """Обработка алерта"""
         action_result = self.response_engine.on_alert(alert)
 
         llm_analysis = self.llm_analyst.analyze_alert(alert, {
@@ -636,7 +584,6 @@ class ShardAutonomousIntegration:
         return result
 
     def get_recommendation(self, alert: Dict) -> Dict:
-        """Получить рекомендацию без выполнения"""
         rec = self.response_engine.get_recommendation(alert)
         rec['llm_analysis'] = self.llm_analyst.analyze_alert(alert)
         return rec
@@ -648,9 +595,7 @@ class ShardAutonomousIntegration:
         }
 
 
-
 def test_autonomous_response():
-    """Тестирование автономной реакции"""
     print("=" * 60)
     print("🧪 ТЕСТИРОВАНИЕ АВТОНОМНОЙ РЕАКЦИИ")
     print("=" * 60)

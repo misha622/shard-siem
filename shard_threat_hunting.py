@@ -28,9 +28,7 @@ import numpy as np
 import yaml
 
 
-
 class HuntingSeverity(Enum):
-    """Серьёзность находки охоты"""
     CRITICAL = "CRITICAL"
     HIGH = "HIGH"
     MEDIUM = "MEDIUM"
@@ -39,7 +37,6 @@ class HuntingSeverity(Enum):
 
 
 class HuntingStatus(Enum):
-    """Статус гипотезы"""
     PROPOSED = "PROPOSED"
     INVESTIGATING = "INVESTIGATING"
     CONFIRMED = "CONFIRMED"
@@ -49,7 +46,6 @@ class HuntingStatus(Enum):
 
 @dataclass
 class ThreatHuntingConfig:
-    """Конфигурация Threat Hunting AI"""
 
     sigma_rules_path: str = "./data/threat_hunting/sigma_rules/"
     custom_rules_path: str = "./data/threat_hunting/custom_rules/"
@@ -72,7 +68,6 @@ class ThreatHuntingConfig:
 
 @dataclass
 class HuntingHypothesis:
-    """Гипотеза для охоты на угрозы"""
     id: str
     name: str
     description: str
@@ -92,7 +87,6 @@ class HuntingHypothesis:
 
 @dataclass
 class HuntingFinding:
-    """Находка в результате охоты"""
     id: str
     hypothesis_id: str
     name: str
@@ -108,9 +102,7 @@ class HuntingFinding:
     remediation: Optional[str] = None
 
 
-
 class MITREAttackKnowledge:
-    """База знаний MITRE ATT&CK"""
 
     def __init__(self, config: ThreatHuntingConfig):
         self.config = config
@@ -123,7 +115,6 @@ class MITREAttackKnowledge:
         self._load_mitre_data()
 
     def _load_mitre_data(self):
-        """Загрузка данных MITRE ATT&CK"""
         mitre_path = Path(self.config.mitre_enterprise_path)
 
         if mitre_path.exists():
@@ -190,7 +181,6 @@ class MITREAttackKnowledge:
             self._init_default_mitre()
 
     def _init_default_mitre(self):
-        """Инициализация встроенного подмножества MITRE ATT&CK"""
         self.tactics = {
             'TA0001': {'name': 'Initial Access', 'short_name': 'initial-access'},
             'TA0002': {'name': 'Execution', 'short_name': 'execution'},
@@ -233,15 +223,12 @@ class MITREAttackKnowledge:
         }
 
     def get_tactic_name(self, tactic_id: str) -> str:
-        """Получить название тактики"""
         return self.tactics.get(tactic_id, {}).get('name', tactic_id)
 
     def get_technique_name(self, technique_id: str) -> str:
-        """Получить название техники"""
         return self.techniques.get(technique_id, {}).get('name', technique_id)
 
     def get_techniques_by_tactic(self, tactic_name: str) -> List[str]:
-        """Получить техники для тактики"""
         techniques = []
         for tech_id, tech in self.techniques.items():
             if tactic_name in tech.get('tactics', []):
@@ -249,9 +236,7 @@ class MITREAttackKnowledge:
         return techniques
 
 
-
 class SigmaRulesEngine:
-    """Движок Sigma-правил для обнаружения угроз"""
 
     def __init__(self, config: ThreatHuntingConfig):
         self.config = config
@@ -262,7 +247,6 @@ class SigmaRulesEngine:
         self._load_rules()
 
     def _load_rules(self):
-        """Загрузка Sigma-правил"""
         rules_path = Path(self.config.sigma_rules_path)
 
         if rules_path.exists():
@@ -292,7 +276,6 @@ class SigmaRulesEngine:
         print(f"✅ Sigma rules loaded: {len(self.rules)} rules")
 
     def _create_embedded_rules(self):
-        """Создание встроенных Sigma-правил"""
         embedded_rules = [
             {
                 'id': 'EMBED-001',
@@ -389,7 +372,6 @@ class SigmaRulesEngine:
             self.rules_by_severity[rule['level']].append(rule['id'])
 
     def evaluate_event(self, event: Dict) -> List[Tuple[str, float]]:
-        """Оценка события на соответствие Sigma-правилам"""
         matches = []
 
         for rule_id, rule in self.rules.items():
@@ -400,7 +382,6 @@ class SigmaRulesEngine:
         return matches
 
     def _match_rule(self, rule: Dict, event: Dict) -> float:
-        """Проверка соответствия правила событию"""
         detection = rule.get('detection', {})
         confidence = 0.0
         match_count = 0
@@ -453,19 +434,15 @@ class SigmaRulesEngine:
         return confidence
 
     def get_rules_for_tactic(self, tactic: str) -> List[Dict]:
-        """Получить правила для тактики"""
         rule_ids = self.rules_by_tactic.get(tactic, [])
         return [self.rules[rid] for rid in rule_ids if rid in self.rules]
 
     def get_rules_for_technique(self, technique: str) -> List[Dict]:
-        """Получить правила для техники"""
         rule_ids = self.rules_by_technique.get(technique, [])
         return [self.rules[rid] for rid in rule_ids if rid in self.rules]
 
 
-
 class HypothesisGenerator:
-    """Генератор гипотез для охоты на угрозы"""
 
     def __init__(self, mitre_kb: MITREAttackKnowledge, sigma_engine: SigmaRulesEngine):
         self.mitre_kb = mitre_kb
@@ -474,7 +451,6 @@ class HypothesisGenerator:
         self._init_base_hypotheses()
 
     def _init_base_hypotheses(self):
-        """Инициализация базовых гипотез"""
         base_hypotheses = [
             {
                 'name': 'PowerShell Empire C2',
@@ -554,7 +530,6 @@ class HypothesisGenerator:
             self.generated_hypotheses.append(hypothesis)
 
     def generate_from_findings(self, findings: List[Dict]) -> List[HuntingHypothesis]:
-        """Генерация гипотез на основе находок"""
         new_hypotheses = []
 
         techniques_found = defaultdict(int)
@@ -585,7 +560,6 @@ class HypothesisGenerator:
         return new_hypotheses
 
     def generate_kql_query(self, hypothesis: HuntingHypothesis) -> str:
-        """Генерация KQL запроса для гипотезы"""
         query_parts = []
 
         if 'credential-access' in hypothesis.mitre_tactics:
@@ -610,12 +584,7 @@ class HypothesisGenerator:
             query_parts) + " | project TimeGenerated, EventID, ProcessName, CommandLine, SourceIP, DestinationIP"
 
 
-
 class ThreatHuntingEngine:
-    """
-    Основной движок Threat Hunting AI
-    Объединяет MITRE ATT&CK, Sigma-правила и генерацию гипотез
-    """
 
     def __init__(self, config: ThreatHuntingConfig = None, logger=None):
         self.config = config or ThreatHuntingConfig()
@@ -644,13 +613,11 @@ class ThreatHuntingEngine:
         self._load_hypotheses()
 
     def _load_hypotheses(self):
-        """Загрузка сохранённых гипотез"""
         for h in self.hypothesis_generator.generated_hypotheses:
             self.hypotheses[h.id] = h
             self.stats['total_hypotheses'] += 1
 
     def start(self):
-        """Запуск движка охоты"""
         self._running = True
         self._hunting_thread = threading.Thread(target=self._hunting_loop, daemon=True)
         self._hunting_thread.start()
@@ -659,7 +626,6 @@ class ThreatHuntingEngine:
             self.logger.info(f"🚀 Threat Hunting AI started with {len(self.hypotheses)} hypotheses")
 
     def stop(self):
-        """Остановка движка"""
         self._running = False
         if self._hunting_thread:
             self._hunting_thread.join(timeout=5)
@@ -668,7 +634,6 @@ class ThreatHuntingEngine:
             self.logger.info("🛑 Threat Hunting AI stopped")
 
     def _hunting_loop(self):
-        """Основной цикл охоты"""
         while self._running:
             self.run_active_hypotheses()
 
@@ -678,7 +643,6 @@ class ThreatHuntingEngine:
             time.sleep(self.config.hunting_interval_minutes * 60)
 
     def run_active_hypotheses(self):
-        """Запуск активных гипотез"""
         active_hypotheses = [h for h in self.hypotheses.values()
                              if h.status in [HuntingStatus.PROPOSED, HuntingStatus.INVESTIGATING]]
 
@@ -711,7 +675,6 @@ class ThreatHuntingEngine:
                         self.logger.error(f"Error investigating {hypothesis_id}: {e}")
 
     def _investigate_hypothesis(self, hypothesis: HuntingHypothesis) -> List[HuntingFinding]:
-        """Расследование гипотезы"""
         findings = []
 
         hypothesis.status = HuntingStatus.INVESTIGATING
@@ -747,13 +710,11 @@ class ThreatHuntingEngine:
         return findings
 
     def _simulate_rule_match(self, rule: Dict) -> bool:
-        """Симуляция совпадения правила (для демо)"""
         severity = rule.get('level', 'medium')
         probabilities = {'critical': 0.3, 'high': 0.2, 'medium': 0.15, 'low': 0.1}
         return np.random.random() < probabilities.get(severity, 0.1)
 
     def _sigma_level_to_severity(self, level: str) -> HuntingSeverity:
-        """Конвертация уровня Sigma в серьёзность"""
         mapping = {
             'critical': HuntingSeverity.CRITICAL,
             'high': HuntingSeverity.HIGH,
@@ -763,11 +724,9 @@ class ThreatHuntingEngine:
         return mapping.get(level, HuntingSeverity.INFO)
 
     def _get_affected_assets(self, rule: Dict) -> List[str]:
-        """Получение затронутых активов"""
         return [f"asset-{i}" for i in range(np.random.randint(1, 4))]
 
     def _get_remediation(self, hypothesis: HuntingHypothesis) -> str:
-        """Получение рекомендаций по исправлению"""
         remediations = {
             'credential-access': 'Reset compromised credentials and enable MFA',
             'execution': 'Block suspicious processes and enable application whitelisting',
@@ -784,7 +743,6 @@ class ThreatHuntingEngine:
         return 'Investigate and remediate based on findings'
 
     def generate_new_hypotheses(self):
-        """Генерация новых гипотез на основе находок"""
         findings_data = [
             {
                 'mitre_techniques': f.mitre_techniques,
@@ -805,7 +763,6 @@ class ThreatHuntingEngine:
                     self.logger.info(f"💡 New hypothesis generated: {h.name}")
 
     def add_evidence(self, event: Dict):
-        """Добавление события в буфер"""
         self.evidence_buffer.append({
             'timestamp': time.time(),
             'event': event
@@ -838,7 +795,6 @@ class ThreatHuntingEngine:
                         self.logger.warning(f"🔴 Real-time threat detected: {finding.name}")
 
     def _extract_tactics(self, rule: Dict) -> List[str]:
-        """Извлечение тактик из правила"""
         tactics = []
         for tag in rule.get('tags', []):
             if tag.startswith('attack.t'):
@@ -849,7 +805,6 @@ class ThreatHuntingEngine:
         return list(set(tactics))
 
     def _extract_techniques(self, rule: Dict) -> List[str]:
-        """Извлечение техник из правила"""
         techniques = []
         for tag in rule.get('tags', []):
             if tag.startswith('attack.') and not tag.startswith('attack.t'):
@@ -857,12 +812,10 @@ class ThreatHuntingEngine:
         return techniques
 
     def get_hypothesis(self, hypothesis_id: str) -> Optional[HuntingHypothesis]:
-        """Получить гипотезу по ID"""
         return self.hypotheses.get(hypothesis_id)
 
     def get_findings(self, min_severity: HuntingSeverity = None,
                      hypothesis_id: str = None, limit: int = 100) -> List[HuntingFinding]:
-        """Получить находки с фильтрацией"""
         with self._lock:
             findings = self.findings
 
@@ -878,7 +831,6 @@ class ThreatHuntingEngine:
             return sorted(findings, key=lambda x: x.timestamp, reverse=True)[:limit]
 
     def get_mitre_coverage(self) -> Dict:
-        """Получить покрытие MITRE ATT&CK"""
         covered_tactics = set()
         covered_techniques = set()
 
@@ -899,7 +851,6 @@ class ThreatHuntingEngine:
         }
 
     def generate_report(self) -> Dict:
-        """Генерация отчёта об охоте"""
         with self._lock:
             findings_by_severity = defaultdict(int)
             findings_by_tactic = defaultdict(int)
@@ -945,12 +896,10 @@ class ThreatHuntingEngine:
             }
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         with self._lock:
             return dict(self.stats)
 
     def mark_false_positive(self, finding_id: str) -> bool:
-        """Отметить находку как ложное срабатывание"""
         with self._lock:
             for f in self.findings:
                 if f.id == finding_id:
@@ -964,7 +913,6 @@ class ThreatHuntingEngine:
         return False
 
     def mark_remediated(self, finding_id: str) -> bool:
-        """Отметить находку как исправленную"""
         with self._lock:
             for f in self.findings:
                 if f.id == finding_id:
@@ -973,9 +921,7 @@ class ThreatHuntingEngine:
         return False
 
 
-
 class ShardThreatHuntingIntegration:
-    """Интеграция Threat Hunting AI в SHARD"""
 
     def __init__(self, config: Dict = None):
         self.config = ThreatHuntingConfig()
@@ -984,7 +930,6 @@ class ShardThreatHuntingIntegration:
         self.logger = None
 
     def setup(self, event_bus, logger):
-        """Настройка интеграции"""
         self.event_bus = event_bus
         self.logger = logger
         self.engine = ThreatHuntingEngine(self.config, logger)
@@ -995,7 +940,6 @@ class ShardThreatHuntingIntegration:
             event_bus.subscribe('threat_hunting.scan', self.on_scan_request)
 
     def start(self):
-        """Запуск интеграции"""
         if self.engine:
             self.engine.start()
 
@@ -1003,12 +947,10 @@ class ShardThreatHuntingIntegration:
             self.logger.info("🚀 Threat Hunting AI запущен")
 
     def stop(self):
-        """Остановка интеграции"""
         if self.engine:
             self.engine.stop()
 
     def on_alert(self, alert: Dict):
-        """Обработка алерта для охоты"""
         if self.engine:
             self.engine.add_evidence(alert)
 
@@ -1018,7 +960,6 @@ class ShardThreatHuntingIntegration:
                     self._publish_hunting_alert(f)
 
     def on_hypothesis_request(self, data: Dict):
-        """Обработка запроса гипотезы"""
         hypothesis_id = data.get('hypothesis_id', '')
 
         if hypothesis_id and self.engine:
@@ -1038,7 +979,6 @@ class ShardThreatHuntingIntegration:
                 })
 
     def on_scan_request(self, data: Dict):
-        """Обработка запроса сканирования"""
         if self.engine:
             self.engine.generate_new_hypotheses()
 
@@ -1053,7 +993,6 @@ class ShardThreatHuntingIntegration:
                 })
 
     def _publish_hunting_alert(self, finding: HuntingFinding):
-        """Публикация находки как алерта"""
         if self.event_bus:
             self.event_bus.publish('alert.detected', {
                 'attack_type': 'Threat Hunting Finding',
@@ -1072,27 +1011,22 @@ class ShardThreatHuntingIntegration:
             })
 
     def get_report(self) -> Dict:
-        """Получить отчёт"""
         if self.engine:
             return self.engine.generate_report()
         return {}
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         if self.engine:
             return self.engine.get_stats()
         return {}
 
     def get_mitre_coverage(self) -> Dict:
-        """Получить покрытие MITRE"""
         if self.engine:
             return self.engine.get_mitre_coverage()
         return {}
 
 
-
 def test_threat_hunting():
-    """Тестирование Threat Hunting AI"""
     print("=" * 60)
     print("🧪 ТЕСТИРОВАНИЕ THREAT HUNTING AI")
     print("=" * 60)

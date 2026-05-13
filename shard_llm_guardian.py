@@ -24,9 +24,7 @@ from enum import Enum
 import numpy as np
 
 
-
 class ThreatSeverity(Enum):
-    """Уровни угрозы"""
     CRITICAL = "CRITICAL"
     HIGH = "HIGH"
     MEDIUM = "MEDIUM"
@@ -35,7 +33,6 @@ class ThreatSeverity(Enum):
 
 
 class AttackType(Enum):
-    """Типы атак на LLM"""
     PROMPT_INJECTION = "Prompt Injection"
     JAILBREAK = "Jailbreak"
     DATA_LEAKAGE = "Data Leakage"
@@ -50,7 +47,6 @@ class AttackType(Enum):
 
 @dataclass
 class LLMGuardianConfig:
-    """Конфигурация LLM Guardian"""
 
     enable_blocking: bool = True
     enable_sanitization: bool = True
@@ -71,9 +67,7 @@ class LLMGuardianConfig:
     sanitized_outputs_dir: str = "./data/llm_guardian/sanitized/"
 
 
-
 class AttackKnowledgeBase:
-    """База знаний известных атак на LLM"""
 
     def __init__(self):
         self.jailbreak_patterns = [
@@ -172,7 +166,6 @@ class AttackKnowledgeBase:
         ]
 
     def get_all_patterns(self) -> List[Tuple[str, AttackType, ThreatSeverity]]:
-        """Получить все паттерны с типами и серьёзностью"""
         patterns = []
 
         for pattern in self.jailbreak_patterns:
@@ -187,17 +180,7 @@ class AttackKnowledgeBase:
         return patterns
 
 
-
 class LLMAttackMLDetector:
-    """
-    ML-детектор атак на LLM с embedding-based детекцией.
-
-    Использует два уровня:
-    1. TF-IDF + Isolation Forest для быстрой детекции
-    2. Sentence Transformer embeddings для семантической детекции
-
-    Поддерживает continuous learning через обратную связь.
-    """
 
     def __init__(self, logger_instance=None):
         self.logger = logger_instance or logging.getLogger("LLMGuardian-ML")
@@ -240,7 +223,6 @@ class LLMAttackMLDetector:
         self._init_embedder()
 
     def _init_embedder(self):
-        """Инициализация Sentence Transformer"""
         try:
             from sentence_transformers import SentenceTransformer
             self.embedder = SentenceTransformer('all-MiniLM-L6-v2')
@@ -255,7 +237,6 @@ class LLMAttackMLDetector:
             self.embedder_available = False
 
     def _load_attack_embeddings(self):
-        """Загрузка эмбеддингов известных атак"""
         embeddings_path = Path('models/llm_guardian_embeddings.npz')
 
         if embeddings_path.exists():
@@ -271,7 +252,6 @@ class LLMAttackMLDetector:
         self._create_base_embeddings()
 
     def _create_base_embeddings(self):
-        """Создание базовых эмбеддингов"""
         if not self.embedder_available:
             return
 
@@ -303,7 +283,6 @@ class LLMAttackMLDetector:
             self.logger.error(f"Ошибка создания эмбеддингов: {e}")
 
     def _load_or_init_model(self):
-        """Загрузка TF-IDF модели"""
         model_path = Path('models/llm_guardian_ml.pkl')
 
         if model_path.exists():
@@ -322,7 +301,6 @@ class LLMAttackMLDetector:
         self._init_with_defaults()
 
     def _init_with_defaults(self):
-        """Инициализация с базовыми данными"""
         try:
             from sklearn.feature_extraction.text import TfidfVectorizer
             from sklearn.ensemble import IsolationForest
@@ -367,7 +345,6 @@ class LLMAttackMLDetector:
             self.logger.error(f"Ошибка инициализации: {e}")
 
     def add_training_sample(self, prompt: str, is_attack: bool):
-        """Добавление примера для обучения"""
         self.training_data.append((prompt, is_attack))
         self.samples_since_retrain += 1
 
@@ -376,7 +353,6 @@ class LLMAttackMLDetector:
             self.train()
 
     def train(self) -> bool:
-        """Обучение модели"""
         if len(self.training_data) < self.min_training_samples:
             return False
 
@@ -438,7 +414,6 @@ class LLMAttackMLDetector:
             return False
 
     def _save_model(self):
-        """Сохранение модели"""
         if self.model and self.vectorizer:
             try:
                 import joblib
@@ -453,10 +428,6 @@ class LLMAttackMLDetector:
                 self.logger.error(f"Ошибка сохранения: {e}")
 
     def predict(self, prompt: str) -> Tuple[float, bool]:
-        """
-        Предсказание: является ли промпт атакой.
-        Returns: (score, is_attack)
-        """
         self.stats['total_predictions'] += 1
 
         cache_key = hashlib.md5(prompt.encode()).hexdigest()
@@ -501,7 +472,6 @@ class LLMAttackMLDetector:
         return result
 
     def _predict_tfidf(self, prompt: str) -> Tuple[float, bool]:
-        """TF-IDF детекция"""
         if not self.is_trained or not self.model or not self.vectorizer:
             return 0.5, False
 
@@ -515,7 +485,6 @@ class LLMAttackMLDetector:
             return 0.5, False
 
     def _predict_embedding(self, prompt: str) -> Tuple[float, bool]:
-        """Embedding-based детекция"""
         if not self.embedder_available or self.attack_embeddings is None:
             return 0.5, False
 
@@ -537,7 +506,6 @@ class LLMAttackMLDetector:
             return 0.5, False
 
     def add_feedback(self, prompt: str, was_attack: bool, actual_attack: bool):
-        """Обратная связь для адаптации порогов"""
         if was_attack and not actual_attack:
             self.stats['false_positives_reported'] += 1
             if self.stats['false_positives_reported'] > 10:
@@ -560,7 +528,6 @@ class LLMAttackMLDetector:
         })
 
     def add_attack_embedding(self, attack_prompt: str, label: str = 'attack'):
-        """Добавление нового эмбеддинга атаки"""
         if not self.embedder_available:
             return
 
@@ -585,7 +552,6 @@ class LLMAttackMLDetector:
             self.logger.error(f"Ошибка добавления эмбеддинга: {e}")
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         with self._lock:
             return {
                 **self.stats,
@@ -600,12 +566,7 @@ class LLMAttackMLDetector:
             }
 
 
-
 class LLMGuardian:
-    """
-    Защита от атак на LLM
-    Полный аналог Lasso Security
-    """
 
     def __init__(self, config: LLMGuardianConfig = None):
         self.config = config or LLMGuardianConfig()
@@ -631,12 +592,6 @@ class LLMGuardian:
         Path(self.config.sanitized_outputs_dir).mkdir(parents=True, exist_ok=True)
 
     def validate_prompt(self, prompt: str, context: Dict = None) -> Tuple[bool, str, Dict]:
-        """
-        Полная проверка промпта
-
-        Returns:
-            (is_safe, reason, details)
-        """
         with self._lock:
             self.stats['total_prompts'] += 1
 
@@ -700,7 +655,6 @@ class LLMGuardian:
             return True, "OK", details
 
     def _check_jailbreak(self, prompt: str) -> Dict:
-        """Проверка на jailbreak"""
         prompt_lower = prompt.lower()
         matched_patterns = []
 
@@ -720,7 +674,6 @@ class LLMGuardian:
         }
 
     def _check_injection(self, prompt: str) -> Dict:
-        """Проверка на prompt injection"""
         prompt_lower = prompt.lower()
         matched_patterns = []
 
@@ -746,7 +699,6 @@ class LLMGuardian:
         }
 
     def _check_leakage(self, prompt: str) -> Dict:
-        """Проверка на попытки утечки данных"""
         prompt_lower = prompt.lower()
         matched_patterns = []
 
@@ -765,7 +717,6 @@ class LLMGuardian:
         }
 
     def _detect_pii(self, text: str) -> List[Dict]:
-        """Обнаружение PII в тексте"""
         found = []
 
         for pii_type, (pattern, _) in self.knowledge_base.pii_patterns.items():
@@ -780,12 +731,6 @@ class LLMGuardian:
         return found
 
     def sanitize_output(self, output: str, context: Dict = None) -> Tuple[str, Dict]:
-        """
-        Очистка вывода от чувствительных данных
-
-        Returns:
-            (sanitized_output, sanitization_report)
-        """
         if not self.config.enable_sanitization:
             return output, {}
 
@@ -826,7 +771,6 @@ class LLMGuardian:
             return output, report
 
     def _log_blocked_prompt(self, prompt: str, details: Dict):
-        """Логирование заблокированного промпта"""
         if not self.config.log_blocked_only:
             return
 
@@ -851,7 +795,6 @@ class LLMGuardian:
                 }, f, indent=2)
 
     def _log_sanitized_output(self, original: str, sanitized: str, report: Dict):
-        """Логирование очищенного вывода"""
         if not self.config.sanitized_outputs_dir:
             return
 
@@ -866,7 +809,6 @@ class LLMGuardian:
             }, f, indent=2)
 
     def check_rate_limit(self, client_id: str) -> bool:
-        """Проверка rate limit"""
         with self._lock:
             history = self.rate_limits[client_id]
             now = time.time()
@@ -882,7 +824,6 @@ class LLMGuardian:
             return True
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         with self._lock:
             return {
                 **self.stats,
@@ -893,13 +834,10 @@ class LLMGuardian:
             }
 
     def train_ml_model(self) -> bool:
-        """Обучение ML модели"""
         return self.ml_detector.train()
 
 
-
 class ShardLLMGuardianIntegration:
-    """Интеграция LLM Guardian в SHARD"""
 
     def __init__(self, config: Dict = None):
         self.config = LLMGuardianConfig()
@@ -908,7 +846,6 @@ class ShardLLMGuardianIntegration:
         self.logger = None
 
     def setup(self, event_bus, logger):
-        """Настройка интеграции"""
         self.event_bus = event_bus
         self.logger = logger
 
@@ -917,7 +854,6 @@ class ShardLLMGuardianIntegration:
             event_bus.subscribe('llm.output.sanitize', self.on_sanitize_output)
 
     def on_validate_prompt(self, data: Dict):
-        """Обработка события валидации промпта"""
         prompt = data.get('prompt', '')
         context = data.get('context', {})
         client_id = data.get('client_id', 'unknown')
@@ -954,7 +890,6 @@ class ShardLLMGuardianIntegration:
             })
 
     def on_sanitize_output(self, data: Dict):
-        """Обработка события очистки вывода"""
         output = data.get('output', '')
         context = data.get('context', {})
 
@@ -973,17 +908,6 @@ class ShardLLMGuardianIntegration:
             })
 
     def secure_llm_call(self, prompt: str, llm_function: callable, client_id: str = 'unknown') -> Tuple[Any, Dict]:
-        """
-        Безопасный вызов LLM с полной защитой
-
-        Args:
-            prompt: Промпт
-            llm_function: Функция вызова LLM
-            client_id: ID клиента
-
-        Returns:
-            (response, security_report)
-        """
         security_report = {}
 
         if not self.guardian.check_rate_limit(client_id):
@@ -1013,17 +937,13 @@ class ShardLLMGuardianIntegration:
         return response, security_report
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         return self.guardian.get_stats()
 
     def train(self) -> bool:
-        """Обучение ML модели"""
         return self.guardian.train_ml_model()
 
 
-
 def test_llm_guardian():
-    """Тестирование LLM Guardian"""
     print("=" * 60)
     print("🧪 ТЕСТИРОВАНИЕ LLM GUARDIAN")
     print("=" * 60)

@@ -23,9 +23,7 @@ from enum import Enum
 logger = logging.getLogger("SHARD-Ethics")
 
 
-
 class ActionLevel(Enum):
-    """Уровень действия и требования к подтверждению"""
     LEVEL_0 = 0
     LEVEL_1 = 1
     LEVEL_2 = 2
@@ -56,7 +54,6 @@ class ActionStatus(Enum):
 
 @dataclass
 class EthicalAction:
-    """Действие требующее этического контроля"""
     id: str
     level: ActionLevel
     description: str
@@ -72,9 +69,7 @@ class EthicalAction:
     execution_result: Optional[Dict] = None
 
 
-
 class EthicalRules:
-    """База этических правил"""
 
     INVINCIBLE_RULES = [
         "Запрещено атаковать в ответ (только защита)",
@@ -118,23 +113,18 @@ class EthicalRules:
 
     @classmethod
     def is_sacred_ip(cls, ip: str) -> bool:
-        """Проверка священного IP"""
         return ip in cls.SACRED_IPS
 
     @classmethod
     def is_sacred_port(cls, port: int) -> bool:
-        """Проверка священного порта"""
         return port in cls.SACRED_PORTS
 
     @classmethod
     def get_port_warning(cls, port: int) -> Optional[str]:
-        """Предупреждение о священном порте"""
         return cls.SACRED_PORTS.get(port)
 
 
-
 class ActionAudit:
-    """Аудит всех этических решений"""
 
     def __init__(self, audit_dir: str = './audit_logs/'):
         self.audit_dir = Path(audit_dir)
@@ -143,7 +133,6 @@ class ActionAudit:
         self._lock = threading.RLock()
 
     def log_action(self, action: EthicalAction):
-        """Запись действия в аудит"""
         with self._lock:
             self.actions.append(action)
 
@@ -175,7 +164,6 @@ class ActionAudit:
                 pass
 
     def get_daily_stats(self) -> Dict:
-        """Статистика за сегодня"""
         today = datetime.now().strftime('%Y%m%d')
         audit_file = self.audit_dir / f"audit_{today}.json"
 
@@ -195,12 +183,7 @@ class ActionAudit:
             return {'total': 0, 'approved': 0, 'rejected': 0}
 
 
-
 class EthicalController:
-    """
-    Этический контроллер SHARD.
-    Запрашивает подтверждение перед критическими действиями.
-    """
 
     def __init__(self, event_bus=None, logger_instance=None):
         self.event_bus = event_bus
@@ -235,7 +218,6 @@ class EthicalController:
         self.trusted_operators = self._load_operators()
 
     def _load_operators(self) -> Dict[str, Dict]:
-        """Загрузка доверенных операторов"""
         operators_file = Path('./config/operators.json')
 
         if operators_file.exists():
@@ -262,19 +244,6 @@ class EthicalController:
             defense_code: Optional[str] = None,
             callback: Optional[Callable] = None
     ) -> EthicalAction:
-        """
-        Запрос на подтверждение действия.
-
-        Args:
-            action_level: Уровень действия
-            description: Описание
-            attack_info: Информация об атаке
-            defense_code: Сгенерированный код защиты
-            callback: Функция для выполнения после одобрения
-
-        Returns:
-            EthicalAction объект
-        """
         with self._lock:
             self.stats['total_actions'] += 1
 
@@ -342,7 +311,6 @@ class EthicalController:
             return action
 
     def _check_limits(self, level: ActionLevel, ip: str) -> bool:
-        """Проверка лимитов действий"""
         if level not in self.max_per_hour:
             return True
 
@@ -368,14 +336,6 @@ class EthicalController:
             operator: str = "admin",
             confirmation_code: Optional[str] = None
     ) -> Dict:
-        """
-        Одобрение действия оператором.
-
-        Args:
-            action_id: ID действия
-            operator: Имя оператора
-            confirmation_code: Код подтверждения (для LEVEL_5+)
-        """
         with self._lock:
             action = self.pending_actions.get(action_id)
 
@@ -437,7 +397,6 @@ class EthicalController:
             }
 
     def reject_action(self, action_id: str, operator: str = "admin", reason: str = "") -> Dict:
-        """Отклонение действия"""
         with self._lock:
             action = self.pending_actions.get(action_id)
 
@@ -459,7 +418,6 @@ class EthicalController:
             return {'success': True, 'action_id': action_id, 'status': 'rejected'}
 
     def rollback_action(self, action_id: str) -> Dict:
-        """Откат выполненного действия"""
         with self._lock:
             action = None
 
@@ -498,7 +456,6 @@ class EthicalController:
             return {'success': True, 'action_id': action_id, 'status': 'rolled_back'}
 
     def _log_approval_request(self, action: EthicalAction):
-        """Логирование запроса на подтверждение"""
         level_name = action.level.name
         attack_type = action.attack_info.get('attack_type', 'Unknown')
         src_ip = action.attack_info.get('src_ip', 'unknown')
@@ -528,7 +485,6 @@ class EthicalController:
             })
 
     def get_pending_actions(self) -> List[Dict]:
-        """Список ожидающих подтверждения"""
         with self._lock:
             return [
                 {
@@ -546,7 +502,6 @@ class EthicalController:
             ]
 
     def get_stats(self) -> Dict:
-        """Статистика"""
         with self._lock:
             return {
                 **self.stats,
@@ -560,16 +515,13 @@ class EthicalController:
             }
 
     def set_mode(self, manual: bool = False, auto_approve: bool = False):
-        """Установка режима работы"""
         self.manual_mode = manual
         self.auto_approve_enabled = auto_approve
         mode = "РУЧНОЙ" if manual else "АВТОМАТИЧЕСКИЙ"
         self.logger.warning(f"⚠️ Режим изменён: {mode}")
 
 
-
 class ShardEthicalIntegration:
-    """Интеграция этического контроля в SHARD"""
 
     def __init__(self, event_bus=None, logger_instance=None):
         self.controller = EthicalController(event_bus, logger_instance)
@@ -597,7 +549,6 @@ class ShardEthicalIntegration:
         self._running = False
 
     def on_approve(self, data: Dict):
-        """Одобрение действия"""
         action_id = data.get('action_id', '')
         operator = data.get('operator', 'admin')
         code = data.get('confirmation_code')
@@ -608,7 +559,6 @@ class ShardEthicalIntegration:
             self.event_bus.publish('ethics.result', result)
 
     def on_reject(self, data: Dict):
-        """Отклонение действия"""
         action_id = data.get('action_id', '')
         reason = data.get('reason', '')
 
@@ -618,7 +568,6 @@ class ShardEthicalIntegration:
             self.event_bus.publish('ethics.result', result)
 
     def on_rollback(self, data: Dict):
-        """Откат действия"""
         action_id = data.get('action_id', '')
 
         result = self.controller.rollback_action(action_id)
@@ -630,9 +579,7 @@ class ShardEthicalIntegration:
         return self.controller.get_stats()
 
 
-
 def test_ethical_control():
-    """Тестирование этического контроля"""
     print("=" * 60)
     print("⚖️ ТЕСТ ETHICAL CONTROL SYSTEM")
     print("=" * 60)

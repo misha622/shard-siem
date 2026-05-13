@@ -38,7 +38,6 @@ except ImportError:
     RLDefenseAgent = None
 
 
-
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, max_len=200):
         super().__init__()
@@ -145,9 +144,7 @@ class SimpleTokenizer:
         return ' '.join(words)
 
 
-
 class DefenseModelLoader:
-    """Загрузчик модели защиты: ML классификатор + Seq2Seq генератор"""
     
     def __init__(self, model_path='./models/defense_classifier_v3.pkl', seq2seq_path='./models/seq2seq/defense_transformer_v2.pt'):
         self.model_path = Path(model_path)
@@ -258,7 +255,6 @@ class DefenseModelLoader:
         return self._keyword_predict(text)
     
     def generate_defense_code(self, attack_text: str, src_ip: str = '0.0.0.0', dst_port: int = 80) -> str:
-        """Генерация защитного кода через Seq2Seq нейросеть"""
         if self._seq2seq_loaded and self.seq2seq_model and self.src_tokenizer:
             try:
                 prompt = f"{attack_text} from {src_ip} on port {dst_port}"
@@ -277,7 +273,6 @@ class DefenseModelLoader:
         return self._template_defense(attack_text, src_ip, dst_port)
     
     def _template_defense(self, attack_type: str, src_ip: str, dst_port: int) -> str:
-        """Шаблонная генерация (fallback)"""
         templates = {
             'SQL Injection': f"iptables -A INPUT -s {src_ip} -p tcp --dport {dst_port} -j DROP\n
             'Brute Force': f"iptables -A INPUT -s {src_ip} -p tcp --dport {dst_port} -j DROP\niptables -A INPUT -p tcp --dport {dst_port} -m recent --update --seconds 300 --hitcount 3 -j DROP",
@@ -309,9 +304,7 @@ class DefenseModelLoader:
         return attack_type
 
 
-
 class DefensePipeline:
-    """Defence Pipeline v3 с Seq2Seq генератором"""
     
     def __init__(self):
         self.model = DefenseModelLoader()

@@ -72,10 +72,8 @@ except ImportError:
     logger.warning("⚠️ Scikit-learn not installed")
 
 
-
 @dataclass
 class ContrastiveVAEConfig:
-    """Конфигурация Contrastive VAE"""
 
     input_dim: int = 156
     encoder_hidden_dims: List[int] = field(default_factory=lambda: [256, 128, 64])
@@ -117,18 +115,15 @@ class ContrastiveVAEConfig:
     max_workers: int = 4
 
     def save(self, path: str):
-        """Сохранение конфигурации"""
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         with open(path, 'w') as f:
             json.dump(self.__dict__, f, indent=2)
 
     @classmethod
     def load(cls, path: str) -> 'ContrastiveVAEConfig':
-        """Загрузка конфигурации"""
         with open(path, 'r') as f:
             data = json.load(f)
         return cls(**data)
-
 
 
 try:
@@ -138,7 +133,6 @@ except ImportError:
 
 if layers is not None:
     class Sampling(layers.Layer):
-        """Reparameterization trick для VAE с поддержкой mixed precision"""
 
         def __init__(self, **kwargs):
             super().__init__(**kwargs)
@@ -158,7 +152,6 @@ if layers is not None:
             return super().get_config()
 else:
     class Sampling:
-        """Dummy Sampling when TensorFlow not available"""
         def __init__(self, **kwargs): pass
         def call(self, inputs, training=None): return inputs[0]
         def get_config(self): return {}
@@ -167,16 +160,6 @@ else:
 if TORCH_AVAILABLE:
 
     class ContrastiveVAE(nn.Module):
-        """
-        Variational Autoencoder с Contrastive Learning.
-
-        Loss = Reconstruction_Loss + KL_Divergence + Contrastive_Loss
-
-        Особенности:
-        - Аугментации для contrastive learning
-        - Projection head для SupCon
-        - Memory bank для negative samples
-        """
 
         def __init__(self, config: ContrastiveVAEConfig):
             super().__init__()
@@ -480,18 +463,7 @@ if TORCH_AVAILABLE:
                 return combined_score, recon_error, latent_score
 
 
-
 class ContrastiveVAEEngine:
-    """
-    Production движок для Contrastive VAE.
-
-    Особенности:
-    - Полное обучение с SupCon loss
-    - Аугментации данных
-    - Memory bank для negative sampling
-    - Online learning
-    - Калибровка порогов
-    """
 
     def __init__(self, config: ContrastiveVAEConfig = None):
         self.config = config or ContrastiveVAEConfig()
@@ -551,7 +523,6 @@ class ContrastiveVAEEngine:
         logger.info(f"✅ ContrastiveVAEEngine initialized on {self.device}")
 
     def _load_model(self):
-        """Загружает сохранённую модель"""
         model_path = Path(self.config.model_dir) / 'contrastive_vae.pt'
         config_path = Path(self.config.model_dir) / 'thresholds.json'
 
@@ -582,7 +553,6 @@ class ContrastiveVAEEngine:
                 logger.warning(f"⚠️ Failed to load thresholds: {e}")
 
     def _save_model(self):
-        """Сохраняет модель и пороги"""
         if self.model is None:
             return
 
@@ -613,7 +583,6 @@ class ContrastiveVAEEngine:
             logger.error(f"❌ Failed to save model: {e}")
 
     def start(self):
-        """Запуск движка"""
         self._running = True
 
         self._retrain_thread = threading.Thread(
@@ -626,7 +595,6 @@ class ContrastiveVAEEngine:
         logger.info("🚀 ContrastiveVAEEngine started")
 
     def stop(self):
-        """Остановка движка"""
         self._running = False
 
         if self._retrain_thread:
@@ -638,7 +606,6 @@ class ContrastiveVAEEngine:
         logger.info("🛑 ContrastiveVAEEngine stopped")
 
     def _retrain_loop(self):
-        """Фоновый цикл дообучения"""
         while self._running:
             time.sleep(self.config.retrain_interval)
 
@@ -651,7 +618,6 @@ class ContrastiveVAEEngine:
                 self._online_retrain(normal_data)
 
     def _online_retrain(self, normal_data: np.ndarray):
-        """Онлайн дообучение на новых данных"""
         logger.info(f"🔄 Online retraining on {len(normal_data)} samples")
 
         dataset = TensorDataset(torch.FloatTensor(normal_data))
@@ -687,19 +653,6 @@ class ContrastiveVAEEngine:
 
     def train(self, normal_data: np.ndarray, anomaly_data: Optional[np.ndarray] = None,
               validation_split: float = 0.1, epochs: int = None, verbose: int = 1) -> Dict:
-        """
-        Обучение модели.
-
-        Args:
-            normal_data: Нормальные данные
-            anomaly_data: Аномальные данные для contrastive learning
-            validation_split: Доля валидации
-            epochs: Количество эпох
-            verbose: Уровень логирования
-
-        Returns:
-            Dict с историей обучения
-        """
         if self.model is None:
             return {'error': 'PyTorch not available'}
 
@@ -837,7 +790,6 @@ class ContrastiveVAEEngine:
         return history
 
     def _calibrate_thresholds(self, normal_data: np.ndarray):
-        """Калибрует пороги на нормальных данных"""
         if len(normal_data) == 0:
             return
 
@@ -875,15 +827,6 @@ class ContrastiveVAEEngine:
                     f"radius={self.normal_radius:.3f}")
 
     def predict(self, features: np.ndarray) -> Dict:
-        """
-        Предсказание anomaly score.
-
-        Args:
-            features: Вектор признаков
-
-        Returns:
-            Dict с результатами
-        """
         start_time = time.time()
         self.stats['total_predictions'] += 1
 
@@ -965,13 +908,11 @@ class ContrastiveVAEEngine:
         return result
 
     def _make_cache_key(self, features: np.ndarray) -> str:
-        """Создаёт ключ кэша"""
         features_flat = features.flatten()
         quantized = np.round(features_flat[:30], 3)
         return hashlib.md5(quantized.tobytes()).hexdigest()
 
     def _get_severity(self, score: float) -> str:
-        """Определяет серьёзность по score"""
         if score > 0.8:
             return 'CRITICAL'
         elif score > 0.6:
@@ -982,7 +923,6 @@ class ContrastiveVAEEngine:
             return 'LOW'
 
     def encode(self, features: np.ndarray) -> np.ndarray:
-        """Извлечение латентного представления"""
         if not self.is_trained or self.model is None:
             return np.zeros(self.config.latent_dim)
 
@@ -996,14 +936,12 @@ class ContrastiveVAEEngine:
             return z_mean.cpu().numpy()
 
     def add_feedback(self, features: np.ndarray, is_false_positive: bool):
-        """Добавление обратной связи"""
         if is_false_positive:
             if self.recon_threshold:
                 self.recon_threshold *= 1.05
                 logger.debug(f"Adjusted threshold to {self.recon_threshold:.6f}")
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         return {
             'model': {
                 'is_trained': self.is_trained,
@@ -1030,9 +968,7 @@ class ContrastiveVAEEngine:
         }
 
 
-
 class ShardContrastiveVAEIntegration:
-    """Интеграционный слой для SHARD Enterprise"""
 
     def __init__(self, config=None):
         self.config = ContrastiveVAEConfig()
@@ -1050,48 +986,39 @@ class ShardContrastiveVAEIntegration:
         self._running = False
 
     def start(self):
-        """Запуск интеграции"""
         self._running = True
         self.engine.start()
         logger.info("🚀 ShardContrastiveVAEIntegration started")
 
     def stop(self):
-        """Остановка интеграции"""
         self._running = False
         self.engine.stop()
         logger.info("🛑 ShardContrastiveVAEIntegration stopped")
 
     def predict_anomaly(self, features: List[float]) -> Dict:
-        """Предсказание аномалии"""
         features_arr = np.array(features)
         return self.engine.predict(features_arr)
 
     def get_latent_vector(self, features: List[float]) -> List[float]:
-        """Получение латентного вектора"""
         features_arr = np.array(features)
         latent = self.engine.encode(features_arr)
         return latent[0].tolist() if len(latent) > 0 else []
 
     def train_on_data(self, normal_data: List[List[float]],
                       anomaly_data: List[List[float]] = None) -> Dict:
-        """Обучение на данных"""
         X_normal = np.array(normal_data)
         X_anomaly = np.array(anomaly_data) if anomaly_data else None
         return self.engine.train(X_normal, X_anomaly)
 
     def add_feedback(self, features: List[float], is_false_positive: bool):
-        """Добавление обратной связи"""
         features_arr = np.array(features)
         self.engine.add_feedback(features_arr, is_false_positive)
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         return self.engine.get_stats()
 
 
-
 def test_contrastive_vae():
-    """Тестирование Contrastive VAE"""
     print("=" * 60)
     print("🧪 TESTING CONTRASTIVE VAE")
     print("=" * 60)

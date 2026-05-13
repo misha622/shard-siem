@@ -13,7 +13,6 @@ logger = logging.getLogger("SHARD-CodeGen-v3")
 
 
 class SimpleTFIDF:
-    """Простой TF-IDF векторизатор"""
     
     def __init__(self, max_features: int = 200):
         self.max_features = max_features
@@ -21,7 +20,6 @@ class SimpleTFIDF:
         self.idf: np.ndarray = None
         
     def _tokenize(self, text: str) -> List[str]:
-        """Токенизация с n-gram"""
         text = text.lower()
         tokens = re.findall(r'[a-z0-9]+', text)
         bigrams = [f"{tokens[i]}_{tokens[i+1]}" for i in range(len(tokens)-1)]
@@ -29,7 +27,6 @@ class SimpleTFIDF:
         return tokens + bigrams + trigrams
     
     def fit(self, texts: List[str]):
-        """Обучение словаря"""
         df = {}
         for text in texts:
             tokens = set(self._tokenize(text))
@@ -45,7 +42,6 @@ class SimpleTFIDF:
             self.idf[idx] = np.log((n_docs + 1) / (df.get(token, 1) + 1)) + 1
     
     def transform(self, text: str) -> np.ndarray:
-        """TF-IDF векторизация"""
         tokens = self._tokenize(text)
         tf = np.zeros(len(self.vocabulary))
         
@@ -63,9 +59,7 @@ class SimpleTFIDF:
         return np.array([self.transform(t) for t in texts])
 
 
-
 def create_large_dataset() -> List[Dict]:
-    """Создание датасета на 500+ сэмплов"""
     
     defense_rules = {
         'SQL Injection': [
@@ -241,9 +235,7 @@ def create_large_dataset() -> List[Dict]:
     return samples
 
 
-
 class ImprovedDefenseClassifier:
-    """Классификатор с TF-IDF признаками"""
     
     def __init__(self):
         self.attack_types = []
@@ -254,7 +246,6 @@ class ImprovedDefenseClassifier:
         self.train_losses = []
     
     def train(self, samples: List[Dict], epochs: int = 200, lr: float = 0.01):
-        """Обучение с TF-IDF"""
         attack_texts = [s['attack'] for s in samples]
         self.attack_types = sorted(set(
             ' '.join(s['attack'].split()[:2]) for s in samples
@@ -325,7 +316,6 @@ class ImprovedDefenseClassifier:
         logger.info(f"✅ Обучение завершено!")
     
     def predict(self, attack_text: str) -> Tuple[str, float]:
-        """Предсказание с уверенностью"""
         X = self.vectorizer.transform(attack_text).reshape(1, -1)
         logits = np.dot(X, self.weights) + self.bias
         
@@ -350,7 +340,6 @@ class ImprovedDefenseClassifier:
                 'train_losses': self.train_losses,
             }, f)
         logger.info(f"✅ Модель сохранена: {path}")
-
 
 
 def main():

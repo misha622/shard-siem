@@ -9,7 +9,6 @@ from typing import Dict, List, Tuple
 logger = logging.getLogger("SHARD-GNN")
 
 class GCNLayer(nn.Module):
-    """Graph Convolutional Network layer"""
     def __init__(self, in_dim, out_dim):
         super().__init__()
         self.linear = nn.Linear(in_dim, out_dim)
@@ -34,7 +33,6 @@ class GCNLayer(nn.Module):
 
 
 class GATLayer(nn.Module):
-    """Graph Attention layer"""
     def __init__(self, in_dim, out_dim, heads=4, dropout=0.3):
         super().__init__()
         self.heads = heads
@@ -70,7 +68,6 @@ class GATLayer(nn.Module):
 
 
 class ThreatGNNv2(nn.Module):
-    """GCN + GAT гибрид с residual connections"""
     def __init__(self, in_dim=16, hidden_dim=128, num_layers=4, num_classes=3, dropout=0.3):
         super().__init__()
         

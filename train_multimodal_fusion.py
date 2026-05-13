@@ -29,9 +29,7 @@ CONFIG = {
 }
 
 
-
 class MultiModalFusion(nn.Module):
-    """Cross-Attention Fusion для объединения разных модальностей"""
     
     def __init__(self, num_modalities=7, modal_dims=None, fusion_dim=128, num_heads=4, num_layers=2, dropout=0.1):
         super().__init__()
@@ -82,10 +80,6 @@ class MultiModalFusion(nn.Module):
         self.modal_weights = nn.Parameter(torch.ones(num_modalities) / num_modalities)
     
     def forward(self, modalities):
-        """
-        modalities: list of tensors, каждый [batch, modal_dim_i]
-        Возвращает: threat_logits [batch, 3], confidence [batch, 1], modal_weights [num_modalities]
-        """
         projected = []
         for i, proj in enumerate(self.projections):
             p = proj(modalities[i])
@@ -107,7 +101,6 @@ class MultiModalFusion(nn.Module):
 
 
 class FusionDataset(torch.utils.data.Dataset):
-    """Синтетический датасет для обучения fusion"""
     
     def __init__(self, size=5000):
         self.size = size
@@ -162,7 +155,6 @@ class FusionDataset(torch.utils.data.Dataset):
 
 
 def collate_fn(batch):
-    """Паддинг для разных размеров модальностей"""
     modalities_list = [[] for _ in range(len(batch[0][0]))]
     labels = []
     

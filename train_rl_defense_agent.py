@@ -46,7 +46,6 @@ ACTIONS = {
 
 
 class DQN(nn.Module):
-    """Deep Q-Network для выбора защитного действия"""
     
     def __init__(self, state_dim=10, hidden_dim=128, n_actions=5):
         super().__init__()
@@ -68,7 +67,6 @@ class DQN(nn.Module):
 
 
 class ReplayMemory:
-    """Experience Replay Buffer"""
     
     def __init__(self, capacity=10000):
         self.memory = deque(maxlen=capacity)
@@ -91,9 +89,7 @@ class ReplayMemory:
         return len(self.memory)
 
 
-
 class AttackSimulator:
-    """Генерирует реалистичные атаки для обучения RL"""
     
     def __init__(self):
         self.attack_types = [
@@ -124,7 +120,6 @@ class AttackSimulator:
         }
     
     def generate_state(self) -> Tuple[np.ndarray, str, int]:
-        """Генерирует состояние для RL агента"""
         attack_type = random.choice(self.attack_types)
         severity = self.severity_map[attack_type]
         
@@ -144,11 +139,6 @@ class AttackSimulator:
         return state, attack_type, severity
     
     def get_reward(self, action: int, attack_type: str, blocked_before: bool) -> float:
-        """
-        Вычисляет награду за действие.
-        Положительная — правильная блокировка.
-        Отрицательная — ложное срабатывание или пропуск атаки.
-        """
         optimal = self.optimal_actions[attack_type]
         severity = self.severity_map[attack_type]
         
@@ -173,9 +163,7 @@ class AttackSimulator:
         return 0.0
 
 
-
 class RLDefenseTrainer:
-    """Тренер RL Defence Agent"""
     
     def __init__(self):
         self.policy_net = DQN(CONFIG['state_dim'], CONFIG['hidden_dim'], CONFIG['n_actions'])
@@ -192,7 +180,6 @@ class RLDefenseTrainer:
         self.action_counts = {i: 0 for i in range(CONFIG['n_actions'])}
     
     def select_action(self, state: np.ndarray, training: bool = True) -> int:
-        """Выбор действия: ε-greedy"""
         if training and random.random() < self.epsilon:
             return random.randint(0, CONFIG['n_actions'] - 1)
         
@@ -202,7 +189,6 @@ class RLDefenseTrainer:
             return q_values.argmax().item()
     
     def train_episode(self) -> float:
-        """Один эпизод обучения"""
         state, attack_type, severity = self.simulator.generate_state()
         total_reward = 0.0
         
@@ -226,7 +212,6 @@ class RLDefenseTrainer:
         return total_reward, loss
     
     def _optimize(self) -> float:
-        """Один шаг оптимизации"""
         states, actions, rewards, next_states, dones = self.memory.sample(CONFIG['batch_size'])
         
         q_values = self.policy_net(states)
@@ -246,7 +231,6 @@ class RLDefenseTrainer:
         return loss.item()
     
     def train(self, episodes: int = None):
-        """Полный цикл обучения"""
         episodes = episodes or CONFIG['episodes']
         
         logger.info(f"\n🔄 Training RL Agent: {episodes} episodes...")
@@ -273,7 +257,6 @@ class RLDefenseTrainer:
         logger.info(f"✅ Training complete! Final ε={self.epsilon:.3f}")
     
     def evaluate(self, n_tests=100) -> float:
-        """Оценка точности агента"""
         correct = 0
         total = 0
         
@@ -291,7 +274,6 @@ class RLDefenseTrainer:
         return accuracy
     
     def save(self, path='./models/rl_defense/dqn_model.pt'):
-        """Сохранение модели"""
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         
         torch.save({
@@ -308,7 +290,6 @@ class RLDefenseTrainer:
         logger.info(f"✅ Model saved: {path}")
     
     def get_action_info(self, action_id: int) -> Tuple[str, str]:
-        """Информация о действии"""
         return ACTIONS.get(action_id, ('unknown', 'Неизвестно'))
 
 

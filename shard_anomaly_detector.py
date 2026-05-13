@@ -67,7 +67,6 @@ class VariationalAutoencoder(nn.Module):
 
 
 class ShardAnomalyDetector:
-    """VAE Anomaly Detector для SHARD"""
     
     def __init__(self, model_path='./models/anomaly/vae_anomaly_detector.pt'):
         self.model_path = Path(model_path)
@@ -111,7 +110,6 @@ class ShardAnomalyDetector:
             logger.error(f"Ошибка загрузки Anomaly Detector: {e}")
     
     def extract_features(self, alert: Dict) -> np.ndarray:
-        """Извлечение 72 фич из алерта"""
         features = np.zeros(self.input_dim, dtype=np.float32)
         
         features[0] = min(1.0, alert.get('score', 0))
@@ -151,7 +149,6 @@ class ShardAnomalyDetector:
         return features
     
     def is_anomaly(self, alert: Dict) -> Tuple[bool, float]:
-        """Проверка является ли алерт аномалией"""
         if not self.loaded:
             return False, 0.0
         

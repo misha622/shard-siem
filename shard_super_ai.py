@@ -56,10 +56,8 @@ except ImportError:
     logger.error("❌ TensorFlow not installed. Install: pip install tensorflow")
 
 
-
 @dataclass
 class SuperAIConfig:
-    """Конфигурация супер-ИИ с валидацией"""
 
     hidden_dim: int = 2048
     num_heads: int = 32
@@ -97,14 +95,12 @@ class SuperAIConfig:
     keep_last_n_checkpoints: int = 5
 
     def __post_init__(self):
-        """Валидация после инициализации"""
         assert self.num_experts % self.experts_per_token == 0, \
             "num_experts must be divisible by experts_per_token"
         assert self.hidden_dim % self.num_heads == 0, \
             "hidden_dim must be divisible by num_heads"
 
     def save(self, path: str):
-        """Сохранение конфигурации"""
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, 'w') as f:
@@ -112,15 +108,12 @@ class SuperAIConfig:
 
     @classmethod
     def load(cls, path: str) -> 'SuperAIConfig':
-        """Загрузка конфигурации"""
         with open(path, 'r') as f:
             data = json.load(f)
         return cls(**data)
 
 
-
 class ExpertLayer(layers.Layer):
-    """Эксперт для Mixture of Experts"""
 
     def __init__(self, hidden_dim: int, dropout: float = 0.1, **kwargs):
         super().__init__(**kwargs)
@@ -141,7 +134,6 @@ class ExpertLayer(layers.Layer):
 
 
 class MoELayer(layers.Layer):
-    """Mixture of Experts с балансировкой загрузки"""
 
     def __init__(self, config: SuperAIConfig, **kwargs):
         super().__init__(**kwargs)
@@ -202,7 +194,6 @@ class MoELayer(layers.Layer):
         return combined
 
     def _apply_capacity_constraint(self, indices, probs, batch_size):
-        """Применяет ограничение ёмкости экспертов"""
         mask = tf.ones_like(probs)
 
         expert_usage = tf.zeros((self.config.num_experts,), dtype=tf.int32)
@@ -231,7 +222,6 @@ class MoELayer(layers.Layer):
         return mask
 
     def _compute_load_balance_loss(self, router_probs, top_k_indices):
-        """Вычисляет loss для балансировки загрузки экспертов"""
         expert_counts = tf.reduce_sum(
             tf.one_hot(top_k_indices, self.config.num_experts),
             axis=[0, 1]
@@ -248,7 +238,6 @@ class MoELayer(layers.Layer):
 
 
 class MultiModalEncoder(layers.Layer):
-    """Мультимодальный энкодер с кросс-вниманием"""
 
     def __init__(self, config: SuperAIConfig, **kwargs):
         super().__init__(**kwargs)
@@ -279,13 +268,6 @@ class MultiModalEncoder(layers.Layer):
         ], name='fusion')
 
     def call(self, modalities: Dict[str, tf.Tensor], training=False):
-        """
-        Кодирует мультимодальные данные.
-
-        Args:
-            modalities: словарь {modal_name: tensor}
-            training: режим обучения
-        """
         encoded = []
 
         for name, data in modalities.items():
@@ -308,7 +290,6 @@ class MultiModalEncoder(layers.Layer):
 
 
 class MemoryBank(layers.Layer):
-    """Банк памяти для few-shot learning и обнаружения аномалий"""
 
     def __init__(self, config: SuperAIConfig, **kwargs):
         super().__init__(**kwargs)
@@ -340,9 +321,6 @@ class MemoryBank(layers.Layer):
         )
 
     def call(self, inputs, training=False):
-        """
-        Возвращает схожесть с памятью и обновляет банк при обучении.
-        """
         if self.num_stored > 0:
             memory_subset = self.memory[:self.num_stored]
 
@@ -361,7 +339,6 @@ class MemoryBank(layers.Layer):
         return max_similarity
 
     def _update_memory(self, inputs):
-        """Обновление банка памяти с momentum"""
         batch_size = tf.shape(inputs)[0]
         current_ptr = self.memory_ptr
 
@@ -404,7 +381,6 @@ class MemoryBank(layers.Layer):
 
 
 class ThreatPredictionHead(layers.Layer):
-    """Голова для предсказания угроз с калибровкой уверенности"""
 
     def __init__(self, config: SuperAIConfig, **kwargs):
         super().__init__(**kwargs)
@@ -450,9 +426,7 @@ class ThreatPredictionHead(layers.Layer):
         }
 
 
-
 class SHARDSuperAI(Model):
-    """SHARD SUPER AI - Полностью обучаемая модель"""
 
     def __init__(self, config: SuperAIConfig = None):
         super().__init__(name='SHARD_Super_AI')
@@ -474,7 +448,6 @@ class SHARDSuperAI(Model):
                     f"{self.count_params():,} parameters")
 
     def _build_optimizer(self):
-        """Создаёт оптимизатор с learning rate schedule"""
         warmup_steps = self.config.warmup_steps
         total_steps = self.config.total_steps
 
@@ -516,13 +489,6 @@ class SHARDSuperAI(Model):
         )
 
     def call(self, inputs, training=False):
-        """
-        Forward pass.
-
-        Args:
-            inputs: tuple of (modalities, threat_type)
-            training: training mode
-        """
         modalities, threat_type = inputs
 
         encoded = self.encoder(modalities, training=training)
@@ -537,7 +503,6 @@ class SHARDSuperAI(Model):
         return predictions
 
     def train_step(self, data):
-        """Один шаг обучения"""
         if len(data) == 3:
             modalities, threat_type, labels = data
         else:
@@ -576,7 +541,6 @@ class SHARDSuperAI(Model):
         }
 
     def test_step(self, data):
-        """Валидационный шаг"""
         if len(data) == 3:
             modalities, threat_type, labels = data
         else:
@@ -607,7 +571,6 @@ class SHARDSuperAI(Model):
         }
 
     def _compute_loss(self, predictions, labels):
-        """Вычисляет multi-task loss"""
         total_loss = 0.0
 
         if 'threat_class' in labels:
@@ -642,7 +605,6 @@ class SHARDSuperAI(Model):
         return total_loss
 
     def _get_load_balance_loss(self):
-        """Получает аккумулированный балансировочный loss"""
         total = 0.0
         count = 0
 
@@ -654,7 +616,6 @@ class SHARDSuperAI(Model):
         return total / max(count, 1)
 
     def save_checkpoint(self, path: str):
-        """Сохраняет чекпоинт модели"""
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -669,7 +630,6 @@ class SHARDSuperAI(Model):
         logger.info(f"✅ Checkpoint saved to {path}")
 
     def load_checkpoint(self, path: str):
-        """Загружает чекпоинт модели"""
         path = Path(path)
 
         if not path.exists():
@@ -697,12 +657,7 @@ class SHARDSuperAI(Model):
         return [self.loss_tracker, self.accuracy_tracker, self.auc_tracker]
 
 
-
 class SHARDLogsDetector:
-    """
-    Детектор обученный на реальных логах SHARD.
-    Точность: 100% | F1-score: 1.00
-    """
 
     def __init__(self, model_path: str = 'models/shard_trained_on_logs.pkl',
                  scaler_path: str = 'models/shard_scaler_logs.pkl',
@@ -720,7 +675,6 @@ class SHARDLogsDetector:
         self.class_names = ['benign', 'honeypot', 'web_attack', 'brute_force', 'dos', 'scan']
 
     def _load_model(self):
-        """Загрузка модели с обработкой ошибок"""
         try:
             if os.path.exists(self.model_path):
                 self.model = joblib.load(self.model_path)
@@ -741,7 +695,6 @@ class SHARDLogsDetector:
             self.model = None
 
     def _extract_features(self, alert: Dict) -> np.ndarray:
-        """Извлечение признаков из алерта"""
         features = np.zeros(20, dtype=np.float32)
 
         features[0] = 1.0 if alert.get('source') == 'generated' else 0.0
@@ -774,7 +727,6 @@ class SHARDLogsDetector:
         return features
 
     def predict(self, alert: Dict) -> Dict[str, Any]:
-        """Предсказание с калиброванной уверенностью"""
         if self.model is None:
             return {
                 'error': 'Model not loaded',
@@ -828,7 +780,6 @@ class SHARDLogsDetector:
             }
 
     def _get_threat_level(self, attack_type: str, confidence: float) -> str:
-        """Определение уровня угрозы"""
         threat_mapping = {
             'honeypot': 'MEDIUM',
             'web_attack': 'HIGH',
@@ -848,7 +799,6 @@ class SHARDLogsDetector:
         return base_level
 
     def _calibrate_confidence(self, probabilities: np.ndarray) -> float:
-        """Калибровка уверенности с использованием температурного скоринга"""
         temperature = 2.0
         calibrated = np.exp(np.log(probabilities + 1e-8) / temperature)
         calibrated = calibrated / np.sum(calibrated)
@@ -856,7 +806,6 @@ class SHARDLogsDetector:
         return float(np.max(calibrated))
 
     def _get_top_classes(self, probabilities: np.ndarray, k: int = 3) -> List[Dict]:
-        """Получает топ-k классов с вероятностями"""
         top_indices = np.argsort(probabilities)[-k:][::-1]
 
         result = []
@@ -870,9 +819,7 @@ class SHARDLogsDetector:
         return result
 
 
-
 class SHARDSuperAIIntegration:
-    """Production-ready интеграция с SHARD Enterprise"""
 
     def __init__(self, config: SuperAIConfig = None, model_path: Optional[str] = None):
         self.config = config or SuperAIConfig()
@@ -910,7 +857,6 @@ class SHARDSuperAIIntegration:
         logger.info(f"🚀 SHARD Super AI ready on device: {self.device}")
 
     def _get_device(self) -> str:
-        """Определяет устройство для вычислений"""
         if tf and tf.config.list_physical_devices('GPU'):
             return 'GPU'
         elif tf and tf.config.list_physical_devices('TPU'):
@@ -918,7 +864,6 @@ class SHARDSuperAIIntegration:
         return 'CPU'
 
     async def analyze_threat(self, data: Dict) -> Dict:
-        """Асинхронный анализ угрозы"""
         start_time = time.time()
 
         cache_key = self._get_cache_key(data)
@@ -958,7 +903,6 @@ class SHARDSuperAIIntegration:
         return result
 
     def _get_cache_key(self, data: Dict) -> str:
-        """Создаёт ключ кэша"""
         key_parts = [
             str(data.get('src_ip', '')),
             str(data.get('dst_ip', '')),
@@ -969,7 +913,6 @@ class SHARDSuperAIIntegration:
         return hashlib.md5(key_string.encode()).hexdigest()
 
     def _prepare_modalities(self, data: Dict) -> Dict[str, tf.Tensor]:
-        """Подготавливает модальности для модели"""
         modalities = {}
         batch_size = 1
 
@@ -994,7 +937,6 @@ class SHARDSuperAIIntegration:
         return modalities
 
     def _format_predictions(self, predictions: Dict) -> Dict:
-        """Форматирует предсказания для API"""
         result = {}
 
         for key, tensor in predictions.items():
@@ -1020,7 +962,6 @@ class SHARDSuperAIIntegration:
         return result
 
     def train(self, train_dataset, val_dataset=None, epochs: int = 10):
-        """Обучение модели"""
         logger.info(f"🔄 Starting training for {epochs} epochs...")
 
         callbacks = [
@@ -1064,7 +1005,6 @@ class SHARDSuperAIIntegration:
         return history.history
 
     def get_stats(self) -> Dict:
-        """Возвращает статистику"""
         return {
             'model': {
                 'parameters': self.model.count_params(),
@@ -1089,9 +1029,7 @@ class SHARDSuperAIIntegration:
 SHARDUndersampleDetector = SHARDLogsDetector
 
 
-
 def test_super_ai():
-    """Тестирование Super AI"""
     print("=" * 60)
     print("🧪 TESTING SHARD SUPER AI")
     print("=" * 60)

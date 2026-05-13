@@ -270,12 +270,7 @@ ATTACK_VARIATIONS = {
 }
 
 
-
 def create_dataset() -> List[Dict]:
-    """
-    Генерация датасета с вариациями IP, портов и описаний атак.
-    Цель: 2000+ сэмплов для обучения классификатора.
-    """
     samples = []
 
     for attack_type, variations in ATTACK_VARIATIONS.items():
@@ -302,12 +297,7 @@ def create_dataset() -> List[Dict]:
     return samples
 
 
-
 def train_model(samples: List[Dict]) -> Tuple:
-    """
-    Обучение TfidfVectorizer + XGBoost классификатора.
-    Возвращает (vectorizer, classifier, label_encoder).
-    """
     from sklearn.feature_extraction.text import TfidfVectorizer
     from sklearn.preprocessing import LabelEncoder
     import xgboost as xgb
@@ -361,9 +351,7 @@ def train_model(samples: List[Dict]) -> Tuple:
     return vectorizer, classifier, label_encoder
 
 
-
 def test_model(vectorizer, classifier, label_encoder) -> float:
-    """Тестирование модели на отложенных примерах"""
     test_cases = [
         ("SQL Injection from 45.33.32.156 on port 3306", "SQL Injection"),
         ("SSH brute force attack from 91.240.118.22:22", "Brute Force"),
@@ -427,9 +415,7 @@ def test_model(vectorizer, classifier, label_encoder) -> float:
     return accuracy
 
 
-
 def save_model(vectorizer, classifier, label_encoder, path: str = './models/defense_classifier_v3.pkl'):
-    """Сохранение модели в формате, совместимом с Defense Pipeline v2"""
     Path(path).parent.mkdir(exist_ok=True)
 
     model_data = {
@@ -451,9 +437,7 @@ def save_model(vectorizer, classifier, label_encoder, path: str = './models/defe
     logger.info(f"✅ Модель сохранена: {path} ({file_size / 1024:.1f} KB)")
 
 
-
 def print_pipeline_integration_guide():
-    """Инструкция по интеграции в Defense Pipeline v2"""
     print("""
 ╔══════════════════════════════════════════════════════════════════════╗
 ║  ИНТЕГРАЦИЯ С DEFENSE PIPELINE V2                                   ║
@@ -482,7 +466,6 @@ def print_pipeline_integration_guide():
 ║                                                                      ║
 ╚══════════════════════════════════════════════════════════════════════╝
 """)
-
 
 
 def main():

@@ -13,7 +13,6 @@ import sys
 
 
 class SHARDLogCollector:
-    """Сбор и автоматическая разметка логов SHARD"""
 
     def __init__(self):
         self.training_data = []
@@ -49,7 +48,6 @@ class SHARDLogCollector:
         ]
 
     def extract_features(self, log_line: str) -> Dict:
-        """Извлечение признаков из строки лога"""
         features = {
             'raw_log': log_line[:500],
             'length': len(log_line),
@@ -62,7 +60,6 @@ class SHARDLogCollector:
         return features
 
     def _extract_log_level(self, log_line: str) -> str:
-        """Извлечение уровня логирования"""
         if 'ERROR' in log_line:
             return 'ERROR'
         elif 'WARNING' in log_line:
@@ -74,17 +71,12 @@ class SHARDLogCollector:
         return 'UNKNOWN'
 
     def _extract_component(self, log_line: str) -> str:
-        """Извлечение компонента SHARD"""
         match = re.search(r'SHARD\.(\w+)', log_line)
         if match:
             return match.group(1)
         return 'UNKNOWN'
 
     def classify_log(self, log_line: str) -> Tuple[str, float]:
-        """
-        Автоматическая классификация лога
-        Returns: (label, confidence)
-        """
         for pattern, label, confidence in self.attack_patterns:
             if re.search(pattern, log_line):
                 return label, confidence
@@ -96,7 +88,6 @@ class SHARDLogCollector:
         return 'unknown', 0.5
 
     def collect_from_file(self, log_file: str) -> int:
-        """Сбор данных из файла лога"""
         print(f"📥 Обработка {log_file}...")
 
         if not os.path.exists(log_file):
@@ -128,7 +119,6 @@ class SHARDLogCollector:
         return count
 
     def get_statistics(self) -> Dict:
-        """Статистика собранных данных"""
         stats = {
             'total': len(self.training_data),
             'attacks': sum(1 for d in self.training_data if d['is_attack']),
@@ -152,7 +142,6 @@ class SHARDLogCollector:
         return stats
 
     def save_dataset(self, output_file: str = 'shard_logs_dataset.jsonl'):
-        """Сохранение датасета"""
         with open(output_file, 'w', encoding='utf-8') as f:
             for item in self.training_data:
                 f.write(json.dumps(item, ensure_ascii=False) + '\n')

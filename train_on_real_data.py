@@ -12,7 +12,6 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger("SHARD-RealTrainer")
 
 def load_captured_traffic(filepath='data/captured_traffic.jsonl'):
-    """Загрузка захваченного трафика"""
     if not Path(filepath).exists():
         logger.warning(f"Файл {filepath} не найден — используем синтетику")
         return None
@@ -27,7 +26,6 @@ def load_captured_traffic(filepath='data/captured_traffic.jsonl'):
     return data
 
 def extract_features_from_logs(logs):
-    """Извлечение фич из реальных логов SHARD"""
     features = []
     
     for entry in logs:
@@ -59,7 +57,6 @@ def extract_features_from_logs(logs):
     return features
 
 def retrain_vae(features):
-    """Переобучение VAE на реальных фичах"""
     logger.info("\n🔄 Переобучение VAE на реальном трафике...")
     
     from train_anomaly_autoencoder import TrafficFeatureExtractor, VariationalAutoencoder, CONFIG

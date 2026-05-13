@@ -35,7 +35,6 @@ class ShardFusion:
         except Exception as e: logger.warning(f"Fusion load error: {e}")
     
     def fuse(self, signals):
-        """signals: list из 7 тензоров [1, dim_i]"""
         if not self.loaded: return {'threat_level': 'UNKNOWN', 'confidence': 0.0, 'threat_score': 0.0, 'weights': []}
         try:
             mods = [torch.tensor(s, dtype=torch.float32).unsqueeze(0) if isinstance(s, (list, np.ndarray)) else torch.tensor([s], dtype=torch.float32).unsqueeze(0) for s in signals]

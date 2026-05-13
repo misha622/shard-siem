@@ -39,10 +39,8 @@ except ImportError:
     print("❌ TensorFlow not installed")
 
 
-
 @dataclass
 class RLDefenseConfig:
-    """Configuration for RL Defense Agent"""
     state_size: int = 32
     action_size: int = 8
 
@@ -72,9 +70,7 @@ class RLDefenseConfig:
     checkpoint_dir: str = './models/rl_defense/checkpoints/'
 
 
-
 class DefenseAction:
-    """Defense action definitions"""
 
     ACTIONS = [
         'no_action',
@@ -108,12 +104,7 @@ class DefenseAction:
         return cls.COSTS.get(action_name, 0.0)
 
 
-
 class PrioritizedReplayBuffer:
-    """
-    Prioritized Experience Replay buffer.
-    Samples important transitions more frequently.
-    """
 
     def __init__(self, capacity: int, alpha: float = 0.6, beta: float = 0.4):
         self.capacity = capacity
@@ -127,7 +118,6 @@ class PrioritizedReplayBuffer:
         self.size = 0
 
     def push(self, state, action, reward, next_state, done):
-        """Add experience to buffer"""
         priority = self.priorities.max() if self.size > 0 else 1.0
 
         if self.size < self.capacity:
@@ -141,7 +131,6 @@ class PrioritizedReplayBuffer:
 
     def sample(self, batch_size: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray,
     np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        """Sample batch with prioritization"""
         if self.size == 0:
             return None
 
@@ -169,10 +158,8 @@ class PrioritizedReplayBuffer:
                 np.array(next_states), np.array(dones), indices, weights)
 
     def update_priorities(self, indices: np.ndarray, td_errors: np.ndarray):
-        """Update priorities based on TD errors"""
         for idx, td_error in zip(indices, td_errors):
             self.priorities[idx] = abs(td_error) + 1e-6
-
 
 
 try:
@@ -181,10 +168,6 @@ except ImportError:
     Model = object
 
 class DuelingDQN(Model):
-    """
-    Dueling Deep Q-Network.
-    Separates state value and action advantage streams.
-    """
 
     def __init__(self, state_size: int, action_size: int, hidden_layers: List[int] = [128, 64]):
         super().__init__(name='DuelingDQN')
@@ -229,12 +212,7 @@ class DuelingDQN(Model):
         return q_values
 
 
-
 class RLDefenseAgent:
-    """
-    Reinforcement Learning Agent for adaptive cyber defense.
-    Uses Double Dueling DQN with Prioritized Experience Replay.
-    """
 
     def __init__(self, config: RLDefenseConfig = None):
         self.config = config or RLDefenseConfig()
@@ -277,7 +255,6 @@ class RLDefenseAgent:
             self._load_or_init()
 
     def _init_networks(self):
-        """Initialize policy and target networks"""
         self.policy_net = DuelingDQN(
             self.config.state_size,
             self.config.action_size
@@ -298,7 +275,6 @@ class RLDefenseAgent:
         print(f"✅ RL Defense Agent initialized")
 
     def _load_or_init(self):
-        """Load pre-trained model or initialize new"""
         model_path = Path(self.config.model_dir) / 'policy_net.keras'
 
         if model_path.exists():
@@ -312,11 +288,9 @@ class RLDefenseAgent:
                 print(f"⚠️ Failed to load model: {e}")
 
     def set_state_encoder(self, encoder: Callable[[Dict], np.ndarray]):
-        """Set custom state encoder function"""
         self.state_encoder = encoder
 
     def _encode_state(self, raw_state: Dict) -> np.ndarray:
-        """Encode raw state to neural network input"""
         if self.state_encoder:
             return self.state_encoder(raw_state)
 
@@ -339,27 +313,15 @@ class RLDefenseAgent:
         return encoded
 
     def start(self):
-        """Start RL agent"""
         self._running = True
         print(f"🚀 RL Defense Agent started (ε={self.config.epsilon:.3f})")
 
     def stop(self):
-        """Stop RL agent"""
         self._running = False
         self.save()
         print("🛑 RL Defense Agent stopped")
 
     def act(self, state: Dict, training: bool = True) -> Tuple[int, str]:
-        """
-        Select action based on current state.
-
-        Args:
-            state: Raw state dictionary
-            training: If True, use epsilon-greedy exploration
-
-        Returns:
-            Tuple of (action_id, action_name)
-        """
         encoded_state = self._encode_state(state)
 
         with self._lock:
@@ -388,7 +350,6 @@ class RLDefenseAgent:
             return action, DefenseAction.get_action_name(action)
 
     def remember(self, state: Dict, action: int, reward: float, next_state: Dict, done: bool):
-        """Store experience in replay memory"""
         encoded_state = self._encode_state(state)
         encoded_next_state = self._encode_state(next_state)
 
@@ -396,7 +357,6 @@ class RLDefenseAgent:
         self.stats['total_rewards'] += reward
 
     def replay(self) -> Optional[float]:
-        """Train on a batch of experiences"""
         if self.memory.size < self.config.batch_size:
             return None
 
@@ -452,19 +412,6 @@ class RLDefenseAgent:
 
     def calculate_reward(self, state: Dict, action: int, next_state: Dict,
                          alert_resolved: bool, damage_prevented: float) -> float:
-        """
-        Calculate reward for taking action.
-
-        Args:
-            state: State before action
-            action: Action taken
-            next_state: State after action
-            alert_resolved: Whether the alert was resolved
-            damage_prevented: Estimated damage prevented (0-1)
-
-        Returns:
-            Reward value
-        """
         reward = 0.0
 
         if alert_resolved:
@@ -481,16 +428,6 @@ class RLDefenseAgent:
         return reward
 
     def train_episode(self, env_simulator, max_steps: int = 500) -> float:
-        """
-        Train for one episode using environment simulator.
-
-        Args:
-            env_simulator: Function that simulates environment
-            max_steps: Maximum steps per episode
-
-        Returns:
-            Total episode reward
-        """
         state = env_simulator.reset()
         total_reward = 0.0
 
@@ -517,7 +454,6 @@ class RLDefenseAgent:
         return total_reward
 
     def save(self):
-        """Save model and stats"""
         if self.policy_net is None:
             return
 
@@ -534,7 +470,6 @@ class RLDefenseAgent:
         print(f"✅ RL model saved to {self.config.model_dir}")
 
     def get_stats(self) -> Dict:
-        """Get agent statistics"""
         with self._lock:
             return {
                 'episodes': self.stats['total_episodes'],
@@ -546,12 +481,7 @@ class RLDefenseAgent:
             }
 
 
-
 class DefenseEnvironmentSimulator:
-    """
-    Simulates the defense environment for training.
-    In production, this is replaced by actual SHARD environment.
-    """
 
     def __init__(self):
         self.state = self._reset_state()
@@ -572,7 +502,6 @@ class DefenseEnvironmentSimulator:
         }
 
     def reset(self) -> Dict:
-        """Reset environment to initial state"""
         self.state = self._reset_state()
         self.step_count = 0
         self.alert_active = False
@@ -580,15 +509,6 @@ class DefenseEnvironmentSimulator:
         return self.state.copy()
 
     def step(self, action: int) -> Tuple[Dict, float, bool, Dict]:
-        """
-        Execute action and return new state, reward, done, info.
-
-        Args:
-            action: Action ID from DefenseAction
-
-        Returns:
-            Tuple of (next_state, reward, done, info)
-        """
         self.step_count += 1
 
         if self.alert_active:
@@ -624,9 +544,7 @@ class DefenseEnvironmentSimulator:
         return self.state.copy(), reward, done, info
 
 
-
 class ShardRLDefenseIntegration:
-    """Integration layer for SHARD Enterprise"""
 
     def __init__(self, config: Dict = None):
         self.config = RLDefenseConfig()
@@ -641,7 +559,6 @@ class ShardRLDefenseIntegration:
         self._running = False
 
     def start(self, train: bool = False):
-        """Start RL defense integration"""
         self._running = True
         self.agent.start()
 
@@ -651,14 +568,12 @@ class ShardRLDefenseIntegration:
             print("🎮 RL training mode enabled")
 
     def stop(self):
-        """Stop RL defense integration"""
         self._running = False
         self.agent.stop()
         if self._training_thread:
             self._training_thread.join(timeout=5)
 
     def _training_loop(self):
-        """Background training loop"""
         while self._running:
             total_reward = self.agent.train_episode(self.env_simulator)
             if self.agent.episode_count % 10 == 0:
@@ -666,15 +581,6 @@ class ShardRLDefenseIntegration:
                     f"📊 Episode {self.agent.episode_count}: reward={total_reward:.2f}, ε={self.agent.config.epsilon:.3f}")
 
     def get_defense_action(self, alert: Dict) -> Tuple[int, str]:
-        """
-        Get recommended defense action for an alert.
-
-        Args:
-            alert: Alert dictionary from SHARD
-
-        Returns:
-            Tuple of (action_id, action_name)
-        """
         state = {
             'alert_score': alert.get('score', 0.0),
             'alert_count': 1,
@@ -690,15 +596,6 @@ class ShardRLDefenseIntegration:
         return action_id, action_name
 
     def provide_feedback(self, alert: Dict, action: int, resolved: bool, damage: float):
-        """
-        Provide feedback for reinforcement learning.
-
-        Args:
-            alert: Original alert
-            action: Action taken
-            resolved: Whether the action resolved the alert
-            damage: Estimated damage prevented (0-1)
-        """
         state = {
             'alert_score': alert.get('score', 0.0),
             'alert_count': 1,
@@ -719,16 +616,13 @@ class ShardRLDefenseIntegration:
         self.agent.replay()
 
     def get_stats(self) -> Dict:
-        """Get integration statistics"""
         return {
             'agent_stats': self.agent.get_stats(),
             'training_mode': self._training_thread is not None
         }
 
 
-
 def test_rl_defense():
-    """Test RL Defense Agent"""
     print("=" * 60)
     print("TESTING RL DEFENSE AGENT")
     print("=" * 60)

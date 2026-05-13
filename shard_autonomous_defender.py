@@ -33,7 +33,6 @@ import numpy as np
 logger = logging.getLogger("SHARD-Defender")
 
 
-
 class DefenseLevel(Enum):
     MONITOR = 0
     THROTTLE = 1
@@ -44,12 +43,7 @@ class DefenseLevel(Enum):
     COUNTER_ATTACK = 6
 
 
-
 class DefenseCodeGenerator:
-    """
-    AI-генератор защитного кода.
-    Создаёт iptables правила, WAF сигнатуры, временные патчи.
-    """
 
     def __init__(self):
         self.generated_rules: List[Dict] = []
@@ -59,7 +53,6 @@ class DefenseCodeGenerator:
         self.script_dir.mkdir(exist_ok=True)
 
     def _load_templates(self) -> Dict[str, str]:
-        """Шаблоны защитного кода"""
         return {
             'iptables_block': '''
 
@@ -185,7 +178,6 @@ echo "SHARD: {src_ip} перенаправлен на honeypot:{honeypot_port}"
         }
 
     def generate_iptables_rules(self, attack_info: Dict) -> str:
-        """Генерация iptables правил для атаки"""
         template = self.code_templates['iptables_block']
         return template.format(
             attack_type=attack_info.get('attack_type', 'Unknown'),
@@ -196,7 +188,6 @@ echo "SHARD: {src_ip} перенаправлен на honeypot:{honeypot_port}"
         )
 
     def generate_waf_rule(self, attack_info: Dict) -> str:
-        """Генерация WAF сигнатуры"""
         attack_type = attack_info.get('attack_type', '')
 
         if 'SQL' in attack_type:
@@ -227,7 +218,6 @@ SecRule REQUEST_URI "@rx {pattern}" \\
 '''
 
     def generate_defense_script(self, attack_info: Dict) -> Path:
-        """Генерация полноценного Python скрипта защиты"""
         template = self.code_templates['python_defense_script']
         code = template.format(
             attack_type=attack_info.get('attack_type', 'Unknown'),
@@ -248,7 +238,6 @@ SecRule REQUEST_URI "@rx {pattern}" \\
         return filepath
 
     def generate_honeypot_redirect(self, attack_info: Dict) -> str:
-        """Перенаправление атакующего на honeypot"""
         template = self.code_templates['honeypot_redirect']
         return template.format(
             src_ip=attack_info.get('src_ip', '0.0.0.0'),
@@ -257,7 +246,6 @@ SecRule REQUEST_URI "@rx {pattern}" \\
         )
 
     def get_best_defense(self, attack_info: Dict) -> Dict:
-        """AI выбирает лучшую стратегию защиты"""
         attack_type = attack_info.get('attack_type', '')
         severity = attack_info.get('severity', 'MEDIUM')
         score = attack_info.get('score', 0.5)
@@ -316,12 +304,7 @@ SecRule REQUEST_URI "@rx {pattern}" \\
         }
 
 
-
 class AutonomousDefender:
-    """
-    Автономный AI Защитник.
-    Принимает решения на основе ML, генерирует код, отбивает атаки.
-    """
 
     def __init__(self, event_bus=None, logger_instance=None):
         self.event_bus = event_bus
@@ -348,9 +331,6 @@ class AutonomousDefender:
         self._running = False
 
     def on_alert(self, alert: Dict) -> Dict:
-        """
-        Реакция на алерт — выбор и применение защиты.
-        """
         with self._lock:
             self.stats['total_attacks'] += 1
 
@@ -404,7 +384,6 @@ class AutonomousDefender:
             return result
 
     def _execute_block_ip(self, alert: Dict, action: Dict):
-        """Блокировка IP"""
         src_ip = alert.get('src_ip', '')
         if not src_ip or src_ip in ['127.0.0.1', '::1', 'localhost']:
             return
@@ -425,7 +404,6 @@ class AutonomousDefender:
                 self.logger.error(f"Ошибка блокировки {src_ip}: {e}")
 
     def _execute_redirect(self, alert: Dict, action: Dict):
-        """Перенаправление на honeypot"""
         src_ip = alert.get('src_ip', '')
         if not src_ip or src_ip in ['127.0.0.1', '::1']:
             return
@@ -445,7 +423,6 @@ class AutonomousDefender:
                 self.logger.error(f"Ошибка редиректа {src_ip}: {e}")
 
     def _execute_isolate(self, alert: Dict, action: Dict):
-        """Изоляция хоста"""
         dst_ip = alert.get('dst_ip', '')
         if not dst_ip or dst_ip in ['127.0.0.1', '::1']:
             return
@@ -468,7 +445,6 @@ class AutonomousDefender:
                 self.logger.error(f"Ошибка изоляции {dst_ip}: {e}")
 
     def learn_from_result(self, attack_info: Dict, was_successful: bool):
-        """Обучение на результате защиты"""
         attack_type = attack_info.get('attack_type', 'Unknown')
         action_taken = attack_info.get('action_taken', 'unknown')
 
@@ -489,7 +465,6 @@ class AutonomousDefender:
             )
 
     def get_defense_stats(self) -> Dict:
-        """Статистика защитных действий"""
         with self._lock:
             return {
                 **self.stats,
@@ -501,7 +476,6 @@ class AutonomousDefender:
             }
 
     def rollback_last_defense(self) -> bool:
-        """Откат последнего защитного действия"""
         with self._lock:
             if not self.defense_history:
                 return False
@@ -530,9 +504,7 @@ class AutonomousDefender:
                 return False
 
 
-
 class ShardAutonomousDefenderIntegration:
-    """Интеграция автономного защитника в SHARD"""
 
     def __init__(self, event_bus=None, logger_instance=None):
         self.defender = AutonomousDefender(event_bus, logger_instance)
@@ -541,7 +513,6 @@ class ShardAutonomousDefenderIntegration:
         self._running = False
 
     def setup(self, event_bus, logger_instance=None):
-        """Подключение к SHARD"""
         self.event_bus = event_bus
         self.defender.event_bus = event_bus
         if logger_instance:
@@ -552,17 +523,14 @@ class ShardAutonomousDefenderIntegration:
             event_bus.subscribe('alert.detected', self.on_alert)
 
     def start(self):
-        """Запуск защитника"""
         self._running = True
         self.logger.info("🛡️ AI Autonomous Defender активирован")
 
     def stop(self):
-        """Остановка"""
         self._running = False
         self.logger.info("🛡️ AI Defender остановлен")
 
     def on_alert(self, alert: Dict):
-        """Обработка алерта — защита"""
         result = self.defender.on_alert(alert)
 
         if result['success']:
@@ -582,7 +550,6 @@ class ShardAutonomousDefenderIntegration:
                         })
 
     def generate_defense_report(self) -> Dict:
-        """Отчёт о защитных действиях"""
         return {
             'stats': self.defender.get_defense_stats(),
             'generated_scripts': [
@@ -595,9 +562,7 @@ class ShardAutonomousDefenderIntegration:
         return self.defender.get_defense_stats()
 
 
-
 def test_defender():
-    """Тестирование автономного защитника"""
     print("=" * 60)
     print("🧪 ТЕСТ AI AUTONOMOUS DEFENDER")
     print("=" * 60)

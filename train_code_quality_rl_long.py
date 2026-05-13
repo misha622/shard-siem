@@ -46,7 +46,6 @@ def load_metrics():
             metrics.update(json.load(f))
 
 def validate_rule(rule: str) -> Tuple[bool, str, float]:
-    """Быстрая проверка правила без системных вызовов"""
     rule = rule.strip().replace('<NL>', '\n').replace('  ', ' ')
     while '\n\n' in rule:
         rule = rule.replace('\n\n', '\n')
@@ -111,7 +110,6 @@ EXAMPLES = [
 ]
 
 def llm_similarity(code: str) -> float:
-    """Сравнение с эталонными примерами"""
     code_words = set(code.lower().split())
     best = 0.0
     for ex in EXAMPLES:

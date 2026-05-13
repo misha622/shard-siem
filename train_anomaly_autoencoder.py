@@ -35,11 +35,9 @@ CONFIG = {
 
 
 class TrafficFeatureExtractor:
-    """Извлекает 78 фич из трафика — те же что использует SHARD ML"""
     
     @staticmethod
     def extract_normal_traffic(n_samples=10000):
-        """Генерация синтетического НОРМАЛЬНОГО трафика для обучения"""
         features = []
         
         for _ in range(n_samples):
@@ -106,7 +104,6 @@ class TrafficFeatureExtractor:
     
     @staticmethod
     def generate_anomaly(n_samples=500):
-        """Генерация АНОМАЛЬНОГО трафика для тестирования"""
         normal = TrafficFeatureExtractor.extract_normal_traffic(n_samples)
         
         anomalies = normal.copy()
@@ -142,9 +139,7 @@ class TrafficFeatureExtractor:
         return anomalies
 
 
-
 class VariationalAutoencoder(nn.Module):
-    """VAE для anomaly detection на трафике"""
     
     def __init__(self, input_dim=78, hidden_dims=[128, 64], latent_dim=16):
         super().__init__()
@@ -198,7 +193,6 @@ class VariationalAutoencoder(nn.Module):
         return reconstructed, mu, logvar
     
     def anomaly_score(self, x):
-        """Вычисление anomaly score на основе ошибки восстановления"""
         self.eval()
         with torch.no_grad():
             reconstructed, mu, logvar = self.forward(x)
@@ -210,7 +204,6 @@ class VariationalAutoencoder(nn.Module):
             score = recon_error + CONFIG['beta'] * kl_div
             
         return score
-
 
 
 class TrafficDataset(Dataset):

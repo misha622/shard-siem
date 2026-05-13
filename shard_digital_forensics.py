@@ -31,9 +31,7 @@ import requests
 import yaml
 
 
-
 class EvidenceType(Enum):
-    """Типы доказательств"""
     PCAP = "pcap"
     MEMORY_DUMP = "memory_dump"
     DISK_IMAGE = "disk_image"
@@ -54,7 +52,6 @@ class EvidenceType(Enum):
 
 
 class EvidenceSeverity(Enum):
-    """Важность доказательства"""
     CRITICAL = "CRITICAL"
     HIGH = "HIGH"
     MEDIUM = "MEDIUM"
@@ -64,7 +61,6 @@ class EvidenceSeverity(Enum):
 
 @dataclass
 class ForensicsConfig:
-    """Конфигурация Digital Forensics"""
 
     evidence_dir: str = "./data/forensics/evidence/"
     cases_dir: str = "./data/forensics/cases/"
@@ -90,7 +86,6 @@ class ForensicsConfig:
 
 @dataclass
 class Evidence:
-    """Доказательство"""
     id: str
     case_id: str
     type: EvidenceType
@@ -108,7 +103,6 @@ class Evidence:
 
 @dataclass
 class ForensicFinding:
-    """Находка криминалистического анализа"""
     id: str
     evidence_id: str
     name: str
@@ -124,9 +118,7 @@ class ForensicFinding:
     iocs: List[Dict] = field(default_factory=list)
 
 
-
 class PCAPAnalyzer:
-    """Анализатор сетевого трафика (PCAP)"""
 
     def __init__(self, config: ForensicsConfig, logger=None):
         self.config = config
@@ -141,7 +133,6 @@ class PCAPAnalyzer:
             return False
 
     def analyze(self, pcap_path: str, evidence_id: str) -> List[ForensicFinding]:
-        """Анализ PCAP файла"""
         findings = []
 
         if not self.scapy_available:
@@ -260,7 +251,6 @@ class PCAPAnalyzer:
         return findings
 
     def _analyze_with_tshark(self, pcap_path: str, evidence_id: str) -> List[ForensicFinding]:
-        """Анализ через tshark (fallback)"""
         findings = []
 
         try:
@@ -307,7 +297,6 @@ class PCAPAnalyzer:
         return findings
 
     def _calculate_entropy(self, data: str) -> float:
-        """Вычисление энтропии строки"""
         if not data:
             return 0.0
         freq = {}
@@ -317,9 +306,7 @@ class PCAPAnalyzer:
         return min(8.0, abs(entropy))
 
 
-
 class MemoryAnalyzer:
-    """Анализатор дампов памяти (Volatility)"""
 
     def __init__(self, config: ForensicsConfig, logger=None):
         self.config = config
@@ -331,7 +318,6 @@ class MemoryAnalyzer:
         return vol_path.exists()
 
     def analyze(self, memory_dump_path: str, evidence_id: str) -> List[ForensicFinding]:
-        """Анализ дампа памяти"""
         findings = []
 
         if not self.volatility_available:
@@ -391,7 +377,6 @@ class MemoryAnalyzer:
         return findings
 
     def _analyze_plugin_output(self, plugin: str, output: str) -> List[Dict]:
-        """Анализ вывода плагина на подозрительные паттерны"""
         suspicious = []
 
         if plugin == 'windows.psscan':
@@ -446,9 +431,7 @@ class MemoryAnalyzer:
         return suspicious
 
 
-
 class LogAnalyzer:
-    """Анализатор лог-файлов"""
 
     def __init__(self, config: ForensicsConfig, logger=None):
         self.config = config
@@ -456,7 +439,6 @@ class LogAnalyzer:
         self.patterns = self._load_patterns()
 
     def _load_patterns(self) -> List[Dict]:
-        """Загрузка паттернов для анализа логов"""
         return [
             {'pattern': r'Failed password for (?:invalid user )?(\S+) from (\S+) port',
              'name': 'SSH Failed Login', 'severity': EvidenceSeverity.MEDIUM,
@@ -486,7 +468,6 @@ class LogAnalyzer:
         ]
 
     def analyze(self, log_path: str, evidence_id: str, log_type: str = 'auto') -> List[ForensicFinding]:
-        """Анализ лог-файла"""
         findings = []
 
         if log_type == 'auto':
@@ -522,7 +503,6 @@ class LogAnalyzer:
         return findings
 
     def _detect_log_type(self, log_path: str) -> str:
-        """Определение типа лога"""
         path_lower = log_path.lower()
 
         if 'auth.log' in path_lower or 'secure' in path_lower:
@@ -539,16 +519,13 @@ class LogAnalyzer:
             return 'generic'
 
 
-
 class TimelineBuilder:
-    """Построитель временной линии событий"""
 
     def __init__(self, config: ForensicsConfig, logger=None):
         self.config = config
         self.logger = logger
 
     def build_timeline(self, findings: List[ForensicFinding]) -> List[Dict]:
-        """Построение временной линии из находок"""
         timeline = []
 
         for f in findings:
@@ -571,7 +548,6 @@ class TimelineBuilder:
         return timeline
 
     def build_attack_chain(self, timeline: List[Dict]) -> List[Dict]:
-        """Построение цепочки атаки (kill chain)"""
         chain = []
         current_stage = None
         stage_events = []
@@ -611,7 +587,6 @@ class TimelineBuilder:
         return chain
 
     def _determine_stage(self, event: Dict) -> str:
-        """Определение стадии kill chain"""
         tactics = event.get('mitre_tactics', [])
 
         if 'Reconnaissance' in tactics or 'Discovery' in tactics:
@@ -634,12 +609,7 @@ class TimelineBuilder:
             return 'Unknown'
 
 
-
 class ForensicsEngine:
-    """
-    Основной движок Digital Forensics
-    Управляет сбором и анализом доказательств
-    """
 
     def __init__(self, config: ForensicsConfig = None, logger=None):
         self.config = config or ForensicsConfig()
@@ -668,13 +638,11 @@ class ForensicsEngine:
         self._load_cases()
 
     def _init_dirs(self):
-        """Создание директорий"""
         Path(self.config.evidence_dir).mkdir(parents=True, exist_ok=True)
         Path(self.config.cases_dir).mkdir(parents=True, exist_ok=True)
         Path(self.config.reports_dir).mkdir(parents=True, exist_ok=True)
 
     def _load_cases(self):
-        """Загрузка существующих дел"""
         cases_dir = Path(self.config.cases_dir)
         for case_file in cases_dir.glob('*.json'):
             try:
@@ -686,19 +654,16 @@ class ForensicsEngine:
                 pass
 
     def start(self):
-        """Запуск движка"""
         self._running = True
         if self.logger:
             self.logger.info("🚀 Digital Forensics Engine started")
 
     def stop(self):
-        """Остановка движка"""
         self._running = False
         if self.logger:
             self.logger.info("🛑 Digital Forensics Engine stopped")
 
     def create_case(self, name: str, description: str = "", investigator: str = "SHARD") -> str:
-        """Создание нового дела"""
         case_id = f"CASE-{datetime.now().strftime('%Y%m%d')}-{hash(name) % 10000:04d}"
 
         case = {
@@ -725,7 +690,6 @@ class ForensicsEngine:
         return case_id
 
     def _save_case(self, case_id: str):
-        """Сохранение дела"""
         case = self.cases.get(case_id)
         if case:
             case_file = Path(self.config.cases_dir) / f"{case_id}.json"
@@ -734,7 +698,6 @@ class ForensicsEngine:
 
     def add_evidence(self, case_id: str, evidence_type: EvidenceType, source: str,
                      file_path: str, notes: str = "") -> str:
-        """Добавление доказательства в дело"""
         if case_id not in self.cases:
             raise ValueError(f"Case {case_id} not found")
 
@@ -790,7 +753,6 @@ class ForensicsEngine:
         return evidence_id
 
     def analyze_evidence(self, evidence_id: str) -> List[str]:
-        """Анализ доказательства"""
         evidence = self.evidence.get(evidence_id)
         if not evidence:
             return []
@@ -823,7 +785,6 @@ class ForensicsEngine:
         return finding_ids
 
     def get_case_timeline(self, case_id: str) -> List[Dict]:
-        """Получить временную линию дела"""
         case = self.cases.get(case_id)
         if not case:
             return []
@@ -836,12 +797,10 @@ class ForensicsEngine:
         return self.timeline_builder.build_timeline(case_findings)
 
     def get_case_attack_chain(self, case_id: str) -> List[Dict]:
-        """Получить цепочку атаки для дела"""
         timeline = self.get_case_timeline(case_id)
         return self.timeline_builder.build_attack_chain(timeline)
 
     def generate_report(self, case_id: str) -> Dict:
-        """Генерация отчёта по делу"""
         case = self.cases.get(case_id)
         if not case:
             return {'error': 'Case not found'}
@@ -918,7 +877,6 @@ class ForensicsEngine:
         return report
 
     def _generate_html_report(self, report: Dict) -> str:
-        """Генерация HTML отчёта"""
         case = report['case']
         summary = report['summary']
 
@@ -1014,12 +972,10 @@ class ForensicsEngine:
         return html
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         with self._lock:
             return dict(self.stats)
 
     def list_cases(self) -> List[Dict]:
-        """Список всех дел"""
         return [
             {
                 'id': c['id'],
@@ -1033,9 +989,7 @@ class ForensicsEngine:
         ]
 
 
-
 class ShardForensicsIntegration:
-    """Интеграция Digital Forensics в SHARD"""
 
     def __init__(self, config: Dict = None):
         self.config = ForensicsConfig()
@@ -1044,7 +998,6 @@ class ShardForensicsIntegration:
         self.logger = None
 
     def setup(self, event_bus, logger):
-        """Настройка интеграции"""
         self.event_bus = event_bus
         self.logger = logger
         self.engine = ForensicsEngine(self.config, logger)
@@ -1054,7 +1007,6 @@ class ShardForensicsIntegration:
             event_bus.subscribe('forensics.analyze', self.on_analyze_request)
 
     def start(self):
-        """Запуск интеграции"""
         if self.engine:
             self.engine.start()
 
@@ -1062,12 +1014,10 @@ class ShardForensicsIntegration:
             self.logger.info("🚀 Digital Forensics запущена")
 
     def stop(self):
-        """Остановка интеграции"""
         if self.engine:
             self.engine.stop()
 
     def on_alert(self, alert: Dict):
-        """Обработка алерта - автоматическое создание дела"""
         if not self.config.auto_analyze_alerts:
             return
 
@@ -1092,7 +1042,6 @@ class ShardForensicsIntegration:
             })
 
     def on_analyze_request(self, data: Dict):
-        """Обработка запроса анализа"""
         evidence_path = data.get('path')
         evidence_type = data.get('type', 'auto')
         case_id = data.get('case_id')
@@ -1135,13 +1084,11 @@ class ShardForensicsIntegration:
             })
 
     def create_case(self, name: str, description: str = "") -> str:
-        """Создать новое дело"""
         if self.engine:
             return self.engine.create_case(name, description)
         return ""
 
     def add_evidence(self, case_id: str, evidence_type: str, source: str, file_path: str) -> str:
-        """Добавить доказательство"""
         if self.engine:
             return self.engine.add_evidence(
                 case_id, EvidenceType(evidence_type), source, file_path
@@ -1149,27 +1096,22 @@ class ShardForensicsIntegration:
         return ""
 
     def get_report(self, case_id: str) -> Dict:
-        """Получить отчёт по делу"""
         if self.engine:
             return self.engine.generate_report(case_id)
         return {}
 
     def get_stats(self) -> Dict:
-        """Получить статистику"""
         if self.engine:
             return self.engine.get_stats()
         return {}
 
     def list_cases(self) -> List[Dict]:
-        """Список дел"""
         if self.engine:
             return self.engine.list_cases()
         return []
 
 
-
 def test_forensics():
-    """Тестирование Digital Forensics"""
     print("=" * 60)
     print("🧪 ТЕСТИРОВАНИЕ DIGITAL FORENSICS")
     print("=" * 60)
