@@ -96,6 +96,7 @@ try:
     from shard_gnn_integration import ShardGNN
     from shard_fusion_integration import ShardFusion
     from shard_temporal_integration import ShardTemporalGNN
+    from shard_automl import AutoMLSelector, select_model_for_attack, record_model_result
     from shard_swagger_api import start_api_server
     AUTONOMOUS_AVAILABLE = True
 except ImportError:
