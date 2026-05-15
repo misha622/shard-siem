@@ -340,5 +340,8 @@ def health():
 def start_api_server(port=5000, shard=None):
     global shard_instance
     shard_instance = shard
-    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=port, debug=False), daemon=True).start()
+    threading.Thread(target=lambda: import ssl
+    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ssl_context.load_cert_chain('ssl/cert.pem', 'ssl/key.pem')
+    app.run(host='0.0.0.0', port=port, debug=False, ssl_context=ssl_context), daemon=True).start()
     return app
