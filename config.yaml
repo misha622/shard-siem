@@ -128,8 +128,8 @@ dashboard:
   enabled: true
   auth:
     enabled: true
-    username: admin
-    password: 'ShardAdmin2026!'
+    username: ${SHARD_DASHBOARD_USERNAME:-admin}
+    password: ${SHARD_DASHBOARD_PASSWORD:-admin}
     api_keys: []
   session_ttl: 3600
 
@@ -205,7 +205,7 @@ cloud:
     enabled: false
     access_key: ""
     secret_key: ""
-    session_token: ""
+    # session_token: ""  # не хранить в конфиге, использовать окружение
     region: "us-east-1"
   azure:
     enabled: false

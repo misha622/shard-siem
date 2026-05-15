@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """SHARD WebApplicationFirewall Module"""
 from core.base import BaseModule, ConfigManager, EventBus, LoggingService
+from shard_enterprise_complete import WAFThresholds
 import time, threading, re, json
 from typing import Dict, List, Set, Tuple
 from collections import defaultdict, deque
