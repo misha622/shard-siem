@@ -181,7 +181,10 @@ class AttentionLSTMEngine:
             loss={'reconstruction': 'mse', 'anomaly_score': 'binary_crossentropy'},
             loss_weights={'reconstruction': 1.0, 'anomaly_score': 0.5}
         )
-        self.encoder = self.model.get_encoder()
+        try:
+            self.encoder = self.model.get_encoder()
+        except AttributeError:
+            self.encoder = self.model  # fallback: использовать всю модель как энкодер
         print(f"✅ Attention LSTM построен")
 
     def _load_or_init(self):
@@ -189,7 +192,10 @@ class AttentionLSTMEngine:
         if model_path.exists() and TF_AVAILABLE:
             try:
                 self.model = keras.models.load_model(model_path)
-                self.encoder = self.model.get_encoder()
+                try:
+                    self.encoder = self.model.get_encoder()
+                except AttributeError:
+                    self.encoder = self.model
                 self.is_trained = True
                 print(f"✅ Attention LSTM загружен")
             except:

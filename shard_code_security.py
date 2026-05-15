@@ -591,7 +591,7 @@ class VulnerabilityKnowledgeBase:
             {
                 'id': 'RUBY-SQL-001',
                 'name': 'SQL Injection',
-                'pattern': r'(where|find_by_sql|execute)\s*\(\s*["\']*
+                'pattern': r'(where|find_by_sql|execute)\s*\(\s*["\']*.*?["\']*\s*\)',
                 'severity': VulnerabilitySeverity.CRITICAL,
                 'type': VulnerabilityType.SQL_INJECTION,
                 'description': 'String interpolation in SQL query',

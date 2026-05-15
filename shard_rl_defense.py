@@ -70,6 +70,15 @@ class RLDefenseConfig:
     checkpoint_dir: str = './models/rl_defense/checkpoints/'
 
 
+    def items(self):
+        """Совместимость с dict-like доступом"""
+        return self.__dict__.items()
+    
+    def get(self, key, default=None):
+        """Совместимость с dict-like доступом"""
+        return getattr(self, key, default)
+
+
 class DefenseAction:
 
     ACTIONS = [

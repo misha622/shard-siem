@@ -747,7 +747,7 @@ class FeedParser:
 
         for line in data.split('\n'):
             line = line.strip()
-            if not line or line.startswith('
+            if not line or line.startswith('#'):
                 continue
 
             parts = line.split(',')
@@ -774,7 +774,7 @@ class FeedParser:
 
         for line in data.split('\n'):
             line = line.strip()
-            if line and not line.startswith('
+            if line and not line.startswith('#'):
                 try:
                     ipaddress.ip_address(line)
                     ioc = Indicator(

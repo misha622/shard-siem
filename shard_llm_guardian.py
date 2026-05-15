@@ -107,7 +107,7 @@ class AttackKnowledgeBase:
             r"\{\{.*?\}\}",
             r"\$\{.*?\}",
             r"<%[=]?.*?%>",
-            r"
+            r"<%.*?%>",
 
             r"system\s*\(",
             r"exec\s*\(",

@@ -324,7 +324,7 @@ class NetworkHoneypot(BaseHoneypot):
             if b'PING' in data:
                 return b'+PONG\r\n'
             elif b'INFO' in data:
-                return b'$1024\r\n
+                return b'$1024\r\nredis_version:6.0.0\r\nredis_mode:standalone\r\n' + b'*4\r\n$10\r\ncluster_\r\n$7\r\nenabled\r\n:0\r\n'
             return b'-ERR unknown command\r\n'
         return None
 

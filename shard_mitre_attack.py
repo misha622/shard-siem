@@ -638,13 +638,13 @@ class MITRENavigatorGenerator:
             tech = self.loader.techniques.get(tech_id) or self.loader.sub_techniques.get(tech_id)
             if tech:
                 if count >= 100:
-                    color = "
+                    color = "#FF0000"
                 elif count >= 50:
-                    color = "
+                    color = "#FF6600"
                 elif count >= 10:
-                    color = "
+                    color = "#FFCC00"
                 else:
-                    color = "
+                    color = "#00CC00"
 
                 techniques.append({
                     "techniqueID": tech_id,
@@ -680,20 +680,20 @@ class MITRENavigatorGenerator:
             "hideDisabled": False,
             "techniques": techniques,
             "gradient": {
-                "colors": ["
+                "colors": ["#FF0000", "#FF6600", "#FFCC00", "#00CC00"],
                 "minValue": 0,
                 "maxValue": 100
             },
             "legendItems": [
-                {"label": ">100 detections", "color": "
-                {"label": "50-100 detections", "color": "
-                {"label": "10-49 detections", "color": "
-                {"label": "1-9 detections", "color": "
+                    {"label": ">100 detections", "color": "#FF0000"},
+                    {"label": "50-100 detections", "color": "#FF6600"},
+                    {"label": "10-49 detections", "color": "#FFCC00"},
+                    {"label": "1-9 detections", "color": "#00CC00"},
             ],
             "metadata": [],
             "links": [],
             "showTacticRowBackground": True,
-            "tacticRowBackground": "
+            "tacticRowBackground": "#1a1a2e",
             "selectTechniquesAcrossTactics": True,
             "selectSubtechniquesWithParent": False,
             "selectVisibleTechniques": False
@@ -715,7 +715,7 @@ class MITRENavigatorGenerator:
 
         if scores:
             layer['gradient'] = {
-                "colors": ["
+                "colors": ["#FF0000", "#FF6600", "#FFCC00", "#00CC00"],
                 "minValue": 0,
                 "maxValue": 100
             }

@@ -509,7 +509,7 @@ class AzureSecurityScanner:
                 )
                 if mfa_response.status_code == 200:
                     methods = mfa_response.json().get('value', [])
-                    has_mfa = any(m.get('@odata.type') == '
+                    has_mfa = any(m.get('@odata.type') == '#microsoft.graph.phoneAuthenticationMethod' for m in methods)
                     if not has_mfa:
                         findings.append(self._create_finding(
                             'Azure', 'IAM', user['userPrincipalName'],
