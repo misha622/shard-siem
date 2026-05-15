@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """SHARD IncidentReportGenerator Module"""
 from core.base import BaseModule, ConfigManager, EventBus, LoggingService
+from shard_enterprise_complete import AlertSeverity
 import time, threading, re, json
 from typing import Dict, List, Optional, Any
 from collections import defaultdict, deque

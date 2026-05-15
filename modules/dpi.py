@@ -22,7 +22,6 @@ class DeepPacketInspector(BaseModule):
         self._batch_size = 50
         self._flush_interval = 1  # секунда
         self._flush_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="DPI-Flush")
-        self._flush_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="DPI-Flush")
         self._last_flush = time.time()
         self._flush_thread = None
 

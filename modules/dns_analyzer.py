@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """SHARD DNS Analyzer Module"""
 from core.base import BaseModule, ConfigManager, EventBus, LoggingService
+from shard_enterprise_complete import AttackType, AlertSeverity, DNSThresholds
 import time, threading, math, re
 from typing import Dict, List, Optional, Any
 from collections import defaultdict, deque

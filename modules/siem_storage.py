@@ -126,9 +126,6 @@ class SIEMStorage(BaseModule):
             self.logger.error(f"Ошибка инициализации SQLite: {e}")
             self.sqlite_path = ':memory:'
 
-            self.logger.error(f"Ошибка инициализации SQLite: {e}")
-            self.sqlite_path = ':memory:'
-
     def _get_sqlite_connection(self) -> sqlite3.Connection:
         """Получить соединение из пула"""
         try:
