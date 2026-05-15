@@ -6,7 +6,7 @@
 FROM python:3.11-slim
 
 LABEL org.shard.siem="Enterprise SIEM"
-LABEL org.shard.version="5.0.0"
+LABEL org.shard.version="5.1.0"
 LABEL org.shard.ai_modules="10"
 
 # Системные зависимости
@@ -35,7 +35,6 @@ RUN pip install --no-cache-dir -r requirements_docker.txt && \
     scikit-learn
 
 # Копируем весь проект
-ARG CACHEBUST=1
 ARG CACHEBUST=1
 COPY . .
 

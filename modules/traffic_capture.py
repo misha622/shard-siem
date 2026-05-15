@@ -2,6 +2,7 @@
 """SHARD TrafficCapture Module"""
 from core.base import BaseModule, ConfigManager, EventBus, LoggingService
 import os, time, threading, queue
+from shard_enterprise_complete import scapy_all
 from typing import Dict, List, Optional, Any, Callable
 from collections import defaultdict, deque
 

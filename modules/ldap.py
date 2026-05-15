@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """SHARD LDAPContextProvider Module"""
 from core.base import BaseModule, ConfigManager, EventBus, LoggingService
-import os, time, threading
+import os, time, threading, re, queue
 from typing import Dict, List, Optional, Any, Set, Tuple
 from collections import defaultdict, deque
 from datetime import datetime, timedelta

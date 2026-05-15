@@ -17,7 +17,7 @@ class TestDefensePipeline:
 class TestRL:
     @pytest.fixture
     def rl(self):
-        from shard_rl_integration import RLDefenseAgent
+        from shard_rl_defense import ShardRLDefenseIntegration as RLDefenseAgent
         return RLDefenseAgent()
     def test_loads(self, rl): assert rl.loaded or True  # Skip if model file missing
     def test_decide(self, rl):
