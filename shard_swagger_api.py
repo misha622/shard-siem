@@ -5,6 +5,7 @@ SHARD Enterprise SIEM — Swagger/OpenAPI Documentation
 """
 
 from flask import Flask, jsonify, request
+from shard_rate_limiter import check_rate_limit
 from flask_cors import CORS
 import time, threading, json
 from pathlib import Path
@@ -13,6 +14,19 @@ app = Flask(__name__)
 CORS(app)
 
 shard_instance = None
+
+def rate_limit_check():
+    ip = request.remote_addr
+    allowed, msg = check_rate_limit(ip)
+    if not allowed:
+        return jsonify({"error": msg, "status": 429}), 429
+    return None
+
+@app.before_request
+def before_request():
+    result = rate_limit_check()
+    if result:
+        return result
 
 @app.route('/api/docs')
 def swagger_ui():
@@ -37,6 +51,19 @@ def swagger_ui():
     </script>
 </body>
 </html>'''
+
+def rate_limit_check():
+    ip = request.remote_addr
+    allowed, msg = check_rate_limit(ip)
+    if not allowed:
+        return jsonify({"error": msg, "status": 429}), 429
+    return None
+
+@app.before_request
+def before_request():
+    result = rate_limit_check()
+    if result:
+        return result
 
 @app.route('/api/openapi.json')
 def openapi_spec():
@@ -218,10 +245,36 @@ def openapi_spec():
     })
 
 
+def rate_limit_check():
+    ip = request.remote_addr
+    allowed, msg = check_rate_limit(ip)
+    if not allowed:
+        return jsonify({"error": msg, "status": 429}), 429
+    return None
+
+@app.before_request
+def before_request():
+    result = rate_limit_check()
+    if result:
+        return result
+
 @app.route('/api/alerts')
 def get_alerts():
     limit = request.args.get('limit', 50, type=int)
     return jsonify({"alerts": [], "count": 0, "note": "Connect to live EventBus for real alerts"})
+
+def rate_limit_check():
+    ip = request.remote_addr
+    allowed, msg = check_rate_limit(ip)
+    if not allowed:
+        return jsonify({"error": msg, "status": 429}), 429
+    return None
+
+@app.before_request
+def before_request():
+    result = rate_limit_check()
+    if result:
+        return result
 
 @app.route('/api/alerts/stats')
 def alert_stats():
@@ -232,6 +285,19 @@ def alert_stats():
         "top_ips": []
     })
 
+def rate_limit_check():
+    ip = request.remote_addr
+    allowed, msg = check_rate_limit(ip)
+    if not allowed:
+        return jsonify({"error": msg, "status": 429}), 429
+    return None
+
+@app.before_request
+def before_request():
+    result = rate_limit_check()
+    if result:
+        return result
+
 @app.route('/api/defense/classify', methods=['POST'])
 def classify_attack():
     data = request.get_json() or {}
@@ -240,6 +306,19 @@ def classify_attack():
         atype, conf = shard_instance.defense_pipeline.model.predict(text)
         return jsonify({"attack_type": atype, "confidence": conf, "model": "XGBoost v4.0"})
     return jsonify({"error": "Defense Pipeline not available"})
+
+def rate_limit_check():
+    ip = request.remote_addr
+    allowed, msg = check_rate_limit(ip)
+    if not allowed:
+        return jsonify({"error": msg, "status": 429}), 429
+    return None
+
+@app.before_request
+def before_request():
+    result = rate_limit_check()
+    if result:
+        return result
 
 @app.route('/api/defense/generate', methods=['POST'])
 def generate_defense():
@@ -257,6 +336,19 @@ def generate_defense():
                         "generator": result.get('generator', 'unknown')})
     return jsonify({"error": "Seq2Seq model not available"})
 
+def rate_limit_check():
+    ip = request.remote_addr
+    allowed, msg = check_rate_limit(ip)
+    if not allowed:
+        return jsonify({"error": msg, "status": 429}), 429
+    return None
+
+@app.before_request
+def before_request():
+    result = rate_limit_check()
+    if result:
+        return result
+
 @app.route('/api/defense/rl-action', methods=['POST'])
 def rl_action():
     data = request.get_json() or {}
@@ -264,6 +356,19 @@ def rl_action():
         action_id, name, desc = shard_instance.defense_pipeline.rl_agent.decide_action(data)
         return jsonify({"action_id": action_id, "action_name": name, "action_desc": desc})
     return jsonify({"error": "RL Agent not available"})
+
+def rate_limit_check():
+    ip = request.remote_addr
+    allowed, msg = check_rate_limit(ip)
+    if not allowed:
+        return jsonify({"error": msg, "status": 429}), 429
+    return None
+
+@app.before_request
+def before_request():
+    result = rate_limit_check()
+    if result:
+        return result
 
 @app.route('/api/defense/anomaly', methods=['POST'])
 def check_anomaly():
@@ -273,12 +378,38 @@ def check_anomaly():
         return jsonify({"is_anomaly": is_anom, "score": score, "threshold": shard_instance.anomaly_detector.threshold})
     return jsonify({"error": "Anomaly Detector not available"})
 
+def rate_limit_check():
+    ip = request.remote_addr
+    allowed, msg = check_rate_limit(ip)
+    if not allowed:
+        return jsonify({"error": msg, "status": 429}), 429
+    return None
+
+@app.before_request
+def before_request():
+    result = rate_limit_check()
+    if result:
+        return result
+
 @app.route('/api/defense/gnn-analyze', methods=['POST'])
 def gnn_analyze():
     if shard_instance and hasattr(shard_instance, 'gnn_analyzer'):
         result = shard_instance.gnn_analyzer.analyze()
         return jsonify(result)
     return jsonify({"error": "GNN not available"})
+
+def rate_limit_check():
+    ip = request.remote_addr
+    allowed, msg = check_rate_limit(ip)
+    if not allowed:
+        return jsonify({"error": msg, "status": 429}), 429
+    return None
+
+@app.before_request
+def before_request():
+    result = rate_limit_check()
+    if result:
+        return result
 
 @app.route('/api/defense/fusion', methods=['POST'])
 def fusion_analyze():
@@ -288,6 +419,19 @@ def fusion_analyze():
         return jsonify(result)
     return jsonify({"error": "Fusion not available"})
 
+def rate_limit_check():
+    ip = request.remote_addr
+    allowed, msg = check_rate_limit(ip)
+    if not allowed:
+        return jsonify({"error": msg, "status": 429}), 429
+    return None
+
+@app.before_request
+def before_request():
+    result = rate_limit_check()
+    if result:
+        return result
+
 @app.route('/api/firewall/block', methods=['POST'])
 def block_ip():
     data = request.get_json() or {}
@@ -295,13 +439,52 @@ def block_ip():
     duration = data.get('duration', 3600)
     return jsonify({"status": "ok", "ip": ip, "duration": duration, "note": "Requires NET_ADMIN capability"})
 
+def rate_limit_check():
+    ip = request.remote_addr
+    allowed, msg = check_rate_limit(ip)
+    if not allowed:
+        return jsonify({"error": msg, "status": 429}), 429
+    return None
+
+@app.before_request
+def before_request():
+    result = rate_limit_check()
+    if result:
+        return result
+
 @app.route('/api/firewall/unblock', methods=['POST'])
 def unblock_ip():
     return jsonify({"status": "ok"})
 
+def rate_limit_check():
+    ip = request.remote_addr
+    allowed, msg = check_rate_limit(ip)
+    if not allowed:
+        return jsonify({"error": msg, "status": 429}), 429
+    return None
+
+@app.before_request
+def before_request():
+    result = rate_limit_check()
+    if result:
+        return result
+
 @app.route('/api/firewall/blocked')
 def blocked_ips():
     return jsonify({"blocked": []})
+
+def rate_limit_check():
+    ip = request.remote_addr
+    allowed, msg = check_rate_limit(ip)
+    if not allowed:
+        return jsonify({"error": msg, "status": 429}), 429
+    return None
+
+@app.before_request
+def before_request():
+    result = rate_limit_check()
+    if result:
+        return result
 
 @app.route('/api/stats')
 def stats():
@@ -312,6 +495,19 @@ def stats():
         "honeypots": 13,
         "alerts_processed": 0
     })
+
+def rate_limit_check():
+    ip = request.remote_addr
+    allowed, msg = check_rate_limit(ip)
+    if not allowed:
+        return jsonify({"error": msg, "status": 429}), 429
+    return None
+
+@app.before_request
+def before_request():
+    result = rate_limit_check()
+    if result:
+        return result
 
 @app.route('/api/models')
 def models():
@@ -331,6 +527,19 @@ def models():
         "total_params": "~14M",
         "framework": "PyTorch + XGBoost + scikit-learn"
     })
+
+def rate_limit_check():
+    ip = request.remote_addr
+    allowed, msg = check_rate_limit(ip)
+    if not allowed:
+        return jsonify({"error": msg, "status": 429}), 429
+    return None
+
+@app.before_request
+def before_request():
+    result = rate_limit_check()
+    if result:
+        return result
 
 @app.route('/api/health')
 def health():
