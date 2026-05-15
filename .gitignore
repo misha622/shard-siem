@@ -11,7 +11,6 @@ __pycache__/
 
 # Данные
 data/
-models/
 reports/
 pcaps/
 CIC-IDS2017/
@@ -48,3 +47,4 @@ core/
 ml/
 api/
 deploy/
+!models/*.pkl
