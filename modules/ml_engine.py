@@ -632,7 +632,7 @@ class MachineLearningEngine(BaseModule):
                         'hour_of_day': time.localtime().tm_hour,
                         'day_of_week': time.localtime().tm_wday
                     }
-                    action_id, action_name = self.rl_defense.get_defense_action(alert_state)
+                    action_id, action_name = self.rl_defense.agent.act(alert_state, training=False)
                     result['rl_recommended_action'] = action_name
                     result['rl_action_id'] = action_id
                     self.logger.debug(f"RL Defense recommends: {action_name} (score={result['score']:.3f})")

@@ -41,7 +41,7 @@ except ImportError:
 
 @dataclass
 class RLDefenseConfig:
-    state_size: int = 32
+    state_size: int = 156
     action_size: int = 8
 
     gamma: float = 0.95
@@ -316,8 +316,11 @@ class RLDefenseAgent:
             raw_state.get('day_of_week', 0) / 7
         ]
 
-        for i, val in enumerate(features[:self.config.state_size]):
+        for i, val in enumerate(features[:len(features)]):
             encoded[i] = float(val)
+        # Добавляем шумовые признаки для совместимости с 156-мерным входом
+        if self.config.state_size > len(features):
+            encoded[len(features):] = np.random.normal(0, 0.1, self.config.state_size - len(features))
 
         return encoded
 
