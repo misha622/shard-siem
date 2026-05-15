@@ -1,0 +1,34 @@
+{
+  "weights": {
+    "lstm": 0.35,
+    "transformer": 0.35,
+    "vae": 0.3
+  },
+  "thresholds": {
+    "lstm": 0.5,
+    "transformer": 0.5,
+    "vae": 0.5
+  },
+  "stats": {
+    "total_predictions": 0,
+    "anomalies_detected": 0,
+    "ensemble_updates": 0,
+    "model_performance": {
+      "lstm": {
+        "f1": 0.5,
+        "precision": 0.5,
+        "recall": 0.5
+      },
+      "transformer": {
+        "f1": 0.5,
+        "precision": 0.5,
+        "recall": 0.5
+      },
+      "vae": {
+        "f1": 0.5,
+        "precision": 0.5,
+        "recall": 0.5
+      }
+    }
+  }
+}

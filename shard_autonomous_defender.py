@@ -19,7 +19,7 @@ import time
 import hashlib
 import socket
 import struct
-import subprocess
+import subprocess, ipaddress
 import threading
 import logging
 from pathlib import Path
@@ -40,7 +40,7 @@ class DefenseLevel(Enum):
     BLOCK_IP = 3
     ISOLATE = 4
     REDIRECT = 5
-    COUNTER_ATTACK = 6
+    HONEYPOT_DEPLOY = 6
 
 
 class DefenseCodeGenerator:
@@ -97,7 +97,7 @@ SHARD AI Defender - Автосгенерированный скрипт защи
 Время: {timestamp}
 \"\"\"
 
-import subprocess
+import subprocess, ipaddress
 import time
 import logging
 
@@ -503,6 +503,15 @@ class AutonomousDefender:
                     self.logger.error(f"Ошибка отката: {e}")
                 return False
 
+
+
+def _validate_ip(ip: str) -> bool:
+    """Строгая валидация IP перед подстановкой в shell"""
+    try:
+        ipaddress.ip_address(ip)
+        return True
+    except ValueError:
+        return False
 
 class ShardAutonomousDefenderIntegration:
 

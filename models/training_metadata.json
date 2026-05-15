@@ -1,0 +1,11 @@
+{
+  "training_date": "2026-04-24T19:43:06.170962",
+  "models": [
+    "isolation_forest",
+    "xgboost",
+    "random_forest",
+    "lstm_autoencoder"
+  ],
+  "feature_count": 78,
+  "scaler_type": "StandardScaler"
+}
