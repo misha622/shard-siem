@@ -364,7 +364,10 @@ class AgenticAIAnalyst(BaseModule):
             self.logger.error(f"Ошибка анализа источника {ip}: {e}")
             result['evidence'].append(f"Ошибка анализа: {str(e)[:100]}")
         finally:
-            self.event_bus.unsubscribe('threat_intel.check_ip.response', on_threat_response)
+            try:
+                self.event_bus.unsubscribe('threat_intel.check_ip.response', on_threat_response)
+            except (KeyError, ValueError):
+                pass  # Callback не был подписан — ок
 
         return result
 

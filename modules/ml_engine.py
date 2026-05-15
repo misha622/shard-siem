@@ -6,6 +6,21 @@ from typing import Dict, List, Optional, Any, Tuple
 from collections import defaultdict, deque
 from pathlib import Path
 
+# Импорты из главного файла (для обратной совместимости)
+try:
+    from shard_enterprise_complete import SelfSupervisedEncoder, ThreatGNN
+except ImportError:
+    SelfSupervisedEncoder = None
+    ThreatGNN = None
+
+# Глобальные переменные из главного файла
+try:
+    from shard_enterprise_complete import shap_module, xgboost_module, sklearn_ensemble
+except ImportError:
+    shap_module = None
+    xgboost_module = None
+    sklearn_ensemble = None
+
 class MachineLearningEngine(BaseModule):
     """ML движок с дообучением и Deep Learning моделями (LSTM + VAE + Transformer)"""
 
@@ -30,8 +45,8 @@ class MachineLearningEngine(BaseModule):
 
         self.shap_explainer = None
         self.shap_background_data = []
-        self.ssl_model = SelfSupervisedEncoder(input_dim=156)
-        self.gnn_model = ThreatGNN()
+        self.ssl_model = SelfSupervisedEncoder(input_dim=156) if SelfSupervisedEncoder else None
+        self.gnn_model = ThreatGNN() if ThreatGNN else None
 
         # Deep Learning Engine
         self.dl_engine = None

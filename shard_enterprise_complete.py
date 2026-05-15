@@ -99,12 +99,17 @@ def safe_import(module_name: str, submodule: str = None) -> Optional[Any]:
 # Обновить использование:
 sklearn_ensemble_module = safe_import('sklearn', 'ensemble')
 if sklearn_ensemble_module:
-    from sklearn.ensemble import IsolationForest
+    from sklearn.ensemble import IsolationForest  # noqa
 
 np = safe_import('numpy')
 joblib = safe_import('joblib')
 scapy_all = safe_import('scapy.all')
 sklearn_ensemble = safe_import('sklearn.ensemble')
+
+# Проверка что модули загружены перед использованием
+_NP_AVAILABLE = np is not None
+_SCAPY_AVAILABLE = scapy_all is not None
+_SKLEARN_AVAILABLE = sklearn_ensemble is not None
 sklearn_preprocessing = safe_import('sklearn.preprocessing')
 sklearn_cluster = safe_import('sklearn.cluster')
 sklearn_decomposition = safe_import('sklearn.decomposition')
@@ -1020,6 +1025,7 @@ class WebDashboard(BaseModule):
 
     def stop(self) -> None:
         self.running = False
+        self._stop_event.set()
 
         if self.httpd:
             try:
@@ -1034,6 +1040,8 @@ class WebDashboard(BaseModule):
 
     def _decay_worker(self) -> None:
         """Единый воркер для снижения счётчика активных угроз"""
+        if self._decay_queue is None:
+            return
         while self.running:
             try:
                 decay_count = self._decay_queue.get(timeout=30)
@@ -1161,6 +1169,7 @@ class EmailThreatAnalyzer(BaseModule):
 
     def stop(self) -> None:
         self.running = False
+        self._stop_event.set()
 
     def on_email(self, data: Dict) -> None:
         """Анализ email сообщения"""
@@ -1454,6 +1463,7 @@ class PrometheusMetrics(BaseModule):
 
     def stop(self) -> None:
         self.running = False
+        self._stop_event.set()
 
     def _on_packet(self, data: Dict) -> None:
         if self.packets_counter:
@@ -1505,6 +1515,7 @@ class TelegramNotifier(BaseModule):
 
     def stop(self) -> None:
         self.running = False
+        self._stop_event.set()
         if self._session:
             self._session.close()
 
@@ -2547,6 +2558,7 @@ class JA3Fingerprinter(BaseModule):
 
     def stop(self) -> None:
         self.running = False
+        self._stop_event.set()
 
     def on_packet(self, data: Dict) -> None:
         """Обработка пакета"""
@@ -2759,6 +2771,7 @@ class OTIoTSecurity(BaseModule):
 
     def stop(self) -> None:
         self.running = False
+        self._stop_event.set()
 
     def on_packet(self, data: Dict) -> None:
         """Анализ OT/IoT трафика"""
@@ -3086,10 +3099,7 @@ class SelfSupervisedEncoder:
             latent, reconstructed, projection = self.model(X_noisy)
 
             # Reconstruction loss
-            if hasattr(F, 'mse_loss'):
-                recon_loss = F.mse_loss(reconstructed, X)
-            else:
-                recon_loss = ((reconstructed - X) ** 2).mean()
+            recon_loss = F.mse_loss(reconstructed, X) if hasattr(F, 'mse_loss') else ((reconstructed - X) ** 2).mean()
 
             # Дополнительный loss для латентного пространства
             if batch_size > 1:
@@ -3143,10 +3153,7 @@ class SelfSupervisedEncoder:
             with torch.no_grad():
                 latent, reconstructed, _ = self.model(X)
 
-                if hasattr(torch.nn.functional, 'mse_loss'):
-                    recon_error = torch.nn.functional.mse_loss(reconstructed, X).item()
-                else:
-                    recon_error = ((reconstructed - X) ** 2).mean().item()
+                recon_error = F.mse_loss(reconstructed, X).item() if hasattr(F, 'mse_loss') else ((reconstructed - X) ** 2).mean().item()
 
                 # Используем инкрементальную статистику
                 with self._loss_lock:
@@ -3531,6 +3538,7 @@ class AdvancedLearner(BaseModule):
 
     def stop(self) -> None:
         self.running = False
+        self._stop_event.set()
 
     def on_packet(self, data: Dict) -> None:
         """Обработка пакета (с сэмплированием для производительности)"""
@@ -3672,6 +3680,7 @@ class HoneypotService(BaseModule):
 
     def stop(self) -> None:
         self.running = False
+        self._stop_event.set()
         for srv in self.services:
             srv.stop()
 
@@ -3760,6 +3769,7 @@ class _HoneypotServer:
 
     def stop(self) -> None:
         self.running = False
+        self._stop_event.set()
         if self.socket:
             try:
                 self.socket.close()
@@ -3883,6 +3893,9 @@ class AttackSimulator(BaseModule):
 
     def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
         super().__init__("Simulator", config, event_bus, logger)
+        self.running = False
+        self._stop_event = threading.Event()
+        self.thread = None
         self.patterns = [
             ('185.142.53.101', 22, 'Brute Force', 0.85, 'CRITICAL'),
             ('45.155.205.233', 80, 'Web Attack', 0.78, 'HIGH'),
@@ -3906,10 +3919,11 @@ class AttackSimulator(BaseModule):
 
     def stop(self) -> None:
         self.running = False
+        self._stop_event.set()
 
     def _loop(self) -> None:
         """Основной цикл симуляции"""
-        while self.running:
+        while self.running and not self._stop_event.is_set():
             time.sleep(random.uniform(5, 15))
 
             src_ip, port, attack_type, base_score, severity = random.choice(self.patterns)
