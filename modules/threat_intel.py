@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from core.base import BaseModule, ConfigManager, EventBus, LoggingService
+from shard_enterprise_complete import AttackType, AlertSeverity
 import os, time, threading, queue, json, re, requests
 from typing import Dict, List, Optional, Any, Set, Tuple
 from pathlib import Path
@@ -40,9 +41,6 @@ class ThreatIntelligence(BaseModule):
         self._session = None
 
         # Executor для асинхронных запросов
-        self.pg_pool = None
-        self.pg_pool = None
-        self.pg_pool = None
         self._executor = None
         self._pending_checks: Set[str] = set()
         self._pending_lock = threading.RLock()

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """SHARD DataExfiltrationDetector Module"""
 from core.base import BaseModule, ConfigManager, EventBus, LoggingService
+from shard_enterprise_complete import AttackType, AlertSeverity, ExfilThresholds
 import time, threading, re
 from typing import Dict, Tuple, List, Optional, Any
 from collections import defaultdict, deque

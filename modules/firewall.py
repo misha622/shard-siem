@@ -2,6 +2,7 @@
 """SHARD SmartFirewall Module"""
 from core.base import BaseModule, ConfigManager, EventBus, LoggingService
 import os, time, threading, re, subprocess, json
+from datetime import datetime
 from typing import Dict, List, Set, Tuple
 from collections import defaultdict, deque
 from pathlib import Path
@@ -251,15 +252,27 @@ class SmartFirewall(BaseModule):
 
         # Проверяем существование правила в iptables
         if os.name != 'nt':
-            check_result = subprocess.run(
-                ['iptables', '-C', 'SHARD_BLOCK', '-s', ip, '-j', 'DROP'],
-                capture_output=True,
-                timeout=5
-            )
-
-            if check_result.returncode == 0:
-                self.logger.debug(f"Правило iptables для {ip} уже существует")
-                return True
+            try:
+                check_result = subprocess.run(
+                    ['iptables', '-C', 'SHARD_BLOCK', '-s', ip, '-j', 'DROP'],
+                    capture_output=True,
+                    timeout=5
+                )
+                if check_result.returncode == 0:
+                    self.logger.debug(f"Правило iptables для {ip} уже существует")
+                    return True
+            except Exception:
+                # -C не поддерживается, пробуем через grep
+                try:
+                    list_result = subprocess.run(
+                        ['iptables', '-L', 'SHARD_BLOCK', '-n'],
+                        capture_output=True, text=True, timeout=5
+                    )
+                    if ip in list_result.stdout:
+                        self.logger.debug(f"Правило iptables для {ip} уже существует (проверка через list)")
+                        return True
+                except Exception:
+                    pass
 
         # Добавляем правило
         try:
