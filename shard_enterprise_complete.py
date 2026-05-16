@@ -46,6 +46,7 @@ import re
 import sqlite3
 import base64
 import http.server
+import psutil
 import socketserver
 import urllib.parse
 from typing import Dict, List, Optional, Any, Tuple, Set, Callable, Union
@@ -520,6 +521,35 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     self.wfile.write(b'Internal server error')
                 # =================================================================
 
+
+            elif path == '/api/health':
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                
+                modules_status = {}
+                if hasattr(self, 'dashboard_stats'):
+                    modules_status = {
+                        'dashboard': True,
+                        'total_alerts': self.dashboard_stats.get('total_alerts', 0),
+                        'uptime_seconds': time.time() - getattr(self, '_start_time', time.time())
+                    }
+                
+                import psutil
+                health = {
+                    'status': 'healthy',
+                    'version': '5.1.0',
+                    'timestamp': time.time(),
+                    'modules': modules_status,
+                    'system': {
+                        'cpu_percent': psutil.cpu_percent(interval=0.1),
+                        'memory_percent': psutil.virtual_memory().percent,
+                        'disk_percent': psutil.disk_usage('/').percent
+                    }
+                }
+                self.wfile.write(json.dumps(health).encode('utf-8'))
+
             else:
                 self.send_response(404)
                 self.end_headers()
@@ -572,6 +602,35 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_response(400)
                     self.end_headers()
                     self.wfile.write(json.dumps({'error': 'Invalid JSON'}).encode('utf-8'))
+
+            elif path == '/api/health':
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                
+                modules_status = {}
+                if hasattr(self, 'dashboard_stats'):
+                    modules_status = {
+                        'dashboard': True,
+                        'total_alerts': self.dashboard_stats.get('total_alerts', 0),
+                        'uptime_seconds': time.time() - getattr(self, '_start_time', time.time())
+                    }
+                
+                import psutil
+                health = {
+                    'status': 'healthy',
+                    'version': '5.1.0',
+                    'timestamp': time.time(),
+                    'modules': modules_status,
+                    'system': {
+                        'cpu_percent': psutil.cpu_percent(interval=0.1),
+                        'memory_percent': psutil.virtual_memory().percent,
+                        'disk_percent': psutil.disk_usage('/').percent
+                    }
+                }
+                self.wfile.write(json.dumps(health).encode('utf-8'))
+
             else:
                 self.send_response(404)
                 self.end_headers()
