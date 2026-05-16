@@ -1057,8 +1057,17 @@ class WebDashboard(BaseModule):
         return secrets.token_urlsafe(16)
 
     def _init_handler_class(self) -> None:
-        """Инициализация класса обработчика (однократно)"""
-        DashboardHandler.dashboard_stats = self.stats
+        """Инициализация обработчика (instance-level, не классовые переменные)"""
+        self._handler_instance_vars = {
+            'dashboard_stats': self.stats,
+            'dashboard_logger': self.logger,
+            'dashboard_lock': self._lock,
+            'dashboard_check_auth': self._check_auth,
+            'dashboard_auth_enabled': self.auth_enabled,
+            'dashboard_validate_ip': self._validate_ip,
+            'user_roles': getattr(self, 'user_roles', {'admin': 'admin'}),
+            'roles': getattr(self, 'roles', {'admin': {'read': True, 'write': True, 'block': True, 'admin': True}})
+        }
         DashboardHandler.dashboard_logger = self.logger
         DashboardHandler.dashboard_lock = self._lock
         DashboardHandler.dashboard_check_auth = self._check_auth
@@ -1263,8 +1272,11 @@ class WebDashboard(BaseModule):
         return 'viewer'
 
     def _create_handler(self):
-        """Создание обработчика HTTP запросов (переиспользуем класс)"""
-        return DashboardHandler
+        """Создание обработчика HTTP запросов с instance-переменными"""
+        handler = DashboardHandler
+        for key, val in self._handler_instance_vars.items():
+            setattr(handler, key, val)
+        return handler
 
 
 # ============================================================

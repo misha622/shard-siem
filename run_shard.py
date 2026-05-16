@@ -582,12 +582,7 @@ def run_cli_tools(args):
     logger = logger_service.get_logger("SHARD-Scanner")
 
     # Импортируем нужные модули
-    try:
-        from module_loader import ModuleLoader
-        loader = ModuleLoader(config, event_bus, logger_service)
-    except ImportError:
-        print("⚠️ ModuleLoader недоступен, используются прямые импорты")
-        loader = None
+    # ModuleLoader не требуется для CLI-инструментов
 
     # Scan Code
     if args.scan_code:

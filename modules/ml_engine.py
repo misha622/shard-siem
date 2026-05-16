@@ -393,11 +393,16 @@ class MachineLearningEngine(BaseModule):
             self.logger.error(f"Ошибка сохранения: {e}")
 
     def _load_history_async(self) -> None:
-        """Асинхронная загрузка исторических данных"""
+        """Асинхронная загрузка исторических данных (через общий пул)"""
         try:
-            import sqlite3
-
-            conn = sqlite3.connect('shard_siem.db')
+            # Пробуем через общий SIEM пул
+            if hasattr(self, 'siem_storage') and self.siem_storage:
+                conn = self.siem_storage._get_sqlite_connection()
+                own_conn = False
+            else:
+                import sqlite3
+                conn = sqlite3.connect('shard_siem.db')
+                own_conn = True
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 
@@ -407,7 +412,10 @@ class MachineLearningEngine(BaseModule):
                    ORDER BY timestamp DESC LIMIT 500'''
             )
             rows = cursor.fetchall()
-            conn.close()
+            if own_conn:
+                conn.close()
+            elif hasattr(self, 'siem_storage') and self.siem_storage:
+                self.siem_storage._return_sqlite_connection(conn)
 
             loaded = 0
             for row in rows:
