@@ -301,6 +301,7 @@ class SIEMStorage(BaseModule):
 
         # 1. Пробуем PostgreSQL
         if self.timescale_enabled and self.pg_pool:
+            pg_conn = None
             try:
                 pg_conn = self.pg_pool.getconn()
                 pg_cursor = pg_conn.cursor()
@@ -332,7 +333,6 @@ class SIEMStorage(BaseModule):
                     pg_data
                 )
                 pg_conn.commit()
-                self.pg_pool.putconn(pg_conn)
                 pg_success = True
                 self.logger.debug(f"PG: {len(pg_data)} alerts")
             except Exception as e:

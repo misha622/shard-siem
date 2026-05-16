@@ -586,6 +586,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         try:
+            parsed = urllib.parse.urlparse(self.path)
+            path = parsed.path
             if self.dashboard_auth_enabled and self.dashboard_check_auth and \
                     not self.dashboard_check_auth(dict(self.headers)):
                 self.send_response(401)
@@ -1020,6 +1022,7 @@ class WebDashboard(BaseModule):
 
         # Очередь для отложенного снижения счётчика активных угроз
         self._decay_queue = queue.Queue()
+        self._stop_event = threading.Event()
         self._decay_thread = None
 
         # Данные для дашборда
@@ -1061,6 +1064,8 @@ class WebDashboard(BaseModule):
         DashboardHandler.dashboard_check_auth = self._check_auth
         DashboardHandler.dashboard_auth_enabled = self.auth_enabled
         DashboardHandler.dashboard_validate_ip = self._validate_ip
+        DashboardHandler.user_roles = getattr(self, 'user_roles', {'admin': 'admin'})
+        DashboardHandler.roles = getattr(self, 'roles', {'admin': {'read': True, 'write': True, 'block': True, 'admin': True}})
 
     def _check_auth(self, headers: Dict) -> bool:
         """Проверка аутентификации (защита от timing attack)"""
@@ -1146,7 +1151,7 @@ class WebDashboard(BaseModule):
 
     def stop(self) -> None:
         self.running = False
-        self._stop_event.set()
+        pass  # _stop_event removed
 
         if self.httpd:
             try:
@@ -1302,7 +1307,7 @@ class EmailThreatAnalyzer(BaseModule):
 
     def stop(self) -> None:
         self.running = False
-        self._stop_event.set()
+        pass  # _stop_event removed
 
     def on_email(self, data: Dict) -> None:
         """Анализ email сообщения"""
@@ -1596,7 +1601,7 @@ class PrometheusMetrics(BaseModule):
 
     def stop(self) -> None:
         self.running = False
-        self._stop_event.set()
+        pass  # _stop_event removed
 
     def _on_packet(self, data: Dict) -> None:
         if self.packets_counter:
@@ -1648,7 +1653,7 @@ class TelegramNotifier(BaseModule):
 
     def stop(self) -> None:
         self.running = False
-        self._stop_event.set()
+        pass  # _stop_event removed
         if self._session:
             self._session.close()
 
@@ -1929,6 +1934,8 @@ class BaselineProfiler:
             # Копируем только необходимые данные
             profile_snapshot = {
                 'packet_sizes': list(p['packet_sizes']),
+                '_welford_sizes': dict(p.get('_welford_sizes', {})),
+                '_welford_entropy': dict(p.get('_welford_entropy', {})),
                 'ports': dict(p['ports']),
                 'entropy': list(p['entropy']),
                 'hourly_activity': dict(p['hourly_activity']),
@@ -2735,7 +2742,7 @@ class JA3Fingerprinter(BaseModule):
 
     def stop(self) -> None:
         self.running = False
-        self._stop_event.set()
+        pass  # _stop_event removed
 
     def on_packet(self, data: Dict) -> None:
         """Обработка пакета"""
@@ -2948,7 +2955,7 @@ class OTIoTSecurity(BaseModule):
 
     def stop(self) -> None:
         self.running = False
-        self._stop_event.set()
+        pass  # _stop_event removed
 
     def on_packet(self, data: Dict) -> None:
         """Анализ OT/IoT трафика"""
@@ -3716,7 +3723,7 @@ class AdvancedLearner(BaseModule):
 
     def stop(self) -> None:
         self.running = False
-        self._stop_event.set()
+        pass  # _stop_event removed
 
     def on_packet(self, data: Dict) -> None:
         """Обработка пакета (с сэмплированием для производительности)"""
@@ -3858,7 +3865,7 @@ class HoneypotService(BaseModule):
 
     def stop(self) -> None:
         self.running = False
-        self._stop_event.set()
+        pass  # _stop_event removed
         for srv in self.services:
             srv.stop()
 
@@ -3936,6 +3943,8 @@ class _HoneypotServer:
 
         # Ограничение одновременных подключений
         self._max_connections = 50
+        self._ip_connections = {}
+        self._ip_lock = threading.RLock()
         self._connection_semaphore = _GLOBAL_HONEYPOT_SEMAPHORE
         self._active_connections = 0
         self._conn_lock = threading.RLock()
@@ -3947,7 +3956,7 @@ class _HoneypotServer:
 
     def stop(self) -> None:
         self.running = False
-        self._stop_event.set()
+        pass  # _stop_event removed
         if self.socket:
             try:
                 self.socket.close()
@@ -4116,7 +4125,7 @@ class AttackSimulator(BaseModule):
 
     def stop(self) -> None:
         self.running = False
-        self._stop_event.set()
+        pass  # _stop_event removed
 
     def _loop(self) -> None:
         """Основной цикл симуляции"""

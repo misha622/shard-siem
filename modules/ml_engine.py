@@ -435,7 +435,8 @@ class MachineLearningEngine(BaseModule):
             src_ip = data.get('src_ip', 'unknown')
 
             # ========== ВЫЗОВ ADAPTIVE LEARNING ==========
-            if hasattr(self, 'adaptive_engine') and self.adaptive_engine:
+            adaptive_result = {'is_anomaly': False, 'overall_score': 0.0}
+        if hasattr(self, 'adaptive_engine') and self.adaptive_engine:
                 adaptive_result = self.adaptive_engine.process_packet(src_ip, features)
 
                 # Отладка — каждый 50-й пакет
@@ -457,7 +458,7 @@ class MachineLearningEngine(BaseModule):
                 prediction['dst_ip'] = data.get('dst_ip', 'unknown')
                 prediction['dst_port'] = data.get('dst_port', 0)
 
-                ssl_score = self.ssl_model.get_anomaly_score(features)
+                ssl_score = self.ssl_model.get_anomaly_score(features) if self.ssl_model else 0.5
                 if ssl_score > 0.7:
                     prediction['score'] = max(prediction['score'], ssl_score)
                     prediction['ssl_anomaly'] = True
