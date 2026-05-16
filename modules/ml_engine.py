@@ -697,16 +697,27 @@ class MachineLearningEngine(BaseModule):
             for features in normal[:100]:
                 self.ssl_model.train_step([features])
 
-            # XGBoost
-            if 'xgb' in self.models and len(attacks) >= 10:
+            # XGBoost с балансированным дообучением
+            if 'xgb' in self.models and len(attacks) >= 10 and len(normal) >= 10:
                 X_attacks = np.array([a[0] for a in attacks])
                 y_attacks = np.array([self._attack_to_id(a[1]) for a in attacks])
+                
+                # Добавляем нормальные сэмплы чтобы модель не смещалась
+                X_normal = np.array(normal[:len(attacks)])
+                y_normal = np.zeros(len(X_normal))
+                
+                X_balanced = np.vstack([X_attacks, X_normal])
+                y_balanced = np.hstack([y_attacks, y_normal])
+                
+                shuffle_idx = np.random.permutation(len(X_balanced))
+                X_balanced = X_balanced[shuffle_idx]
+                y_balanced = y_balanced[shuffle_idx]
 
                 if scaler_fitted and self.scaler:
                     try:
-                        X_attacks = self.scaler.transform(X_attacks)
+                        X_balanced = self.scaler.transform(X_balanced)
                     except Exception as e:
-                        self.logger.warning(f"Ошибка масштабирования XGBoost: {e}")
+                        self.logger.warning(f"XGBoost scaling error: {e}")
 
                 is_fitted = False
                 try:
@@ -720,15 +731,15 @@ class MachineLearningEngine(BaseModule):
 
                 if is_fitted:
                     try:
-                        self.models['xgb'].fit(X_attacks, y_attacks, xgb_model=self.models['xgb'].get_booster())
-                        self.logger.info(f"   XGBoost: дообучен на {len(attacks)} сэмплах")
+                        self.models['xgb'].fit(X_balanced, y_balanced, xgb_model=self.models['xgb'].get_booster())
+                        self.logger.info("   XGBoost: дообучен (сбалансированный батч)")
                     except Exception as e:
-                        self.logger.warning(f"Ошибка дообучения XGBoost, обучаем заново: {e}")
-                        self.models['xgb'].fit(X_attacks, y_attacks)
-                        self.logger.info(f"   XGBoost: переобучен на {len(attacks)} сэмплах")
+                        self.logger.warning(f"XGBoost warm-start error: {e}")
+                        self.models['xgb'].fit(X_balanced, y_balanced)
+                        self.logger.info("   XGBoost: переобучен (сбалансированный батч)")
                 else:
-                    self.models['xgb'].fit(X_attacks, y_attacks)
-                    self.logger.info(f"   XGBoost: инициализирован и обучен на {len(attacks)} сэмплах")
+                    self.models['xgb'].fit(X_balanced, y_balanced)
+                    self.logger.info("   XGBoost: инициализирован (сбалансированный батч)")
 
             # Отметка о надёжности
             if len(normal) >= 500:
