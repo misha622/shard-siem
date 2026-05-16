@@ -200,7 +200,8 @@ class EnhancedShardEnterprise:
         self.shard = ShardEnterprise(
             config_path=self.config_path,
             enable_simulation=self.enable_simulation,
-            no_capture=self.no_capture
+            no_capture=self.no_capture,
+            event_bus=self.event_bus  # Единый EventBus
         )
 
         # Подключаем ML-модули к ML Engine
