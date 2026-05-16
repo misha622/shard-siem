@@ -1792,6 +1792,25 @@ class BaselineProfiler:
             # Обновление статистики
             p['packet_sizes'].append(size)
             p['entropy'].append(entropy)
+            
+            # Welford: инкрементальное обновление статистики (O(1))
+            if '_welford_sizes' not in p:
+                p['_welford_sizes'] = {'count': 0, 'mean': 0.0, 'm2': 0.0}
+            ws = p['_welford_sizes']
+            ws['count'] += 1
+            delta = size - ws['mean']
+            ws['mean'] += delta / ws['count']
+            delta2 = size - ws['mean']
+            ws['m2'] += delta * delta2
+            
+            if '_welford_entropy' not in p:
+                p['_welford_entropy'] = {'count': 0, 'mean': 0.0, 'm2': 0.0}
+            we = p['_welford_entropy']
+            we['count'] += 1
+            delta_e = entropy - we['mean']
+            we['mean'] += delta_e / we['count']
+            delta2_e = entropy - we['mean']
+            we['m2'] += delta_e * delta2_e
             p['last_seen'] = current_time
             p['total_packets'] += 1
             p['total_bytes'] += size
@@ -1904,39 +1923,63 @@ class BaselineProfiler:
 
     def _calculate_score_fast(self, device: str, size: int, port: int,
                               entropy: float, dst_ip: str, cached: Dict) -> float:
-        """Быстрое вычисление с использованием кэшированных данных (исправлено - защита от нуля)"""
+        """Быстрое вычисление с использованием кэшированных данных (Welford O(1))"""
         scores = []
         weights = []
 
-        # Размер пакета
+        # Размер пакета — Welford online variance
         if cached.get('packet_sizes'):
             packet_sizes = cached['packet_sizes']
             if packet_sizes:
-                mean = sum(packet_sizes) / len(packet_sizes)
-                if mean > 0:
-                    # Используем стандартное отклонение если возможно
-                    if len(packet_sizes) > 1:
+                # Welford: используем предвычисленные mean и variance если есть
+                welford = cached.get('_welford_sizes', {})
+                if welford and welford.get('count', 0) > 1:
+                    mean = welford['mean']
+                    variance = welford['m2'] / welford['count']
+                    std = max(mean * 0.1, math.sqrt(variance))
+                else:
+                    # Fallback: вычисляем за O(n) только при первом запросе
+                    mean = sum(packet_sizes) / len(packet_sizes)
+                    if len(packet_sizes) > 1 and mean > 0:
                         variance = sum((s - mean) ** 2 for s in packet_sizes) / len(packet_sizes)
-                        std = max(mean * 0.1, math.sqrt(variance))  # минимум 10% от среднего
+                        std = max(mean * 0.1, math.sqrt(variance))
                     else:
-                        std = mean * 0.5
+                        std = mean * 0.5 if mean > 0 else 1
+                    # Кэшируем Welford статистику
+                    cached['_welford_sizes'] = {
+                        'count': len(packet_sizes),
+                        'mean': mean,
+                        'm2': variance * len(packet_sizes) if len(packet_sizes) > 1 else 0
+                    }
 
+                if mean > 0:
                     z_score = abs(size - mean) / std
                     scores.append(min(1.0, z_score))
                     weights.append(0.15)
 
-        # Энтропия
+        # Энтропия — Welford
         if cached.get('entropy'):
             entropies = cached['entropy']
             if entropies:
-                mean_e = sum(entropies) / len(entropies)
-                if mean_e > 0:
+                welford_e = cached.get('_welford_entropy', {})
+                if welford_e and welford_e.get('count', 0) > 1:
+                    mean_e = welford_e['mean']
+                    variance_e = welford_e['m2'] / welford_e['count']
+                    std_e = max(0.1, math.sqrt(variance_e))
+                else:
+                    mean_e = sum(entropies) / len(entropies)
                     if len(entropies) > 1:
                         variance_e = sum((e - mean_e) ** 2 for e in entropies) / len(entropies)
                         std_e = max(0.1, math.sqrt(variance_e))
                     else:
                         std_e = 0.5
+                    cached['_welford_entropy'] = {
+                        'count': len(entropies),
+                        'mean': mean_e,
+                        'm2': variance_e * len(entropies) if len(entropies) > 1 else 0
+                    }
 
+                if mean_e > 0:
                     z_ent = abs(entropy - mean_e) / std_e
                     scores.append(min(1.0, z_ent))
                     weights.append(0.15)
