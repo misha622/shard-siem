@@ -530,6 +530,23 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 
                 modules_status = {}
                 if hasattr(self, 'dashboard_stats'):
+                    # Проверяем статус БД
+                    db_status = 'unknown'
+                    try:
+                        import sqlite3
+                        conn = sqlite3.connect('shard_siem.db', timeout=1)
+                        conn.execute('SELECT 1')
+                        conn.close()
+                        db_status = 'sqlite_ok'
+                    except:
+                        db_status = 'unavailable'
+                    
+                    modules_status = {
+                        'dashboard': True,
+                        'database': db_status,
+                        'total_alerts': self.dashboard_stats.get('total_alerts', 0),
+                        'uptime_seconds': time.time() - getattr(self, '_start_time', time.time())
+                    }
                     modules_status = {
                         'dashboard': True,
                         'total_alerts': self.dashboard_stats.get('total_alerts', 0),
@@ -611,6 +628,23 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 
                 modules_status = {}
                 if hasattr(self, 'dashboard_stats'):
+                    # Проверяем статус БД
+                    db_status = 'unknown'
+                    try:
+                        import sqlite3
+                        conn = sqlite3.connect('shard_siem.db', timeout=1)
+                        conn.execute('SELECT 1')
+                        conn.close()
+                        db_status = 'sqlite_ok'
+                    except:
+                        db_status = 'unavailable'
+                    
+                    modules_status = {
+                        'dashboard': True,
+                        'database': db_status,
+                        'total_alerts': self.dashboard_stats.get('total_alerts', 0),
+                        'uptime_seconds': time.time() - getattr(self, '_start_time', time.time())
+                    }
                     modules_status = {
                         'dashboard': True,
                         'total_alerts': self.dashboard_stats.get('total_alerts', 0),
