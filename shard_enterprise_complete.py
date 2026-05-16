@@ -3297,6 +3297,7 @@ class SelfSupervisedEncoder:
 
         try:
             import torch
+            import torch.nn.functional as F
 
             X = torch.tensor([features], dtype=torch.float32)
 
