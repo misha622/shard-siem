@@ -589,10 +589,19 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             if self.dashboard_auth_enabled and self.dashboard_check_auth and \
                     not self.dashboard_check_auth(dict(self.headers)):
                 self.send_response(401)
+                self.send_header('WWW-Authenticate', 'Basic realm="SHARD Dashboard"')
                 self.end_headers()
                 self.wfile.write(b'Unauthorized')
                 return
-
+            
+            # RBAC: проверка роли для блокировки
+            if self.path == '/api/block':
+                username = self._get_username_from_auth(dict(self.headers))
+                role = self.user_roles.get(username, 'viewer')
+                if not self.roles.get(role, {}).get('block', False):
+                    self.send_response(403)
+                    self.end_headers()
+                    self.wfile.write(b'Forbidden: insufficient permissions')
             if self.path == '/api/block':
                 content_length = int(self.headers.get('Content-Length', 0))
                 if content_length > 1024:
@@ -1000,6 +1009,12 @@ class WebDashboard(BaseModule):
         self.username = config.get('dashboard.auth.username', 'admin')
         self.password = config.get('dashboard.auth.password', self._generate_default_password())
         self.api_keys = config.get('dashboard.auth.api_keys', [])
+        self.roles = {
+            'admin': {'read': True, 'write': True, 'block': True, 'admin': True},
+            'analyst': {'read': True, 'write': True, 'block': False, 'admin': False},
+            'viewer': {'read': True, 'write': False, 'block': False, 'admin': False}
+        }
+        self.user_roles = config.get('dashboard.auth.user_roles', {'admin': 'admin'})
         self.session_tokens: Dict[str, float] = {}
         self.token_ttl = 3600
 
@@ -1229,6 +1244,18 @@ class WebDashboard(BaseModule):
                     'recent_alerts_count': len(self.stats['recent_alerts'])
                 }
             }
+
+    def _get_username_from_auth(self, headers: Dict) -> str:
+        """Извлечение username из Basic Auth заголовка"""
+        auth = headers.get('Authorization', '')
+        if auth.startswith('Basic '):
+            import base64
+            try:
+                decoded = base64.b64decode(auth[6:]).decode('utf-8')
+                return decoded.split(':', 1)[0]
+            except:
+                pass
+        return 'viewer'
 
     def _create_handler(self):
         """Создание обработчика HTTP запросов (переиспользуем класс)"""
@@ -3967,12 +3994,31 @@ class _HoneypotServer:
             pass  # FIXED: don't null semaphore
 
     def _handle_connection(self, conn: socket.socket, addr: Tuple[str, int]) -> None:
-        """Обработка одного подключения"""
+        """Обработка одного подключения с per-IP rate limiting"""
         try:
+            src_ip = addr[0]
+            
+            # Per-IP rate limiting
+            if not hasattr(self, '_ip_connections'):
+                self._ip_connections = {}
+                self._ip_lock = threading.RLock()
+            
+            with self._ip_lock:
+                now = time.time()
+                if src_ip not in self._ip_connections:
+                    self._ip_connections[src_ip] = []
+                # Очищаем старые записи
+                self._ip_connections[src_ip] = [t for t in self._ip_connections[src_ip] if now - t < 60]
+                
+                if len(self._ip_connections[src_ip]) >= 30:  # Max 30 conn/min per IP
+                    conn.close()
+                    self.logger.debug(f"Honeypot port {self.port}: rate limit exceeded for {src_ip}")
+                    return
+                
+                self._ip_connections[src_ip].append(now)
+            
             with self._conn_lock:
                 self._active_connections += 1
-
-            src_ip = addr[0]
 
             # Получаем данные с таймаутом
             conn.settimeout(2.0)
