@@ -9,7 +9,7 @@ from pathlib import Path
 # Импорты из главного файла (для обратной совместимости)
 try:
     # Models imported from shared module
-from modules.ml_models import SelfSupervisedEncoder, ThreatGNN
+        from modules.ml_models import SelfSupervisedEncoder, ThreatGNN
 except ImportError:
     SelfSupervisedEncoder = None
     ThreatGNN = None
