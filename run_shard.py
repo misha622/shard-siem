@@ -70,39 +70,12 @@ class EnhancedShardEnterprise:
         print("\n🚀 Инициализация улучшений SHARD Enterprise...")
         print("=" * 50)
 
-        # Список модулей для загрузки (в порядке зависимости)
-        module_load_order = [
-            # ML модули
-            'attention_lstm',
-            'temporal_gnn',
-            'contrastive_vae',
-            'federated',
-            'rl_defense',
-            'adaptive_learning',
-            # Группа автономных модулей
-            'autonomous_group',
-            # Безопасность
-            'cloud_security',
-            'llm_guardian',
-            'code_security',
-            'cve_intelligence',
-            'red_team',
-            'threat_hunting',
-            'deception',
-            # Оркестрация и разведка
-            'soar',
-            'forensics',
-            'mitre',
-            'tip',
-        ]
-
-        # Загружаем все модули
-        for module_name in module_load_order:
-            success, instance = self.loader.load_module(module_name)
-            if success:
-                self.modules[module_name] = instance
-                # Регистрируем в реестре для DI
-                self.registry.register(module_name, instance)
+        # Загружаем все модули в правильном порядке (топологическая сортировка)
+        self.loader.load_all(registry=self.registry)
+        
+        # Сохраняем ссылки на загруженные модули
+        for name, instance in self.loader.get_loaded_modules().items():
+            self.modules[name] = instance
 
         # Особая инициализация группы автономных модулей
         self._init_autonomous_group()

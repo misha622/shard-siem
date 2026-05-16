@@ -212,6 +212,52 @@ class ModuleLoader:
         
         return args
     
+    def load_all(self, registry=None) -> Dict[str, Any]:
+        """Загружает все модули в правильном порядке (топологическая сортировка)"""
+        from collections import deque
+        
+        # Строим граф зависимостей
+        in_degree = {}
+        graph = {}
+        
+        for name, spec in MODULE_SPECS.items():
+            if spec.get('is_group'):
+                continue
+            in_degree[name] = len(spec.get('dependencies', []))
+            if name not in graph:
+                graph[name] = []
+            for dep in spec.get('dependencies', []):
+                if dep not in graph:
+                    graph[dep] = []
+                graph[dep].append(name)
+        
+        # Топологическая сортировка (Kahn's algorithm)
+        queue = deque([n for n, deg in in_degree.items() if deg == 0])
+        load_order = []
+        
+        while queue:
+            node = queue.popleft()
+            load_order.append(node)
+            for neighbor in graph.get(node, []):
+                in_degree[neighbor] -= 1
+                if in_degree[neighbor] == 0:
+                    queue.append(neighbor)
+        
+        # Добавляем оставшиеся (циклические зависимости или группы)
+        for name in MODULE_SPECS:
+            if name not in load_order:
+                load_order.append(name)
+        
+        self.logger.info(f"Module load order: {load_order}")
+        
+        # Загружаем в правильном порядке
+        for module_name in load_order:
+            success, instance = self.load_module(module_name)
+            if success and registry:
+                registry.register(module_name, instance)
+        
+        return self.get_loaded_modules()
+
     def get_loaded_modules(self) -> Dict:
         """Возвращает все загруженные модули"""
         return dict(self._loaded)
