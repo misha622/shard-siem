@@ -372,6 +372,19 @@ class CleanupIntervals:
 from core.base import ConfigManager, LoggingService, EventBus, BaseModule
 from modules.dns_analyzer import DNSAnalyzer
 from modules.exfil_detector import DataExfiltrationDetector
+from modules.threat_intel import ThreatIntelligence
+from modules.uba import UserBehaviorAnalytics
+from modules.report_generator import IncidentReportGenerator
+from modules.ldap import LDAPContextProvider
+from modules.edr import EDRIntegration
+from modules.ml_engine import MachineLearningEngine
+from modules.siem_storage import SIEMStorage
+from modules.agentic_ai import AgenticAIAnalyst
+from modules.traffic_capture import TrafficCapture
+from modules.encrypted_traffic import EncryptedTrafficAnalyzer
+from modules.dpi import DeepPacketInspector
+from modules.firewall import SmartFirewall
+from modules.waf import WebApplicationFirewall
 class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     """Обработчик HTTP запросов для дашборда (исправлен - path traversal защита, безопасное сравнение)"""
 
@@ -2393,6 +2406,7 @@ class LateralMovementDetector:
 # ============================================================
 
 from modules.firewall import SmartFirewall
+from modules.waf import WebApplicationFirewall
 class AlertExplainer:
     """Объяснение алертов на естественном языке"""
 
@@ -3688,7 +3702,7 @@ class HoneypotService(BaseModule):
         """Обработка подключения к ловушке"""
 
         # ========== СЮДА ВСТАВИТЬ ==========
-        print(f"🔥🔥🔥 HONEYPOT CONNECTION: {src_ip}:{port} 🔥🔥🔥")
+        self.logger.debug(f"HONEYPOT CONNECTION: {src_ip}:{port}")
         # ========== AI MODEL DETECTION ==========
         try:
             import joblib
@@ -3704,7 +3718,7 @@ class HoneypotService(BaseModule):
                     return
                 alert_msg = f"WARNING:SHARD.SHARD:🍯 Honeypot triggered by {src_ip}"
                 pred = self._ai_model.predict([alert_msg])[0]
-                print(f"🎯🎯🎯 [AI DETECTION] {pred.upper()} from {src_ip}:{port} 🎯🎯🎯")
+                self.logger.info(f"[AI DETECTION] {pred.upper()} from {src_ip}:{port}")
                 self.logger.warning(f"🎯 AI Model detected: {pred} from {src_ip}")
         except Exception as e:
             self.logger.error(f"❌ AI Hook error: {e}")

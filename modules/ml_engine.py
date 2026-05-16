@@ -8,7 +8,8 @@ from pathlib import Path
 
 # Импорты из главного файла (для обратной совместимости)
 try:
-    from shard_enterprise_complete import SelfSupervisedEncoder, ThreatGNN
+    # Models imported from shared module
+from modules.ml_models import SelfSupervisedEncoder, ThreatGNN
 except ImportError:
     SelfSupervisedEncoder = None
     ThreatGNN = None
