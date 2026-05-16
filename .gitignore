@@ -48,3 +48,4 @@ ml/
 api/
 deploy/
 !models/*.pkl
+.env
