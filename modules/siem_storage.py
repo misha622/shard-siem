@@ -148,15 +148,62 @@ class SIEMStorage(BaseModule):
             conn.close()
 
     def _init_timescale(self) -> None:
-        """Инициализация TimescaleDB"""
+        """Инициализация TimescaleDB/PostgreSQL с пулом соединений"""
         if not self.timescale_enabled:
             return
         try:
             import psycopg2
             from psycopg2 import pool
+            
+            dsn = self.config.get('storage.timescaledb.dsn', '')
+            if not dsn:
+                self.logger.warning("TimescaleDB DSN не настроен")
+                self.timescale_enabled = False
+                return
+            
+            min_conn = self.config.get('storage.timescaledb.pool_min', 5)
+            max_conn = self.config.get('storage.timescaledb.pool_max', 20)
+            self.pg_pool = pool.ThreadedConnectionPool(min_conn, max_conn, dsn)
+            
+            conn = self.pg_pool.getconn()
+            try:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS alerts (
+                        id BIGSERIAL,
+                        timestamp DOUBLE PRECISION NOT NULL,
+                        date DATE GENERATED ALWAYS AS (to_timestamp(timestamp)::date) STORED,
+                        src_ip VARCHAR(45),
+                        dst_ip VARCHAR(45),
+                        dst_port INTEGER,
+                        attack_type VARCHAR(50),
+                        score REAL,
+                        confidence REAL,
+                        severity VARCHAR(20),
+                        explanation TEXT,
+                        kill_chain_stage VARCHAR(50),
+                        features_json JSONB
+                    ) PARTITION BY RANGE (date)
+                """)
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS alerts_current_month 
+                    PARTITION OF alerts 
+                    FOR VALUES FROM (DATE_TRUNC('month', CURRENT_DATE)) 
+                    TO (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '2 months')
+                """)
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_alerts_ts ON alerts(timestamp)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_alerts_ip ON alerts(src_ip)')
+                conn.commit()
+                self.logger.info("PostgreSQL инициализирован с пулом соединений")
+            finally:
+                self.pg_pool.putconn(conn)
         except ImportError:
             self.logger.warning("psycopg2 не установлен")
             self.timescale_enabled = False
+        except Exception as e:
+            self.logger.error(f"Ошибка PostgreSQL: {e}")
+            self.timescale_enabled = False
+
 
     def _init_elasticsearch(self) -> None:
         """Инициализация Elasticsearch"""
