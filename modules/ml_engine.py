@@ -431,55 +431,47 @@ class MachineLearningEngine(BaseModule):
     def on_features(self, data: Dict) -> None:
         """Обработка признаков"""
         features = data.get('features')
-        if features:
-            src_ip = data.get('src_ip', 'unknown')
-
-            # ========== ВЫЗОВ ADAPTIVE LEARNING ==========
-            adaptive_result = {'is_anomaly': False, 'overall_score': 0.0}
+        if not features:
+            return
+        
+        src_ip = data.get('src_ip', 'unknown')
+        
+        # Инициализируем adaptive_result
+        adaptive_result = {'is_anomaly': False, 'overall_score': 0.0}
+        
         if hasattr(self, 'adaptive_engine') and self.adaptive_engine:
-                adaptive_result = self.adaptive_engine.process_packet(src_ip, features)
-
-                # Отладка — каждый 50-й пакет
-                updates = self.adaptive_engine.baseline_profiler.stats['total_updates']
-                if updates % 50 == 0:
-                    print(f"📊 [Adaptive] {src_ip}: score={adaptive_result['overall_score']:.3f}, "
-                          f"anomaly={adaptive_result['is_anomaly']}, samples={updates}")
-
-                # Если Adaptive Learning обнаружил аномалию
-                if adaptive_result['is_anomaly']:
-                    self.logger.info(
-                        f"🔔 Adaptive Learning detected anomaly: score={adaptive_result['overall_score']:.3f}")
-                # =============================================
-
-                prediction = self._predict(features, src_ip)
-
-            if prediction['is_attack'] and prediction['confidence'] >= self.confidence_threshold:
-                prediction['src_ip'] = src_ip
-                prediction['dst_ip'] = data.get('dst_ip', 'unknown')
-                prediction['dst_port'] = data.get('dst_port', 0)
-
-                ssl_score = self.ssl_model.get_anomaly_score(features) if self.ssl_model else 0.5
-                if ssl_score > 0.7:
-                    prediction['score'] = max(prediction['score'], ssl_score)
-                    prediction['ssl_anomaly'] = True
-
-                # Если Adaptive Learning тоже обнаружил аномалию — повышаем score
-                if hasattr(self, 'adaptive_engine') and self.adaptive_engine:
-                    if adaptive_result.get('is_anomaly', False):
-                        prediction['score'] = max(prediction['score'], adaptive_result['overall_score'])
-                        prediction['adaptive_detected'] = True
-
-                self.event_bus.publish('alert.detected', prediction)
-
-                if self.online_learning:
-                    with self._lock:
-                        self.attack_buffer.append((features, prediction['attack_type']))
-
-            elif not prediction['is_attack'] and prediction['confidence'] >= self.confidence_threshold:
-                if self.online_learning:
-                    with self._lock:
-                        self.normal_buffer.append(features)
-                        self._samples_since_init += 1
+            adaptive_result = self.adaptive_engine.process_packet(src_ip, features)
+            if adaptive_result['is_anomaly']:
+                self.logger.info(f"Adaptive Learning anomaly: score={adaptive_result['overall_score']:.3f}")
+        
+        prediction = self._predict(features, src_ip)
+        
+        if prediction['is_attack'] and prediction['confidence'] >= self.confidence_threshold:
+            prediction['src_ip'] = src_ip
+            prediction['dst_ip'] = data.get('dst_ip', 'unknown')
+            prediction['dst_port'] = data.get('dst_port', 0)
+            
+            ssl_score = self.ssl_model.get_anomaly_score(features) if self.ssl_model else 0.5
+            if ssl_score > 0.7:
+                prediction['score'] = max(prediction['score'], ssl_score)
+                prediction['ssl_anomaly'] = True
+            
+            if hasattr(self, 'adaptive_engine') and self.adaptive_engine:
+                if adaptive_result.get('is_anomaly', False):
+                    prediction['score'] = max(prediction['score'], adaptive_result['overall_score'])
+                    prediction['adaptive_detected'] = True
+            
+            self.event_bus.publish('alert.detected', prediction)
+            
+            if self.online_learning:
+                with self._lock:
+                    self.attack_buffer.append((features, prediction['attack_type']))
+        
+        elif not prediction['is_attack'] and prediction['confidence'] >= self.confidence_threshold:
+            if self.online_learning:
+                with self._lock:
+                    self.normal_buffer.append(features)
+                    self._samples_since_init += 1
 
     def _predict(self, features: List[float], device: str = "unknown") -> Dict:
         """Предсказание с использованием ML и DL моделей"""
