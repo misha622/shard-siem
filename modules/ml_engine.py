@@ -453,7 +453,7 @@ class MachineLearningEngine(BaseModule):
 
                 prediction = self._predict(features, src_ip)
 
-                if prediction['is_attack'] and prediction['confidence'] >= self.confidence_threshold:
+            if prediction['is_attack'] and prediction['confidence'] >= self.confidence_threshold:
                 prediction['src_ip'] = src_ip
                 prediction['dst_ip'] = data.get('dst_ip', 'unknown')
                 prediction['dst_port'] = data.get('dst_port', 0)
