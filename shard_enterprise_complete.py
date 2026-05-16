@@ -1737,8 +1737,7 @@ class TelegramNotifier(BaseModule):
 
         try:
             response = self._session.post(
-                'https://api.telegram.org/bot/sendMessage',
-                headers={'Authorization': f'Bearer {self.token}'},
+                f'https://api.telegram.org/bot{self.token}/sendMessage',
                 json={
                     'chat_id': self.chat_id,
                     'text': text,
