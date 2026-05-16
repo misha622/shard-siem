@@ -22,6 +22,7 @@ network:
 ml:
   model_path: ./models/
   online_learning: true
+  auto_load_models: true
   ensemble:
     - 'isolation_forest'
     - 'xgboost'
@@ -38,7 +39,7 @@ ml:
 # PROTECTION
 # ------------------------------------------------------------
 protection:
-  auto_block: false
+  auto_block: true
   block_duration: 3600
   rate_limit:
     enabled: true
@@ -262,10 +263,10 @@ adaptive_learning:
 # ============================================================
 autonomous:
   enabled: true
-  autonomous_mode: false        # Полная автоматизация (ОСТОРОЖНО!)
-  recommend_only: true          # Только рекомендации (безопасно)
-  confidence_threshold_block_temp: 0.50
-  confidence_threshold_block_perm: 0.70
+  autonomous_mode: true        # Полная автоматизация (ОСТОРОЖНО!)
+  recommend_only: false          # Только рекомендации (безопасно)
+  confidence_threshold_block_temp: 0.40
+  confidence_threshold_block_perm: 0.60
   confidence_threshold_throttle: 0.30
   max_auto_blocks_per_hour: 10
   max_auto_blocks_per_day: 50
