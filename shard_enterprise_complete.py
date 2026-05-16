@@ -415,6 +415,24 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             cls._rate_limits[ip].append(now)
             return True
 
+
+    # Rate limiting per-IP (10 req/sec)
+    _rate_limits = {}
+    _rate_lock = threading.RLock()
+    
+    @classmethod
+    def _check_rate_limit(cls, ip: str) -> bool:
+        """Возвращает True если запрос разрешён"""
+        with cls._rate_lock:
+            now = time.time()
+            if ip not in cls._rate_limits:
+                cls._rate_limits[ip] = []
+            cls._rate_limits[ip] = [t for t in cls._rate_limits[ip] if now - t < 1.0]
+            if len(cls._rate_limits[ip]) >= 10:
+                return False
+            cls._rate_limits[ip].append(now)
+            return True
+
     def log_message(self, format, *args):
         pass  # Отключаем стандартное логирование
 
@@ -441,6 +459,11 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         try:
+            if not self._check_rate_limit(self.client_address[0]):
+                self.send_response(429)
+                self.end_headers()
+                self.wfile.write(b'Too Many Requests')
+                return
             if not self._check_rate_limit(self.client_address[0]):
                 self.send_response(429)
                 self.end_headers()
@@ -609,6 +632,11 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         try:
+            if not self._check_rate_limit(self.client_address[0]):
+                self.send_response(429)
+                self.end_headers()
+                self.wfile.write(b'Too Many Requests')
+                return
             if not self._check_rate_limit(self.client_address[0]):
                 self.send_response(429)
                 self.end_headers()
@@ -1162,6 +1190,9 @@ class WebDashboard(BaseModule):
             return
 
         self.running = True
+        self.use_ssl = self.config.get('dashboard.ssl.enabled', False)
+        self.ssl_cert = self.config.get('dashboard.ssl.cert_path', '')
+        self.ssl_key = self.config.get('dashboard.ssl.key_path', '')
 
         self._decay_thread = threading.Thread(target=self._decay_worker, daemon=True, name="Dashboard-Decay")
         self._decay_thread.start()
@@ -1170,8 +1201,18 @@ class WebDashboard(BaseModule):
 
         def run_server():
             try:
-                with socketserver.TCPServer(("", self.port), handler) as httpd:
-                    self.httpd = httpd
+                httpd = socketserver.TCPServer(("", self.port), handler)
+                self.httpd = httpd
+                if self.use_ssl:
+                    try:
+                        from dashboard_ssl import wrap_socket_with_ssl
+                        httpd.socket = wrap_socket_with_ssl(httpd.socket, self.ssl_cert, self.ssl_key)
+                        self.logger.info(f"🔒 Dashboard HTTPS на https://localhost:{self.port}")
+                    except ImportError:
+                        self.logger.warning("pyOpenSSL не установлен, HTTPS отключён")
+                self.httpd = httpd
+                with httpd:
+
                     self.logger.info(f"🌐 Дашборд доступен на http://localhost:{self.port}")
                     if self.auth_enabled:
                         self.logger.info(f"🔐 Используйте логин: {self.username} / {self.password}")

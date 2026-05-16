@@ -2,6 +2,8 @@
 """SHARD SmartFirewall Module"""
 from core.base import BaseModule, ConfigManager, EventBus, LoggingService
 import os, time, threading, re, subprocess, json
+from pathlib import Path
+from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Set, Tuple
 from collections import defaultdict, deque
@@ -36,6 +38,8 @@ class SmartFirewall(BaseModule):
         self._history_lock = threading.RLock()
         self._cleanup_lock = threading.RLock()
 
+        Path('data').mkdir(parents=True, exist_ok=True)
+        Path('data').mkdir(parents=True, exist_ok=True)
         self.event_bus.subscribe('alert.detected', self.on_alert)
         self.event_bus.subscribe('exfiltration.detected', self.on_exfiltration)
 
@@ -225,6 +229,8 @@ class SmartFirewall(BaseModule):
 
             # Устанавливаем блокировку
             self.blocked_ips[ip] = time.time() + duration
+            # Аудит: логируем кто заблокировал IP
+            self._audit_log(ip, duration, 'manual' if not hasattr(self, '_last_alert') else 'auto')
 
         # Проверяем существование правила в iptables
         if os.name != 'nt':
@@ -266,6 +272,12 @@ class SmartFirewall(BaseModule):
 
                 if result.returncode == 0:
                     self.logger.warning(f"🚫 Заблокирован IP {ip} на {duration} сек (Windows Firewall)")
+                    # Аудит
+                    with open('data/audit.log', 'a') as audit:
+                        audit.write(f"{time.time()} | BLOCK | {ip} | {duration}s | windows_firewall\n")
+                    # Аудит
+                    with open('data/audit.log', 'a') as audit:
+                        audit.write(f"{time.time()} | BLOCK | {ip} | {duration}s | windows_firewall\n")
                     return True
             else:
                 self.add_iptables_chain()
@@ -276,6 +288,12 @@ class SmartFirewall(BaseModule):
 
                 if result.returncode == 0:
                     self.logger.warning(f"🚫 Заблокирован IP {ip} на {duration} сек (iptables)")
+                    # Аудит
+                    with open('data/audit.log', 'a') as audit:
+                        audit.write(f"{time.time()} | BLOCK | {ip} | {duration}s | iptables\n")
+                    # Аудит
+                    with open('data/audit.log', 'a') as audit:
+                        audit.write(f"{time.time()} | BLOCK | {ip} | {duration}s | iptables\n")
                     return True
 
         except Exception as e:
@@ -372,6 +390,17 @@ class SmartFirewall(BaseModule):
         except Exception as e:
             self.logger.error(f"Ошибка блокировки порта {port} для {ip}: {e}")
             return False
+
+    def _audit_log(self, ip: str, duration: int, source: str = 'auto') -> None:
+        """Логирование аудита: кто, когда, кого заблокировал"""
+        try:
+            audit_file = Path('logs/audit_firewall.log')
+            audit_file.parent.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now().isoformat()
+            with open(audit_file, 'a') as f:
+                f.write(f"{timestamp} | BLOCK | {ip} | {duration}s | source={source}\n")
+        except Exception:
+            pass  # Аудит не должен блокировать работу
 
     def add_iptables_chain(self) -> bool:
         """Создание отдельной цепочки iptables для SHARD (однократно)"""
