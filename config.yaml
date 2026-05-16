@@ -63,8 +63,10 @@ waf:
 # ------------------------------------------------------------
 storage:
   timescaledb:
-    enabled: false
-    dsn: ''
+    enabled: true
+    pool_min: 5
+    pool_max: 20
+    dsn: 'postgresql://shard:shard_password@localhost:5432/shard_siem'
   elasticsearch:
     enabled: false
     url: ''
