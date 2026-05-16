@@ -175,35 +175,11 @@ class SmartFirewall(BaseModule):
                 'reason': context.get('attack_type') if context else 'unknown'
             })
 
-    def _validate_ip(self, ip: str) -> bool:
-        """Валидация IP адреса перед использованием в командах"""
-        if not ip:
-            return False
-
-        # Проверка формата IPv4
-        pattern = r'^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$'
-        match = re.match(pattern, ip)
-        if not match:
-            return False
-
-        # Проверка значений октетов
-        for octet in match.groups():
-            if int(octet) > 255:
-                return False
-
-        # Запрет опасных символов
-        dangerous_chars = [';', '&', '|', '$', '`', '(', ')', '<', '>', '\'', '"', '\\', '\n', '\r']
-        for char in dangerous_chars:
-            if char in ip:
-                return False
-
-        return True
-
     def _validate_port(self, port: int) -> bool:
         """Валидация порта"""
         return isinstance(port, int) and 0 < port < 65536
 
-    def _validate_ip_strict(self, ip: str) -> bool:
+    def _validate_ip(self, ip: str) -> bool:
         """Строгая валидация IP адреса"""
         if not ip:
             return False
@@ -230,7 +206,7 @@ class SmartFirewall(BaseModule):
 
     def block_ip(self, ip: str, duration: int = 3600) -> bool:
         """Блокировка IP с проверкой существующей блокировки"""
-        if not self._validate_ip_strict(ip):
+        if not self._validate_ip(ip):
             self.logger.error(f"Некорректный IP адрес: {ip}")
             return False
 
@@ -313,7 +289,7 @@ class SmartFirewall(BaseModule):
 
     def unblock_ip(self, ip: str) -> bool:
         """Разблокировка IP (безопасная версия)"""
-        if not self._validate_ip_strict(ip):
+        if not self._validate_ip(ip):
             return False
 
         with self._lock:

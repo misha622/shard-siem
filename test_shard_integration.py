@@ -31,15 +31,15 @@ def test_firewall_ip_validation():
     fw = SmartFirewall(config, bus, logger)
     
     # Валидные IP
-    assert fw._validate_ip_strict('192.168.1.1') == True
-    assert fw._validate_ip_strict('10.0.0.1') == True
+    assert fw._validate_ip('192.168.1.1') == True
+    assert fw._validate_ip('10.0.0.1') == True
     
     # Инъекции
-    assert fw._validate_ip_strict('192.168.1.1; rm -rf /') == False
-    assert fw._validate_ip_strict('127.0.0.1 && cat /etc/passwd') == False
-    assert fw._validate_ip_strict('8.8.8.8 | nc -e /bin/sh') == False
-    assert fw._validate_ip_strict('') == False
-    assert fw._validate_ip_strict('not_an_ip') == False
+    assert fw._validate_ip('192.168.1.1; rm -rf /') == False
+    assert fw._validate_ip('127.0.0.1 && cat /etc/passwd') == False
+    assert fw._validate_ip('8.8.8.8 | nc -e /bin/sh') == False
+    assert fw._validate_ip('') == False
+    assert fw._validate_ip('not_an_ip') == False
     print("✅ Test 2 PASS: IP validation blocks injections")
 
 def test_alert_to_firewall_flow():
