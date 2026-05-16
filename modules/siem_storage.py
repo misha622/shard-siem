@@ -284,7 +284,7 @@ class SIEMStorage(BaseModule):
 
     
     def _flush_alerts(self) -> None:
-        """Пакетная запись алертов в БД (с ограничением размера)"""
+        """Пакетная запись алертов с graceful degradation (PG → SQLite → файл)"""
         if not self._alert_buffer:
             return
 
@@ -296,63 +296,106 @@ class SIEMStorage(BaseModule):
         if not alerts_to_write:
             return
 
-        conn = None
-        try:
-            conn = self._get_sqlite_connection()
-            cursor = conn.cursor()
+        pg_success = False
+        sqlite_success = False
 
-            data = []
-            for alert in alerts_to_write:
-                # Ограничиваем features_json
-                features = alert.get('features', {})
-                features_json = None
-                if features:
+        # 1. Пробуем PostgreSQL
+        if self.timescale_enabled and self.pg_pool:
+            try:
+                pg_conn = self.pg_pool.getconn()
+                pg_cursor = pg_conn.cursor()
+                
+                pg_data = []
+                for alert in alerts_to_write:
+                    features = alert.get('features', {})
                     try:
                         features_json = json.dumps(features)
-                        if len(features_json) > self._max_features_json_size:
-                            truncated = {
-                                'packet_size': features.get('packet_size', 0),
-                                'protocol': features.get('protocol', 0),
-                                'dst_port': features.get('dst_port', 0),
-                                'entropy': features.get('entropy', 0)
-                            }
-                            features_json = json.dumps(truncated)
                     except:
-                        features_json = None
+                        features_json = '{}'
+                    pg_data.append((
+                        alert.get('timestamp', time.time()),
+                        str(alert.get('src_ip', ''))[:45],
+                        str(alert.get('dst_ip', ''))[:45],
+                        alert.get('dst_port', 0),
+                        str(alert.get('attack_type', 'Unknown'))[:50],
+                        alert.get('score', 0.0),
+                        alert.get('confidence', 0.0),
+                        alert.get('severity', 'LOW')[:20],
+                        alert.get('explanation', '')[:500],
+                        alert.get('kill_chain', {}).get('stage', '')[:50],
+                        features_json
+                    ))
 
-                # Ограничиваем explanation
-                explanation = alert.get('explanation', '')
-                if len(explanation) > self._max_explanation_length:
-                    explanation = explanation[:self._max_explanation_length - 3] + '...'
+                pg_cursor.executemany(
+                    'INSERT INTO alerts (timestamp, src_ip, dst_ip, dst_port, attack_type, score, confidence, severity, explanation, kill_chain_stage, features_json) '
+                    'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)',
+                    pg_data
+                )
+                pg_conn.commit()
+                self.pg_pool.putconn(pg_conn)
+                pg_success = True
+                self.logger.debug(f"PG: {len(pg_data)} alerts")
+            except Exception as e:
+                self.logger.warning(f"PG unavailable ({type(e).__name__}), fallback to SQLite...")
 
-                data.append((
-                    alert.get('timestamp', time.time()),
-                    str(alert.get('src_ip', ''))[:45],
-                    str(alert.get('dst_ip', ''))[:45],
-                    alert.get('dst_port', 0),
-                    str(alert.get('attack_type', 'Unknown'))[:50],
-                    alert.get('score', 0.0),
-                    alert.get('confidence', 0.0),
-                    alert.get('severity', 'LOW')[:20],
-                    explanation,
-                    alert.get('kill_chain', {}).get('stage', '')[:50],
-                    features_json
-                ))
+        # 2. Fallback: SQLite
+        if not pg_success:
+            conn = None
+            try:
+                conn = self._get_sqlite_connection()
+                cursor = conn.cursor()
+                data = []
+                for alert in alerts_to_write:
+                    features = alert.get('features', {})
+                    try:
+                        features_json = json.dumps(features)
+                    except:
+                        features_json = '{}'
+                    data.append((
+                        alert.get('timestamp', time.time()),
+                        str(alert.get('src_ip', ''))[:45],
+                        str(alert.get('dst_ip', ''))[:45],
+                        alert.get('dst_port', 0),
+                        str(alert.get('attack_type', 'Unknown'))[:50],
+                        alert.get('score', 0.0),
+                        alert.get('confidence', 0.0),
+                        alert.get('severity', 'LOW')[:20],
+                        alert.get('explanation', '')[:500],
+                        alert.get('kill_chain', {}).get('stage', '')[:50],
+                        features_json
+                    ))
+                cursor.executemany(
+                    'INSERT INTO alerts (timestamp, src_ip, dst_ip, dst_port, attack_type, score, confidence, severity, explanation, kill_chain_stage, features_json) '
+                    'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    data
+                )
+                conn.commit()
+                sqlite_success = True
+                self.logger.debug(f"SQLite: {len(data)} alerts (fallback)")
+            except Exception as e:
+                self.logger.error(f"SQLite error: {e}")
+            finally:
+                if conn:
+                    self._return_sqlite_connection(conn)
 
-            cursor.executemany('''
-                INSERT INTO alerts 
-                (timestamp, src_ip, dst_ip, dst_port, attack_type, score, confidence, severity, explanation, kill_chain_stage, features_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', data)
+        # 3. Last resort: JSON файл
+        if not pg_success and not sqlite_success:
+            try:
+                backup_path = Path('data/alerts_backup.json')
+                backup_path.parent.mkdir(parents=True, exist_ok=True)
+                existing = []
+                if backup_path.exists():
+                    with open(backup_path, 'r') as f:
+                        existing = json.load(f)
+                existing.extend(alerts_to_write)
+                if len(existing) > 10000:
+                    existing = existing[-5000:]
+                with open(backup_path, 'w') as f:
+                    json.dump(existing, f)
+                self.logger.warning(f"CRITICAL: {len(alerts_to_write)} alerts saved to {backup_path} (PG and SQLite unavailable!)")
+            except Exception as e:
+                self.logger.critical(f"All storage failed: {e}")
 
-            conn.commit()
-            self.logger.debug(f"Записано {len(data)} алертов в БД")
-
-        except Exception as e:
-            self.logger.error(f"SQLite ошибка сохранения: {e}")
-        finally:
-            if conn:
-                self._return_sqlite_connection(conn)
 
     def on_alert(self, alert: Dict) -> None:
         """Сохранение алерта (буферизованная версия)"""
