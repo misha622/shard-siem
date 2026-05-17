@@ -483,8 +483,10 @@ class SmartFirewall(BaseModule):
                         if not self.action_history[ip]:
                             del self.action_history[ip]
 
-            # Разблокируем IP ВНЕ блокировки
-            for ip in ips_to_unblock:
+            # Разблокируем IP под блокировкой
+            with self._lock:
+                for ip in ips_to_unblock:
+                    self._unblock_ip_internal(ip)
                 self._unblock_ip_internal(ip)
                 try:
                     if os.name == 'nt':

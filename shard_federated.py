@@ -803,7 +803,8 @@ class SecureFederatedClient:
                 'server'
             )
             model_shape = tuple(w.shape for w in updates)
-            mask = self.secagg.generate_mask(shared_secret, model_shape)
+            total_params = sum(np.prod(s) for s in model_shape)
+mask = self.secagg.generate_mask(shared_secret, total_params)
 
             masked_updates = []
             for u, m in zip(updates, mask if isinstance(mask, list) else [mask]):
@@ -983,7 +984,7 @@ class SecureFederatedServer:
 
         for client_id, data in updates_this_round.items():
             try:
-                weights = pickle.loads(base64.b64decode(data['weights']))
+                weights = np.loads(base64.b64decode(data['weights'])) if hasattr(np, 'loads') else pickle.loads(base64.b64decode(data['weights']))
                 weights = [np.array(w) for w in weights]
 
                 if 'signature' in data and data['signature']:

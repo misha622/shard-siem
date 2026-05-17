@@ -1130,6 +1130,7 @@ class WebDashboard(BaseModule):
         DashboardHandler.dashboard_auth_enabled = self.auth_enabled
         DashboardHandler.dashboard_validate_ip = self._validate_ip
         DashboardHandler.user_roles = getattr(self, 'user_roles', {'admin': 'admin'})
+        DashboardHandler._get_username_from_auth = staticmethod(self._get_username_from_auth)
         DashboardHandler.roles = getattr(self, 'roles', {'admin': {'read': True, 'write': True, 'block': True, 'admin': True}})
 
     def _check_auth(self, headers: Dict) -> bool:

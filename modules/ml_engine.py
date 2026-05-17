@@ -659,12 +659,13 @@ class MachineLearningEngine(BaseModule):
                     self._retrain()
 
     def _retrain(self) -> None:
-        """Дообучение моделей"""
+        """Дообучение моделей (без потери данных при ошибке)"""
         with self._lock:
             normal = list(self.normal_buffer)
             attacks = list(self.attack_buffer)
-            self.normal_buffer.clear()
-            self.attack_buffer.clear()
+            # Очищаем только после успешного обучения
+            _normal_backup = normal.copy()
+            _attacks_backup = attacks.copy()
 
         if not normal and not attacks:
             return
@@ -752,6 +753,10 @@ class MachineLearningEngine(BaseModule):
 
         except Exception as e:
             self.logger.error(f"Ошибка дообучения: {e}")
+            with self._lock:
+                self.normal_buffer.extend(_normal_backup)
+                self.attack_buffer.extend(_attacks_backup)
+            return
             import traceback
             self.logger.debug(traceback.format_exc())
 
