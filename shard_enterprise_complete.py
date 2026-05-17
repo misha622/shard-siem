@@ -2064,7 +2064,6 @@ class BaselineProfiler:
                     # Кэшируем Welford статистику
                     # Welford кэш (потокобезопасно — записываем только при первом вычислении)
                     # Кэшируем Welford статистику
-                                            with self._profile_lock:
                     cached['_welford_sizes'] = {
                         'count': len(packet_sizes),
                         'mean': mean,
