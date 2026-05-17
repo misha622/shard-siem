@@ -132,7 +132,7 @@ dashboard:
   auth:
     enabled: true
     username: ${SHARD_DASHBOARD_USERNAME:-admin}
-    password: ${SHARD_DASHBOARD_PASSWORD:-admin}
+    password: ${SHARD_DASHBOARD_PASSWORD:-change_me_immediately}
     api_keys: []
   session_ttl: 3600
 

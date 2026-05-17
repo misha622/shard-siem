@@ -80,6 +80,7 @@ MODULE_SPECS: Dict[str, Dict[str, Any]] = {
         'import_path': None,
         'class': None,
         'is_group': True,
+        'dependencies': ['adaptive_learning'],
         'members': {
             'shard_autonomous_response': ['ShardAutonomousIntegration'],
             'shard_defense_pipeline_v3': ['ShardDefensePipeline'],

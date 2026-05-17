@@ -208,6 +208,7 @@ class ModuleLoader:
             elif name in arg_map:
                 args.append(arg_map[name])
             else:
+                self.logger.warning(f"Unknown setup arg '{name}' for module — passing None")
                 args.append(None)
         
         return args

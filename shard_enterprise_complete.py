@@ -405,9 +405,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     @classmethod
     def _check_rate_limit(cls, ip: str) -> bool:
         """Возвращает True если запрос разрешён"""
-        with cls._rate_lock:
             now = time.time()
-            if ip not in cls._rate_limits:
                 cls._rate_limits[ip] = []
             cls._rate_limits[ip] = [t for t in cls._rate_limits[ip] if now - t < 1.0]
             if len(cls._rate_limits[ip]) >= 10:
@@ -2066,11 +2064,13 @@ class BaselineProfiler:
                     else:
                         std = mean * 0.5 if mean > 0 else 1
                     # Кэшируем Welford статистику
-                    cached['_welford_sizes'] = {
-                        'count': len(packet_sizes),
-                        'mean': mean,
-                        'm2': variance * len(packet_sizes) if len(packet_sizes) > 1 else 0
-                    }
+                    # Welford кэш (потокобезопасно — записываем только при первом вычислении)
+                    if '_welford_sizes' not in cached:
+                        cached['_welford_sizes'] = {
+                            'count': len(packet_sizes),
+                            'mean': mean,
+                            'm2': variance * len(packet_sizes) if len(packet_sizes) > 1 else 0
+                        }
 
                 if mean > 0:
                     z_score = abs(size - mean) / std
@@ -3205,6 +3205,7 @@ class ThreatGNN:
         return self._pagerank_fallback(node_features, edge_index)
 
     def _pagerank_fallback(self, node_features: List, edge_index: List) -> Dict[str, float]:
+        """Зарезервирован для оценочного PageRank. Используется _propagate_full."""
         """Корректный PageRank для НАПРАВЛЕННОГО графа угроз"""
         num_nodes = len(node_features)
         if num_nodes == 0:
@@ -3631,6 +3632,7 @@ class ThreatGraphNetwork:
             self.risk_scores = new_scores
 
     def _pagerank_fallback(self, node_features: List, edge_index: List) -> Dict[str, float]:
+        """Зарезервирован для оценочного PageRank. Используется _propagate_full."""
         """Корректный PageRank для НАПРАВЛЕННОГО графа угроз"""
         num_nodes = len(node_features)
         if num_nodes == 0:
