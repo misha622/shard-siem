@@ -193,8 +193,16 @@ class SIEMStorage(BaseModule):
                 """)
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_alerts_ts ON alerts(timestamp)')
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_alerts_ip ON alerts(src_ip)')
+                # Создаём партиции на 3 месяца вперёд
+                for month_offset in range(3):
+                    cursor.execute(f"""
+                        CREATE TABLE IF NOT EXISTS alerts_partition_{month_offset}
+                        PARTITION OF alerts
+                        FOR VALUES FROM (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '{month_offset} months')
+                        TO (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '{month_offset + 1} months')
+                    """)
                 conn.commit()
-                self.logger.info("PostgreSQL инициализирован с пулом соединений")
+                self.logger.info("PostgreSQL инициализирован с пулом и партициями на 3 месяца")
             finally:
                 self.pg_pool.putconn(conn)
         except ImportError:

@@ -1230,6 +1230,8 @@ class WebDashboard(BaseModule):
 
     def stop(self) -> None:
         self.running = False
+        if hasattr(self, '_stop_event'):
+            self._stop_event.set()
         pass  # _stop_event removed
 
         if self.httpd:
@@ -1389,6 +1391,8 @@ class EmailThreatAnalyzer(BaseModule):
 
     def stop(self) -> None:
         self.running = False
+        if hasattr(self, '_stop_event'):
+            self._stop_event.set()
         pass  # _stop_event removed
 
     def on_email(self, data: Dict) -> None:
@@ -1683,6 +1687,8 @@ class PrometheusMetrics(BaseModule):
 
     def stop(self) -> None:
         self.running = False
+        if hasattr(self, '_stop_event'):
+            self._stop_event.set()
         pass  # _stop_event removed
 
     def _on_packet(self, data: Dict) -> None:
@@ -1735,6 +1741,8 @@ class TelegramNotifier(BaseModule):
 
     def stop(self) -> None:
         self.running = False
+        if hasattr(self, '_stop_event'):
+            self._stop_event.set()
         pass  # _stop_event removed
         if self._session:
             self._session.close()
@@ -2071,6 +2079,9 @@ class BaselineProfiler:
                     z_score = abs(size - mean) / std
                     scores.append(min(1.0, z_score))
                     weights.append(0.15)
+                elif size > 0:
+                    scores.append(min(1.0, size / 1500.0))
+                    weights.append(0.1)
 
         # Энтропия — Welford
         if cached.get('entropy'):
@@ -2823,6 +2834,8 @@ class JA3Fingerprinter(BaseModule):
 
     def stop(self) -> None:
         self.running = False
+        if hasattr(self, '_stop_event'):
+            self._stop_event.set()
         pass  # _stop_event removed
 
     def on_packet(self, data: Dict) -> None:
@@ -3036,6 +3049,8 @@ class OTIoTSecurity(BaseModule):
 
     def stop(self) -> None:
         self.running = False
+        if hasattr(self, '_stop_event'):
+            self._stop_event.set()
         pass  # _stop_event removed
 
     def on_packet(self, data: Dict) -> None:
@@ -3804,6 +3819,8 @@ class AdvancedLearner(BaseModule):
 
     def stop(self) -> None:
         self.running = False
+        if hasattr(self, '_stop_event'):
+            self._stop_event.set()
         pass  # _stop_event removed
 
     def on_packet(self, data: Dict) -> None:
@@ -3946,6 +3963,8 @@ class HoneypotService(BaseModule):
 
     def stop(self) -> None:
         self.running = False
+        if hasattr(self, '_stop_event'):
+            self._stop_event.set()
         pass  # _stop_event removed
         for srv in self.services:
             srv.stop()
@@ -4037,6 +4056,8 @@ class _HoneypotServer:
 
     def stop(self) -> None:
         self.running = False
+        if hasattr(self, '_stop_event'):
+            self._stop_event.set()
         pass  # _stop_event removed
         if self.socket:
             try:
@@ -4206,6 +4227,8 @@ class AttackSimulator(BaseModule):
 
     def stop(self) -> None:
         self.running = False
+        if hasattr(self, '_stop_event'):
+            self._stop_event.set()
         pass  # _stop_event removed
 
     def _loop(self) -> None:
