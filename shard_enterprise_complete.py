@@ -2063,13 +2063,13 @@ class BaselineProfiler:
                         std = mean * 0.5 if mean > 0 else 1
                     # Кэшируем Welford статистику
                     # Welford кэш (потокобезопасно — записываем только при первом вычислении)
-                    if '_welford_sizes' not in cached:
+                    # Кэшируем Welford статистику
                                             with self._profile_lock:
-                        cached['_welford_sizes'] = {
-                            'count': len(packet_sizes),
-                            'mean': mean,
-                            'm2': variance * len(packet_sizes) if len(packet_sizes) > 1 else 0
-                        }
+                    cached['_welford_sizes'] = {
+                        'count': len(packet_sizes),
+                        'mean': mean,
+                        'm2': variance * len(packet_sizes) if len(packet_sizes) > 1 else 0
+                    }
 
                 if mean > 0:
                     z_score = abs(size - mean) / std
