@@ -816,6 +816,9 @@ class SecureFederatedClient:
         X = np.array(list(self.local_data))
         y = np.array(list(self.local_labels)) if self.local_labels else None
 
+        # Сохраняем данные на случай ошибки
+        _data_backup = list(self.local_data)
+        _labels_backup = list(self.local_labels)
         self.local_data.clear()
         self.local_labels.clear()
 
@@ -1054,7 +1057,7 @@ class SecureFederatedServer:
         self.current_round += 1
 
         for client_id in client_ids:
-            contribution_score = np.random.random() * 0.5 + 0.5
+            contribution_score = 0.5  # TODO: вычислить реальный score из качества градиентов
             self.reputation.update_reputation(client_id, contribution_score, 0.8)
 
         self.round_history.append({

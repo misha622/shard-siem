@@ -3371,36 +3371,37 @@ class SelfSupervisedEncoder:
                 self.model.eval()
             # =====================================================
 
-            # Добавляем шум для denoising autoencoder
-            noise = torch.randn_like(X) * 0.1
-            X_noisy = X + noise
+            try:
+                # Добавляем шум для denoising autoencoder
+                noise = torch.randn_like(X) * 0.1
+                X_noisy = X + noise
 
-            latent, reconstructed, projection = self.model(X_noisy)
+                latent, reconstructed, projection = self.model(X_noisy)
 
-            # Reconstruction loss
-            recon_loss = F.mse_loss(reconstructed, X) if hasattr(F, 'mse_loss') else ((reconstructed - X) ** 2).mean()
+                # Reconstruction loss
+                recon_loss = F.mse_loss(reconstructed, X) if hasattr(F, 'mse_loss') else ((reconstructed - X) ** 2).mean()
 
-            # Дополнительный loss для латентного пространства
-            if batch_size > 1:
-                if hasattr(F, 'normalize'):
-                    proj_norm = F.normalize(projection, dim=1)
+                # Дополнительный loss для латентного пространства
+                if batch_size > 1:
+                    if hasattr(F, 'normalize'):
+                        proj_norm = F.normalize(projection, dim=1)
+                    else:
+                        norm = projection.norm(dim=1, keepdim=True)
+                        proj_norm = projection / (norm + 1e-8)
+
+                    sim_matrix = torch.mm(proj_norm, proj_norm.t())
+                    diversity_loss = sim_matrix.mean()
+                    total_loss = recon_loss + 0.1 * diversity_loss
                 else:
-                    norm = projection.norm(dim=1, keepdim=True)
-                    proj_norm = projection / (norm + 1e-8)
+                    total_loss = recon_loss
 
-                sim_matrix = torch.mm(proj_norm, proj_norm.t())
-                diversity_loss = sim_matrix.mean()
-                total_loss = recon_loss + 0.1 * diversity_loss
-            else:
-                total_loss = recon_loss
-
-            self.optimizer.zero_grad()
-            total_loss.backward()
-            self.optimizer.step()
-
-            # Возвращаем модель в training mode
-            if batch_size == 1:
-                self.model.train()
+                self.optimizer.zero_grad()
+                total_loss.backward()
+                self.optimizer.step()
+            finally:
+                # Всегда возвращаем модель в training mode
+                if batch_size == 1:
+                    self.model.train()
 
             loss_value = float(total_loss.item())
             self.training_buffer.append(loss_value)
