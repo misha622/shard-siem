@@ -342,6 +342,7 @@ class SIEMStorage(BaseModule):
                 )
                 pg_conn.commit()
                 pg_success = True
+                self.pg_pool.putconn(pg_conn)
                 self.logger.debug(f"PG: {len(pg_data)} alerts")
             except Exception as e:
                 self.logger.warning(f"PG unavailable ({type(e).__name__}), fallback to SQLite...")
@@ -446,6 +447,7 @@ class SIEMStorage(BaseModule):
         time_range = data.get('time_range', 1800)
         limit = min(data.get('limit', 50), 1000)
 
+        conn = None
         try:
             conn = self._get_sqlite_connection()
             conn.row_factory = sqlite3.Row
@@ -482,6 +484,7 @@ class SIEMStorage(BaseModule):
         hours = data.get('hours', 24)
 
         ips = []
+        conn = None
         try:
             conn = self._get_sqlite_connection()
             cursor = conn.cursor()

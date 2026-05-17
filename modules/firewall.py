@@ -328,7 +328,7 @@ class SmartFirewall(BaseModule):
                 # Удаляем все правила для этого IP
                 while True:
                     result = subprocess.run(
-                        ['iptables', '-D', 'INPUT', '-s', ip, '-j', 'DROP'],
+                        ['iptables', '-D', 'SHARD_BLOCK', '-s', ip, '-j', 'DROP'],
                         capture_output=True,
                         timeout=5
                     )

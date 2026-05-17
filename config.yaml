@@ -66,7 +66,7 @@ storage:
     enabled: true
     pool_min: 5
     pool_max: 20
-    dsn: 'postgresql://shard:shard_password@localhost:5432/shard_siem'
+    dsn: '${SHARD_PG_DSN:-postgresql://shard:shard@localhost:5432/shard_siem}'
   elasticsearch:
     enabled: false
     url: ''
@@ -265,9 +265,9 @@ adaptive_learning:
 # ============================================================
 autonomous:
   enabled: true
-  autonomous_mode: true        # Полная автоматизация (ОСТОРОЖНО!)
+  autonomous_mode: false        # Полная автоматизация (ОСТОРОЖНО!)
   recommend_only: false          # Только рекомендации (безопасно)
-  confidence_threshold_block_temp: 0.40
+  confidence_threshold_block_temp: 0.60
   confidence_threshold_block_perm: 0.60
   confidence_threshold_throttle: 0.30
   max_auto_blocks_per_hour: 10
