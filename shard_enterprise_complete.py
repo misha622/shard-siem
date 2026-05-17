@@ -405,13 +405,14 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     @classmethod
     def _check_rate_limit(cls, ip: str) -> bool:
         """Возвращает True если запрос разрешён"""
-            now = time.time()
-                cls._rate_limits[ip] = []
-            cls._rate_limits[ip] = [t for t in cls._rate_limits[ip] if now - t < 1.0]
-            if len(cls._rate_limits[ip]) >= 10:
-                return False
-            cls._rate_limits[ip].append(now)
-            return True
+        now = time.time()
+        if ip not in cls._rate_limits:
+            cls._rate_limits[ip] = []
+        cls._rate_limits[ip] = [t for t in cls._rate_limits[ip] if now - t < 1.0]
+        if len(cls._rate_limits[ip]) >= 10:
+            return False
+        cls._rate_limits[ip].append(now)
+        return True
 
 
     # Rate limiting per-IP (10 req/sec)
