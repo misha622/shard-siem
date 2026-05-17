@@ -660,6 +660,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     self.send_response(403)
                     self.end_headers()
                     self.wfile.write(b'Forbidden: insufficient permissions')
+                    return
             if self.path == '/api/block':
                 content_length = int(self.headers.get('Content-Length', 0))
                 if content_length > 1024:

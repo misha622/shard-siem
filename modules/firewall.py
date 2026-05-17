@@ -482,10 +482,9 @@ class SmartFirewall(BaseModule):
                             del self.action_history[ip]
 
             # Разблокируем IP под блокировкой
-            with self._lock:
-                for ip in ips_to_unblock:
+            for ip in ips_to_unblock:
+                with self._lock:
                     self._unblock_ip_internal(ip)
-                self._unblock_ip_internal(ip)
                 try:
                     if os.name == 'nt':
                         rule_name = f"SHARD_Block_{ip.replace('.', '_')}"
