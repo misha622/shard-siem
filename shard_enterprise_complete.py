@@ -38,7 +38,11 @@ import hashlib
 import socket
 import threading
 import queue
-from shard_dl_models import DeepLearningEngine, DLModelConfig as ModelConfig
+try:
+    from shard_dl_models import DeepLearningEngine, DLModelConfig as ModelConfig
+except ImportError:
+    DeepLearningEngine = None
+    ModelConfig = None
 import logging
 import subprocess
 import random
@@ -463,7 +467,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(b'Too Many Requests')
                 return
-            if not self._check_rate_limit(self.client_address[0]):
                 self.send_response(429)
                 self.end_headers()
                 self.wfile.write(b'Too Many Requests')
@@ -586,12 +589,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     except:
                         db_status = 'unavailable'
                     
-                    modules_status = {
-                        'dashboard': True,
-                        'database': db_status,
-                        'total_alerts': self.dashboard_stats.get('total_alerts', 0),
-                        'uptime_seconds': time.time() - getattr(self, '_start_time', time.time())
-                    }
     
                 
                 import psutil
@@ -2067,6 +2064,7 @@ class BaselineProfiler:
                     # Кэшируем Welford статистику
                     # Welford кэш (потокобезопасно — записываем только при первом вычислении)
                     if '_welford_sizes' not in cached:
+                        with self._profile_lock:
                         cached['_welford_sizes'] = {
                             'count': len(packet_sizes),
                             'mean': mean,

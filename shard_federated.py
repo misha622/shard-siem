@@ -819,8 +819,8 @@ class SecureFederatedClient:
         # Сохраняем данные на случай ошибки
         _data_backup = list(self.local_data)
         _labels_backup = list(self.local_labels)
-        self.local_data.clear()
-        self.local_labels.clear()
+        # Данные сохранены в _data_backup, очищаем после успешного обучения
+        # self.local_data.clear() и self.local_labels.clear() вызываются после обучения
 
         if self.global_weights:
             self.model.set_weights(self.global_weights)
