@@ -83,6 +83,7 @@ class MachineLearningEngine(BaseModule):
         self.rl_defense = None
 
         self._lock = threading.RLock()
+        self.siem_storage = None  # Будет назначен при подключении
         self._load_models()
         self._init_shap()
 
@@ -757,8 +758,6 @@ class MachineLearningEngine(BaseModule):
                 self.normal_buffer.extend(_normal_backup)
                 self.attack_buffer.extend(_attacks_backup)
             return
-            import traceback
-            self.logger.debug(traceback.format_exc())
 
     def _attack_to_id(self, attack_type: str) -> int:
         """Преобразование типа атаки в ID"""

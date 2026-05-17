@@ -43,6 +43,7 @@ warnings.filterwarnings('ignore')
 try:
     import tensorflow as tf
     from tensorflow import keras
+
     TF_AVAILABLE = True
 except ImportError:
     TF_AVAILABLE = False
@@ -53,16 +54,17 @@ try:
     from cryptography.hazmat.primitives.kdf.hkdf import HKDF
     from cryptography.hazmat.primitives.asymmetric import x25519, ed25519
     from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
     CRYPTO_AVAILABLE = True
 except ImportError:
     CRYPTO_AVAILABLE = False
 
 try:
     import requests
+
     REQUESTS_AVAILABLE = True
 except ImportError:
     REQUESTS_AVAILABLE = False
-
 
 
 @dataclass
@@ -112,7 +114,6 @@ class SecureFederatedConfig:
     metrics_dir: str = '/var/lib/shard/federated/metrics/'
 
 
-
 class SecureAggregationProtocol:
     """
     Secure Aggregation Protocol (по мотивам Google SecAgg).
@@ -155,13 +156,13 @@ class SecureAggregationProtocol:
 
     def get_public_key_bytes(self) -> bytes:
         """Серийный публичный ключ"""
-        if not CRYPTO_AVAILABLE:
+        if not CRYPTO_AVAILABLE or self.public_key is None:
             return b''
         return self.public_key.public_bytes(Encoding.Raw, PublicFormat.Raw)
 
     def get_verify_key_bytes(self) -> bytes:
         """Ключ верификации"""
-        if not CRYPTO_AVAILABLE:
+        if not CRYPTO_AVAILABLE or self.verify_key is None:
             return b''
         return self.verify_key.public_bytes(Encoding.Raw, PublicFormat.Raw)
 
@@ -171,19 +172,22 @@ class SecureAggregationProtocol:
 
         Используется для генерации pairwise масок.
         """
-        if not CRYPTO_AVAILABLE:
+        if not CRYPTO_AVAILABLE or self.private_key is None:
             return secrets.token_bytes(32)
 
-        peer_key = x25519.X25519PublicKey.from_public_bytes(peer_public_key_bytes)
-        shared = self.private_key.exchange(peer_key)
+        try:
+            peer_key = x25519.X25519PublicKey.from_public_bytes(peer_public_key_bytes)
+            shared = self.private_key.exchange(peer_key)
 
-        hkdf = HKDF(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=None,
-            info=f'shard-federated-{peer_id}'.encode()
-        )
-        return hkdf.derive(shared)
+            hkdf = HKDF(
+                algorithm=hashes.SHA256(),
+                length=32,
+                salt=None,
+                info=f'shard-federated-{peer_id}'.encode()
+            )
+            return hkdf.derive(shared)
+        except Exception as e:
+            return secrets.token_bytes(32)
 
     def generate_mask(self, shared_secret: bytes, model_shape: Tuple[int, ...]) -> np.ndarray:
         """
@@ -191,9 +195,6 @@ class SecureAggregationProtocol:
 
         Используется PRNG для генерации маски того же размера что и модель.
         """
-        from cryptography.hazmat.primitives import hashes
-        from cryptography.hazmat.primitives.kdf.concatkdf import ConcatKDFHash
-
         total_size = int(np.prod(model_shape) * 4)
         mask_bytes = b''
 
@@ -211,7 +212,7 @@ class SecureAggregationProtocol:
 
     def sign_message(self, message: bytes) -> bytes:
         """Подпись сообщения Ed25519"""
-        if not CRYPTO_AVAILABLE:
+        if not CRYPTO_AVAILABLE or self.signing_key is None:
             return b''
         return self.signing_key.sign(message)
 
@@ -223,9 +224,8 @@ class SecureAggregationProtocol:
             public_key = ed25519.Ed25519PublicKey.from_public_bytes(public_key_bytes)
             public_key.verify(signature, message)
             return True
-        except:
+        except Exception:
             return False
-
 
 
 class DifferentialPrivacyEngine:
@@ -322,7 +322,6 @@ class DifferentialPrivacyEngine:
     def can_continue_training(self) -> bool:
         """Можно ли продолжать обучение в рамках бюджета"""
         return self.privacy_spent < self.config.dp_epsilon
-
 
 
 class ByzantineResilience:
@@ -429,7 +428,6 @@ class ByzantineResilience:
         return aggregated
 
 
-
 class ClientReputation:
     """
     Система репутации клиентов.
@@ -529,6 +527,70 @@ class ClientReputation:
             )
         }
 
+
+class CircuitBreaker:
+    """
+    Circuit Breaker для защиты от каскадных отказов.
+
+    Состояния:
+    - CLOSED: нормальная работа
+    - OPEN: запросы блокируются
+    - HALF_OPEN: тестовые запросы для проверки восстановления
+    """
+
+    def __init__(self, failure_threshold: int = 5,
+                 recovery_timeout: int = 60,
+                 half_open_max_requests: int = 3):
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout
+        self.half_open_max_requests = half_open_max_requests
+
+        self.state = 'CLOSED'
+        self.failure_count = 0
+        self.success_count = 0
+        self.last_failure_time = 0.0
+        self.last_state_change = time.time()
+        self._lock = threading.RLock()
+
+    def allow_request(self) -> bool:
+        """Проверка можно ли отправить запрос"""
+        with self._lock:
+            if self.state == 'CLOSED':
+                return True
+            elif self.state == 'OPEN':
+                if time.time() - self.last_failure_time >= self.recovery_timeout:
+                    self.state = 'HALF_OPEN'
+                    self.success_count = 0
+                    return True
+                return False
+            elif self.state == 'HALF_OPEN':
+                return self.success_count < self.half_open_max_requests
+            return False
+
+    def record_success(self):
+        """Запись успешного запроса"""
+        with self._lock:
+            self.failure_count = 0
+            if self.state == 'HALF_OPEN':
+                self.success_count += 1
+                if self.success_count >= self.half_open_max_requests:
+                    self.state = 'CLOSED'
+
+    def record_failure(self):
+        """Запись неудачного запроса"""
+        with self._lock:
+            self.failure_count += 1
+            self.last_failure_time = time.time()
+            if self.failure_count >= self.failure_threshold:
+                self.state = 'OPEN'
+
+    def get_state(self) -> Dict:
+        with self._lock:
+            return {
+                'state': self.state,
+                'failure_count': self.failure_count,
+                'success_count': self.success_count
+            }
 
 
 class SecureFederatedClient:
@@ -802,16 +864,12 @@ class SecureFederatedClient:
                 base64.b64decode(global_data['server_public_key']),
                 'server'
             )
-            model_shape = tuple(w.shape for w in updates)
-            total_params = sum(np.prod(s) for s in model_shape)
-mask = self.secagg.generate_mask(shared_secret, total_params)
 
+            # Generate masks for each weight update
             masked_updates = []
-            for u, m in zip(updates, mask if isinstance(mask, list) else [mask]):
-                if u.shape == m.shape:
-                    masked_updates.append(u + m)
-                else:
-                    masked_updates.append(u)
+            for update in updates:
+                mask = self.secagg.generate_mask(shared_secret, update.shape)
+                masked_updates.append(update + mask)
 
             return masked_updates
 
@@ -841,71 +899,45 @@ mask = self.secagg.generate_mask(shared_secret, total_params)
         return [np.array(w) for w in pickle.loads(base64.b64decode(data))]
 
 
+class FederatedMetrics:
+    """Метрики для Prometheus"""
 
-class CircuitBreaker:
-    """
-    Circuit Breaker для защиты от каскадных отказов.
+    def __init__(self):
+        self.rounds_total = 0
+        self.clients_per_round = deque(maxlen=100)
+        self.samples_per_round = deque(maxlen=100)
+        self.aggregation_time_ms = deque(maxlen=100)
+        self.model_size_bytes = 0
+        self.start_time = time.time()
 
-    Состояния:
-    - CLOSED: нормальная работа
-    - OPEN: запросы блокируются
-    - HALF_OPEN: тестовые запросы для проверки восстановления
-    """
+    def record_round(self, num_clients: int, total_samples: int):
+        self.rounds_total += 1
+        self.clients_per_round.append(num_clients)
+        self.samples_per_round.append(total_samples)
 
-    def __init__(self, failure_threshold: int = 5,
-                 recovery_timeout: int = 60,
-                 half_open_max_requests: int = 3):
-        self.failure_threshold = failure_threshold
-        self.recovery_timeout = recovery_timeout
-        self.half_open_max_requests = half_open_max_requests
+    def record_aggregation_time(self, time_ms: float):
+        self.aggregation_time_ms.append(time_ms)
 
-        self.state = 'CLOSED'
-        self.failure_count = 0
-        self.success_count = 0
-        self.last_failure_time = 0.0
-        self.last_state_change = time.time()
-        self._lock = threading.RLock()
+    def get_metrics(self) -> Dict:
+        return {
+            'rounds_total': self.rounds_total,
+            'uptime_seconds': time.time() - self.start_time,
+            'avg_clients_per_round': np.mean(list(self.clients_per_round)) if self.clients_per_round else 0,
+            'avg_samples_per_round': np.mean(list(self.samples_per_round)) if self.samples_per_round else 0,
+            'avg_aggregation_time_ms': np.mean(list(self.aggregation_time_ms)) if self.aggregation_time_ms else 0
+        }
 
-    def allow_request(self) -> bool:
-        """Проверка можно ли отправить запрос"""
-        with self._lock:
-            if self.state == 'CLOSED':
-                return True
-            elif self.state == 'OPEN':
-                if time.time() - self.last_failure_time >= self.recovery_timeout:
-                    self.state = 'HALF_OPEN'
-                    self.success_count = 0
-                    return True
-                return False
-            elif self.state == 'HALF_OPEN':
-                return self.success_count < self.half_open_max_requests
-            return False
-
-    def record_success(self):
-        """Запись успешного запроса"""
-        with self._lock:
-            self.failure_count = 0
-            if self.state == 'HALF_OPEN':
-                self.success_count += 1
-                if self.success_count >= self.half_open_max_requests:
-                    self.state = 'CLOSED'
-
-    def record_failure(self):
-        """Запись неудачного запроса"""
-        with self._lock:
-            self.failure_count += 1
-            self.last_failure_time = time.time()
-            if self.failure_count >= self.failure_threshold:
-                self.state = 'OPEN'
-
-    def get_state(self) -> Dict:
-        with self._lock:
-            return {
-                'state': self.state,
-                'failure_count': self.failure_count,
-                'success_count': self.success_count
-            }
-
+    def prometheus_format(self) -> str:
+        """Формат для Prometheus metrics endpoint"""
+        lines = [
+            f'shard_federated_rounds_total {self.rounds_total}',
+            f'shard_federated_uptime_seconds {time.time() - self.start_time:.0f}',
+        ]
+        if self.clients_per_round:
+            lines.append(f'shard_federated_clients_per_round {self.clients_per_round[-1]}')
+        if self.samples_per_round:
+            lines.append(f'shard_federated_samples_per_round {self.samples_per_round[-1]}')
+        return '\n'.join(lines) + '\n'
 
 
 class SecureFederatedServer:
@@ -986,9 +1018,6 @@ class SecureFederatedServer:
             try:
                 weights = np.loads(base64.b64decode(data['weights'])) if hasattr(np, 'loads') else pickle.loads(base64.b64decode(data['weights']))
                 weights = [np.array(w) for w in weights]
-
-                if 'signature' in data and data['signature']:
-                    pass
 
                 all_updates.append(weights)
                 sample_sizes.append(data.get('sample_size', 1))
@@ -1082,49 +1111,6 @@ class SecureFederatedServer:
             'metrics': self.metrics.get_metrics(),
             'history': list(self.round_history)[-10:]
         }
-
-
-
-class FederatedMetrics:
-    """Метрики для Prometheus"""
-
-    def __init__(self):
-        self.rounds_total = 0
-        self.clients_per_round = deque(maxlen=100)
-        self.samples_per_round = deque(maxlen=100)
-        self.aggregation_time_ms = deque(maxlen=100)
-        self.model_size_bytes = 0
-        self.start_time = time.time()
-
-    def record_round(self, num_clients: int, total_samples: int):
-        self.rounds_total += 1
-        self.clients_per_round.append(num_clients)
-        self.samples_per_round.append(total_samples)
-
-    def record_aggregation_time(self, time_ms: float):
-        self.aggregation_time_ms.append(time_ms)
-
-    def get_metrics(self) -> Dict:
-        return {
-            'rounds_total': self.rounds_total,
-            'uptime_seconds': time.time() - self.start_time,
-            'avg_clients_per_round': np.mean(list(self.clients_per_round)) if self.clients_per_round else 0,
-            'avg_samples_per_round': np.mean(list(self.samples_per_round)) if self.samples_per_round else 0,
-            'avg_aggregation_time_ms': np.mean(list(self.aggregation_time_ms)) if self.aggregation_time_ms else 0
-        }
-
-    def prometheus_format(self) -> str:
-        """Формат для Prometheus metrics endpoint"""
-        lines = [
-            f'shard_federated_rounds_total {self.rounds_total}',
-            f'shard_federated_uptime_seconds {time.time() - self.start_time:.0f}',
-        ]
-        if self.clients_per_round:
-            lines.append(f'shard_federated_clients_per_round {self.clients_per_round[-1]}')
-        if self.samples_per_round:
-            lines.append(f'shard_federated_samples_per_round {self.samples_per_round[-1]}')
-        return '\n'.join(lines) + '\n'
-
 
 
 class ShardFederatedV2Integration:

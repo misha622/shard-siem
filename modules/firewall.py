@@ -43,11 +43,13 @@ class SmartFirewall(BaseModule):
 
     def start(self) -> None:
         self.running = True
+        self._load_counters()
         threading.Thread(target=self._cleanup_loop, daemon=True).start()
         self.logger.info(f"Запущен (auto_block: {self.auto_block}, умная градация)")
 
     def stop(self) -> None:
         self.running = False
+        self._save_counters()
 
     def add_to_whitelist(self, ip: str) -> None:
         """Добавить IP в белый список"""
@@ -501,6 +503,31 @@ class SmartFirewall(BaseModule):
                         )
                 except Exception as e:
                     self.logger.debug(f"Ошибка разблокировки {ip}: {e}")
+
+    def _save_counters(self) -> None:
+        """Сохраняет счётчики блокировок между рестартами"""
+        try:
+            Path('data').mkdir(exist_ok=True)
+            with open('data/block_counters.json', 'w') as f:
+                json.dump({
+                    'action_levels': dict(self.action_levels),
+                    'blocked_ips': {k: v for k, v in self.blocked_ips.items()},
+                    'timestamp': time.time()
+                }, f)
+        except:
+            pass
+    
+    def _load_counters(self) -> None:
+        """Восстанавливает счётчики блокировок после рестарта"""
+        try:
+            path = Path('data/block_counters.json')
+            if path.exists():
+                with open(path, 'r') as f:
+                    data = json.load(f)
+                    if time.time() - data.get('timestamp', 0) < 86400:
+                        self.action_levels.update(data.get('action_levels', {}))
+        except:
+            pass
 
     def _unblock_ip_internal(self, ip: str) -> None:
         """Внутренний метод разблокировки без дополнительных проверок"""

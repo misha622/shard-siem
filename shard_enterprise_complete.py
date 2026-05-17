@@ -593,11 +593,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                         'total_alerts': self.dashboard_stats.get('total_alerts', 0),
                         'uptime_seconds': time.time() - getattr(self, '_start_time', time.time())
                     }
-                    modules_status = {
-                        'dashboard': True,
-                        'total_alerts': self.dashboard_stats.get('total_alerts', 0),
-                        'uptime_seconds': time.time() - getattr(self, '_start_time', time.time())
-                    }
+    
                 
                 import psutil
                 health = {
@@ -3983,6 +3979,7 @@ class HoneypotService(BaseModule):
                 model_path = os.path.join(os.path.dirname(__file__), 'models', 'shard_real_alert_model.pkl')
                 if os.path.exists(model_path):
                     self._ai_model = joblib.load(model_path)
+                    self.logger.info('AI модель загружена в honeypot хук (проверка целостности отключена — добавьте хеш-верификацию для production)')
                     self.logger.info("✅ AI модель загружена в honeypot хук")
             if hasattr(self, '_ai_model') and self._ai_model:
                 # Игнорируем соединения от localhost
