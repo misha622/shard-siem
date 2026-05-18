@@ -757,8 +757,11 @@ class MachineLearningEngine(BaseModule):
         except Exception as e:
             self.logger.error(f"Ошибка дообучения: {e}")
             with self._lock:
-                # Данные уже очищены до обучения, восстанавливать не нужно
+                self.normal_buffer.extend(_normal_backup)
+                self.attack_buffer.extend(_attacks_backup)
             return
+
+
 
     def _attack_to_id(self, attack_type: str) -> int:
         """Преобразование типа атаки в ID"""
