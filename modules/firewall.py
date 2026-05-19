@@ -462,7 +462,7 @@ class SmartFirewall(BaseModule):
                 # Снижение уровней угрозы со временем
                 for ip in list(self.action_levels.keys()):
                     history = self.action_history.get(ip, [])
-                        if history:
+if history:
                             last_action_time = max(t for t, _ in history)
                             time_since_last = now - last_action_time
 
