@@ -446,43 +446,36 @@ class SmartFirewall(BaseModule):
             return False
 
     def _cleanup_loop(self) -> None:
-        """Очистка истёкших блокировок и снижение уровней угрозы (исправлен deadlock)"""
+        """Очистка истёкших блокировок и снижение уровней угрозы"""
         while self.running:
             time.sleep(60)
             now = time.time()
 
-            # Сначала собираем IP для разблокировки ВНЕ блокировки
             ips_to_unblock = []
 
             with self._lock:
-                # Разблокировка истёкших IP
                 expired = [ip for ip, exp in list(self.blocked_ips.items()) if exp <= now]
                 ips_to_unblock.extend(expired)
 
-                # Снижение уровней угрозы со временем
                 for ip in list(self.action_levels.keys()):
                     history = self.action_history.get(ip, [])
-if history:
-                            last_action_time = max(t for t, _ in history)
-                            time_since_last = now - last_action_time
+                    if history:
+                        last_action_time = max(t for t, _ in history)
+                        time_since_last = now - last_action_time
 
-                            # Снижаем уровень каждые 30 минут бездействия
-                            if time_since_last > 1800:
-                                self.action_levels[ip] = max(0, self.action_levels[ip] - 1)
+                        if time_since_last > 1800:
+                            self.action_levels[ip] = max(0, self.action_levels[ip] - 1)
+                            if self.action_levels[ip] == 0:
+                                del self.action_levels[ip]
+                                if ip in self.action_history:
+                                    del self.action_history[ip]
 
-                                # Если уровень стал 0 - удаляем из истории
-                                if self.action_levels[ip] == 0:
-                                    del self.action_levels[ip]
-                                    if ip in self.action_history:
-                                        del self.action_history[ip]
-
-                        # Очистка старых записей в истории
-                        cutoff = now - 7200  # 2 часа
-                        self.action_history[ip] = [(t, a) for t, a in history if t > cutoff]
+                    cutoff = now - 7200
+                    if ip in self.action_history:
+                        self.action_history[ip] = [(t, a) for t, a in self.action_history[ip] if t > cutoff]
                         if not self.action_history[ip]:
                             del self.action_history[ip]
 
-            # Разблокируем IP под блокировкой
             for ip in ips_to_unblock:
                 with self._lock:
                     self._unblock_ip_internal(ip)
@@ -491,42 +484,15 @@ if history:
                         rule_name = f"SHARD_Block_{ip.replace('.', '_')}"
                         subprocess.run(
                             ['netsh', 'advfirewall', 'firewall', 'delete', 'rule', f'name={rule_name}'],
-                            capture_output=True,
-                            timeout=5
+                            capture_output=True, timeout=5
                         )
                     else:
                         subprocess.run(
                             ['iptables', '-D', 'SHARD_BLOCK', '-s', ip, '-j', 'DROP'],
-                            capture_output=True,
-                            timeout=5
+                            capture_output=True, timeout=5
                         )
                 except Exception as e:
                     self.logger.debug(f"Ошибка разблокировки {ip}: {e}")
-
-    def _save_counters(self) -> None:
-        """Сохраняет счётчики блокировок между рестартами"""
-        try:
-            Path('data').mkdir(exist_ok=True)
-            with open('data/block_counters.json', 'w') as f:
-                json.dump({
-                    'action_levels': dict(self.action_levels),
-                    'blocked_ips': {k: v for k, v in self.blocked_ips.items()},
-                    'timestamp': time.time()
-                }, f)
-        except:
-            pass
-    
-    def _load_counters(self) -> None:
-        """Восстанавливает счётчики блокировок после рестарта"""
-        try:
-            path = Path('data/block_counters.json')
-            if path.exists():
-                with open(path, 'r') as f:
-                    data = json.load(f)
-                    if time.time() - data.get('timestamp', 0) < 86400:
-                        self.action_levels.update(data.get('action_levels', {}))
-        except:
-            pass
 
     def _unblock_ip_internal(self, ip: str) -> None:
         """Внутренний метод разблокировки без дополнительных проверок"""
