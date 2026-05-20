@@ -1020,7 +1020,7 @@ class SecureFederatedServer:
 
         for client_id, data in updates_this_round.items():
             try:
-                weights = np.loads(base64.b64decode(data['weights'])) if hasattr(np, 'loads') else pickle.loads(base64.b64decode(data['weights']))
+                weights = pickle.loads(base64.b64decode(data['weights']))  # numpy.loads не существует, используется pickle
                 weights = [np.array(w) for w in weights]
 
                 all_updates.append(weights)

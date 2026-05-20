@@ -535,583 +535,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                             self.send_response(403)
                             self.end_headers()
                             self.wfile.write(b'Access denied')
-                            return
-
-                        self.send_response(200)
-                        self.send_header('Content-type', 'text/plain; charset=utf-8')
-                        self.end_headers()
-                        with open(report_path, 'r', encoding='utf-8') as f:
-                            self.wfile.write(f.read().encode('utf-8'))
-                    else:
-                        self.send_response(404)
-                        self.end_headers()
-                        self.wfile.write(b'Report not found')
-                except Exception as e:
-                    self.send_response(500)
-                    self.end_headers()
-                    self.wfile.write(b'Internal server error')
-                # =================================================================
-
-
-            elif path == '/api/health':
-                self.send_response(200)
-                self.send_header('Content-type', 'application/json')
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.end_headers()
-                
-                modules_status = {}
-                if hasattr(self, 'dashboard_stats'):
-                    # Проверяем статус БД
-                    db_status = 'unknown'
-                    try:
-                        import sqlite3
-                        conn = sqlite3.connect('shard_siem.db', timeout=1)
-                        conn.execute('SELECT 1')
-                        conn.close()
-                        db_status = 'sqlite_ok'
-                    except:
-                        db_status = 'unavailable'
-                    
-    
-                
-                import psutil
-                health = {
-                    'status': 'healthy',
-                    'version': '5.1.0',
-                    'timestamp': time.time(),
-                    'modules': modules_status,
-                    'system': {
-                        'cpu_percent': psutil.cpu_percent(interval=0.1),
-                        'memory_percent': psutil.virtual_memory().percent,
-                        'disk_percent': psutil.disk_usage('/').percent
-                    }
-                }
-                self.wfile.write(json.dumps(health).encode('utf-8'))
-
-            else:
-                self.send_response(404)
-                self.end_headers()
-                self.wfile.write(b'Not found')
-
-        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
-            pass
-        except Exception as e:
-            if self.dashboard_logger:
-                self.dashboard_logger.debug(f"Ошибка в do_GET: {type(e).__name__}")
-            try:
-                self.send_response(500)
-                self.end_headers()
-                self.wfile.write(b'Internal Server Error')
-            except:
-                pass
-
-    def do_POST(self):
-        try:
-            if not self._check_rate_limit(self.client_address[0]):
-                self.send_response(429)
-                self.end_headers()
-                self.wfile.write(b'Too Many Requests')
-                return
-            if not self._check_rate_limit(self.client_address[0]):
-                self.send_response(429)
-                self.end_headers()
-                self.wfile.write(b'Too Many Requests')
-                return
-            parsed = urllib.parse.urlparse(self.path)
-            path = parsed.path
-            if self.dashboard_auth_enabled and self.dashboard_check_auth and \
-                    not self.dashboard_check_auth(dict(self.headers)):
-                self.send_response(401)
-                self.send_header('WWW-Authenticate', 'Basic realm="SHARD Dashboard"')
-                self.end_headers()
-                self.wfile.write(b'Unauthorized')
-                return
-            
-            # RBAC: проверка роли для блокировки
-            if self.path == '/api/block':
-                username = self._get_username_from_auth(dict(self.headers))
-                role = self.user_roles.get(username, 'viewer')
-                if not self.roles.get(role, {}).get('block', False):
-                    self.send_response(403)
-                    self.end_headers()
-                    self.wfile.write(b'Forbidden: insufficient permissions')
-                    return
-            if self.path == '/api/block':
-                content_length = int(self.headers.get('Content-Length', 0))
-                if content_length > 1024:
-                    self.send_response(413)
-                    self.end_headers()
-                    return
-
-                post_data = self.rfile.read(content_length)
-                try:
-                    data = json.loads(post_data)
-                    ip = data.get('ip', '').strip()
-
-                    if self.dashboard_validate_ip and self.dashboard_validate_ip(ip):
-                        self.dashboard_logger.info(f"Ручная блокировка IP через дашборд: {ip}")
-                        self.send_response(200)
-                        self.send_header('Content-type', 'application/json')
-                        self.end_headers()
-                        self.wfile.write(json.dumps({'status': 'ok', 'ip': ip}).encode('utf-8'))
-                    else:
-                        self.send_response(400)
-                        self.end_headers()
-                        self.wfile.write(json.dumps({'error': 'Invalid IP'}).encode('utf-8'))
-                except json.JSONDecodeError:
-                    self.send_response(400)
-                    self.end_headers()
-                    self.wfile.write(json.dumps({'error': 'Invalid JSON'}).encode('utf-8'))
-
-            elif path == '/api/health':
-                self.send_response(200)
-                self.send_header('Content-type', 'application/json')
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.end_headers()
-                
-                modules_status = {}
-                if hasattr(self, 'dashboard_stats'):
-                    # Проверяем статус БД
-                    db_status = 'unknown'
-                    try:
-                        import sqlite3
-                        conn = sqlite3.connect('shard_siem.db', timeout=1)
-                        conn.execute('SELECT 1')
-                        conn.close()
-                        db_status = 'sqlite_ok'
-                    except:
-                        db_status = 'unavailable'
-                    
-                    modules_status = {
-                        'dashboard': True,
-                        'database': db_status,
-                        'total_alerts': self.dashboard_stats.get('total_alerts', 0),
-                        'uptime_seconds': time.time() - getattr(self, '_start_time', time.time())
-                    }
-                    modules_status = {
-                        'dashboard': True,
-                        'total_alerts': self.dashboard_stats.get('total_alerts', 0),
-                        'uptime_seconds': time.time() - getattr(self, '_start_time', time.time())
-                    }
-                
-                import psutil
-                health = {
-                    'status': 'healthy',
-                    'version': '5.1.0',
-                    'timestamp': time.time(),
-                    'modules': modules_status,
-                    'system': {
-                        'cpu_percent': psutil.cpu_percent(interval=0.1),
-                        'memory_percent': psutil.virtual_memory().percent,
-                        'disk_percent': psutil.disk_usage('/').percent
-                    }
-                }
-                self.wfile.write(json.dumps(health).encode('utf-8'))
-
-            else:
-                self.send_response(404)
-                self.end_headers()
-
-        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
-            pass
-        except Exception as e:
-            if self.dashboard_logger:
-                self.dashboard_logger.debug(f"Ошибка в do_POST: {type(e).__name__}")
-            try:
-                self.send_response(500)
-                self.end_headers()
-                self.wfile.write(b'Internal Server Error')
-            except:
-                pass
-
-    def do_OPTIONS(self):
-        """Обработка OPTIONS запросов (для CORS)"""
-        try:
-            self.send_response(200)
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-            self.send_header('Access-Control-Allow-Headers', 'Authorization, Content-Type')
-            self.end_headers()
-        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
-            pass
-        except Exception:
-            pass
-
-    def _get_html(self):
-        return '''<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="30">
-    <title>SHARD Enterprise SIEM</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #fff;
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .container { max-width: 1400px; margin: 0 auto; }
-        h1 {
-            font-size: 2.5em;
-            margin-bottom: 20px;
-            text-shadow: 0 0 20px rgba(0,255,255,0.5);
-            border-bottom: 2px solid #00ffff;
-            padding-bottom: 10px;
-        }
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        .stat-card {
-            background: rgba(255,255,255,0.1);
-            border-radius: 15px;
-            padding: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.2);
-            transition: transform 0.3s;
-        }
-        .stat-card:hover { transform: translateY(-5px); }
-        .stat-value {
-            font-size: 3em;
-            font-weight: bold;
-            color: #00ffff;
-        }
-        .stat-label {
-            font-size: 0.9em;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            opacity: 0.8;
-        }
-        .panel {
-            background: rgba(255,255,255,0.05);
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        .panel h2 {
-            margin-bottom: 15px;
-            color: #00ffff;
-            font-size: 1.3em;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            padding: 10px;
-            text-align: left;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-        th { color: #00ffff; font-weight: 500; }
-        .alert-critical { color: #ff4444; }
-        .alert-high { color: #ff8800; }
-        .alert-medium { color: #ffcc00; }
-        .alert-low { color: #00ff00; }
-        .two-columns {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-        .refresh-info {
-            text-align: right;
-            opacity: 0.6;
-            font-size: 0.8em;
-            margin-top: 20px;
-        }
-        .logout-btn {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            color: #fff;
-            padding: 8px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-        .logout-btn:hover {
-            background: rgba(255,68,68,0.3);
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <button class="logout-btn" onclick="logout()">🚪 Выход</button>
-        <h1>🛡️ SHARD Enterprise SIEM</h1>
-
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-value" id="total-packets">0</div>
-                <div class="stat-label">Пакетов обработано</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="total-alerts">0</div>
-                <div class="stat-label">Алертов</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="blocked-ips">0</div>
-                <div class="stat-label">Заблокировано IP</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="active-threats">0</div>
-                <div class="stat-label">Активных угроз</div>
-            </div>
-        </div>
-
-        <div class="panel">
-            <h2>🚨 Последние алерты</h2>
-            <table id="alerts-table">
-                <thead>
-                    <tr>
-                        <th>Время</th>
-                        <th>Тип атаки</th>
-                        <th>Источник</th>
-                        <th>Цель</th>
-                        <th>Score</th>
-                        <th>Действие</th>
-                    </tr>
-                </thead>
-                <tbody id="alerts-body"></tbody>
-            </table>
-        </div>
-
-        <div class="two-columns">
-            <div class="panel">
-                <h2>👾 Топ атакующих</h2>
-                <table id="attackers-table">
-                    <thead><tr><th>IP</th><th>Количество</th></tr></thead>
-                    <tbody id="attackers-body"></tbody>
-                </table>
-            </div>
-            <div class="panel">
-                <h2>🎯 Топ целей</h2>
-                <table id="targets-table">
-                    <thead><tr><th>IP</th><th>Количество</th></tr></thead>
-                    <tbody id="targets-body"></tbody>
-                </table>
-            </div>
-        </div>
-
-        <div class="panel">
-            <h2>📊 Типы атак</h2>
-            <table id="types-table">
-                <thead><tr><th>Тип</th><th>Количество</th></tr></thead>
-                <tbody id="types-body"></tbody>
-            </table>
-        </div>
-
-        <div class="refresh-info">
-            Автообновление каждые 30 секунд | SHARD Enterprise v4.1.0
-        </div>
-    </div>
-
-    <script>
-        async function fetchStats() {
-            try {
-                const response = await fetch('/api/stats');
-                if (response.status === 401) {
-                    window.location.reload();
-                    return;
-                }
-                const data = await response.json();
-
-                document.getElementById('total-packets').textContent = data.total_packets.toLocaleString();
-                document.getElementById('total-alerts').textContent = data.total_alerts.toLocaleString();
-                document.getElementById('blocked-ips').textContent = data.blocked_ips.toLocaleString();
-                document.getElementById('active-threats').textContent = data.active_threats.toLocaleString();
-
-                const alertsBody = document.getElementById('alerts-body');
-                alertsBody.innerHTML = '';
-                data.recent_alerts.forEach(alert => {
-                    const row = alertsBody.insertRow();
-                    const time = new Date(alert.timestamp * 1000).toLocaleTimeString();
-                    row.insertCell(0).textContent = time;
-                    row.insertCell(1).textContent = alert.attack_type;
-                    row.insertCell(2).textContent = alert.src_ip;
-                    row.insertCell(3).textContent = alert.dst_ip;
-
-                    const scoreCell = row.insertCell(4);
-                    scoreCell.textContent = alert.score.toFixed(3);
-                    if (alert.score > 0.7) scoreCell.className = 'alert-critical';
-                    else if (alert.score > 0.5) scoreCell.className = 'alert-high';
-                    else if (alert.score > 0.3) scoreCell.className = 'alert-medium';
-                    else scoreCell.className = 'alert-low';
-
-                    const actionCell = row.insertCell(5);
-                    const blockBtn = document.createElement('button');
-                    blockBtn.textContent = '🚫';
-                    blockBtn.title = 'Заблокировать IP';
-                    blockBtn.style.background = 'none';
-                    blockBtn.style.border = 'none';
-                    blockBtn.style.cursor = 'pointer';
-                    blockBtn.style.fontSize = '1.2em';
-                    blockBtn.onclick = () => blockIP(alert.src_ip);
-                    actionCell.appendChild(blockBtn);
-                });
-
-                const attackersBody = document.getElementById('attackers-body');
-                attackersBody.innerHTML = '';
-                Object.entries(data.top_attackers).forEach(([ip, count]) => {
-                    const row = attackersBody.insertRow();
-                    row.insertCell(0).textContent = ip;
-                    row.insertCell(1).textContent = count;
-                });
-
-                const targetsBody = document.getElementById('targets-body');
-                targetsBody.innerHTML = '';
-                Object.entries(data.top_targets).forEach(([ip, count]) => {
-                    const row = targetsBody.insertRow();
-                    row.insertCell(0).textContent = ip;
-                    row.insertCell(1).textContent = count;
-                });
-
-                const typesBody = document.getElementById('types-body');
-                typesBody.innerHTML = '';
-                Object.entries(data.attack_types).sort((a,b) => b[1] - a[1]).forEach(([type, count]) => {
-                    const row = typesBody.insertRow();
-                    row.insertCell(0).textContent = type;
-                    row.insertCell(1).textContent = count;
-                });
-
-            } catch (e) {
-                console.error('Error fetching stats:', e);
-            }
-        }
-
-        async function blockIP(ip) {
-            if (!confirm(`Заблокировать IP ${ip}?`)) return;
-
-            try {
-                const response = await fetch('/api/block', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ip: ip})
-                });
-                const data = await response.json();
-                if (data.status === 'ok') {
-                    alert(`IP ${ip} заблокирован`);
-                    fetchStats();
-                } else {
-                    alert(`Ошибка: ${data.error}`);
-                }
-            } catch (e) {
-                alert('Ошибка соединения');
-            }
-        }
-
-        async function logout() {
-            try {
-                await fetch('/api/logout', {method: 'POST'});
-            } catch (e) {}
-            if (window.location.href.indexOf('@') === -1) {
-                window.location.href = window.location.protocol + '//logout@' + window.location.host;
-            }
-            setTimeout(() => window.location.reload(), 100);
-        }
-
-        fetchStats();
-        setInterval(fetchStats, 30000);
-    </script>
-</body>
-</html>'''
-
-
-# ============================================================
-# WEB DASHBOARD (исправлен - пункты 24, 29, 30, 44, 77)
-# ============================================================
-
-class WebDashboard(BaseModule):
-    """Веб-дашборд для мониторинга (исправлен - аутентификация, валидация, нет утечек)"""
-
-    def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
-        super().__init__("Dashboard", config, event_bus, logger)
-
-        self.port = config.get('dashboard.port', 8080)
-        self.enabled = config.get('dashboard.enabled', True)
-        self.httpd = None
-
-        # Аутентификация
-        self.auth_enabled = config.get('dashboard.auth.enabled', True)
-        self.username = config.get('dashboard.auth.username', 'admin')
-        self.password = config.get('dashboard.auth.password', self._generate_default_password())
-        self.api_keys = config.get('dashboard.auth.api_keys', [])
-        self.roles = {
-            'admin': {'read': True, 'write': True, 'block': True, 'admin': True},
-            'analyst': {'read': True, 'write': True, 'block': False, 'admin': False},
-            'viewer': {'read': True, 'write': False, 'block': False, 'admin': False}
-        }
-        self.user_roles = config.get('dashboard.auth.user_roles', {'admin': 'admin'})
-        self.session_tokens: Dict[str, float] = {}
-        self.token_ttl = 3600
-
-        # Очередь для отложенного снижения счётчика активных угроз
-        self._decay_queue = queue.Queue()
-        self._stop_event = threading.Event()
-        self._decay_thread = None
-
-        # Данные для дашборда
-        self.stats = {
-            'total_packets': 0,
-            'total_alerts': 0,
-            'blocked_ips': 0,
-            'active_threats': 0,
-            'recent_alerts': deque(maxlen=100),
-            'top_attackers': defaultdict(int),
-            'top_targets': defaultdict(int),
-            'attack_types': defaultdict(int),
-            'last_alert_time': 0
-        }
-
-        self._lock = threading.RLock()
-
-        # Подписки на события
-        self.event_bus.subscribe('packet.processed', self.on_packet)
-        self.event_bus.subscribe('alert.detected', self.on_alert)
-        self.event_bus.subscribe('firewall.blocked', self.on_block)
-
-        # Инициализация класса обработчика (однократно)
-        self._init_handler_class()
-
-        if self.auth_enabled:
-            self.logger.info(f"🔐 Дашборд: логин '{self.username}', пароль '{self.password}'")
-
-    def _generate_default_password(self) -> str:
-        """Генерация случайного пароля если не задан"""
-        import secrets
-        return secrets.token_urlsafe(16)
-
-    def _init_handler_class(self) -> None:
-        """Инициализация обработчика (instance-level, не классовые переменные)"""
-        self._handler_instance_vars = {
-            'dashboard_stats': self.stats,
-            'dashboard_logger': self.logger,
-            'dashboard_lock': self._lock,
-            'dashboard_check_auth': self._check_auth,
-            'dashboard_auth_enabled': self.auth_enabled,
-            'dashboard_validate_ip': self._validate_ip,
-            'user_roles': getattr(self, 'user_roles', {'admin': 'admin'}),
-            'roles': getattr(self, 'roles', {'admin': {'read': True, 'write': True, 'block': True, 'admin': True}})
-        }
-        DashboardHandler.dashboard_logger = self.logger
-        DashboardHandler.dashboard_lock = self._lock
-        DashboardHandler.dashboard_check_auth = self._check_auth
-        DashboardHandler.dashboard_auth_enabled = self.auth_enabled
-        DashboardHandler.dashboard_validate_ip = self._validate_ip
-        DashboardHandler.user_roles = getattr(self, 'user_roles', {'admin': 'admin'})
-        DashboardHandler._get_username_from_auth = staticmethod(self._get_username_from_auth)
-        DashboardHandler.roles = getattr(self, 'roles', {'admin': {'read': True, 'write': True, 'block': True, 'admin': True}})
-
-    def _check_auth(self, headers: Dict) -> bool:
-        """Проверка аутентификации (защита от timing attack)"""
-        if not self.auth_enabled:
+                            
             return True
 
         auth_header = headers.get('Authorization', '')
@@ -1206,9 +630,7 @@ class WebDashboard(BaseModule):
 
     def stop(self) -> None:
         self.running = False
-        if hasattr(self, '_stop_event'):
-            self._stop_event.set()
-        pass  # _stop_event removed
+        pass  # cleanup complete
 
         if self.httpd:
             try:
@@ -1367,9 +789,7 @@ class EmailThreatAnalyzer(BaseModule):
 
     def stop(self) -> None:
         self.running = False
-        if hasattr(self, '_stop_event'):
-            self._stop_event.set()
-        pass  # _stop_event removed
+        pass  # cleanup complete
 
     def on_email(self, data: Dict) -> None:
         """Анализ email сообщения"""
@@ -1663,9 +1083,7 @@ class PrometheusMetrics(BaseModule):
 
     def stop(self) -> None:
         self.running = False
-        if hasattr(self, '_stop_event'):
-            self._stop_event.set()
-        pass  # _stop_event removed
+        pass  # cleanup complete
 
     def _on_packet(self, data: Dict) -> None:
         if self.packets_counter:
@@ -1717,9 +1135,7 @@ class TelegramNotifier(BaseModule):
 
     def stop(self) -> None:
         self.running = False
-        if hasattr(self, '_stop_event'):
-            self._stop_event.set()
-        pass  # _stop_event removed
+        pass  # cleanup complete
         if self._session:
             self._session.close()
 
@@ -1983,7 +1399,8 @@ class BaselineProfiler:
 
         # Проверка кэша с безопасным доступом
         cache_key = f"{device}_score"
-        cached = self._cached_stats.get(cache_key)  # ← ИСПОЛЬЗУЕМ .get()
+        with self._profile_lock:
+            cached = self._cached_stats.get(cache_key)  # ← ИСПОЛЬЗУЕМ .get()
 
         if cached is not None:
             last_update = self._last_cache_update.get(device, 0)
@@ -2812,9 +2229,7 @@ class JA3Fingerprinter(BaseModule):
 
     def stop(self) -> None:
         self.running = False
-        if hasattr(self, '_stop_event'):
-            self._stop_event.set()
-        pass  # _stop_event removed
+        pass  # cleanup complete
 
     def on_packet(self, data: Dict) -> None:
         """Обработка пакета"""
@@ -3027,9 +2442,7 @@ class OTIoTSecurity(BaseModule):
 
     def stop(self) -> None:
         self.running = False
-        if hasattr(self, '_stop_event'):
-            self._stop_event.set()
-        pass  # _stop_event removed
+        pass  # cleanup complete
 
     def on_packet(self, data: Dict) -> None:
         """Анализ OT/IoT трафика"""
@@ -3186,8 +2599,7 @@ class ThreatGNN:
         return self._pagerank_fallback(node_features, edge_index)
 
     def _pagerank_fallback(self, node_features: List, edge_index: List) -> Dict[str, float]:
-        """Зарезервирован для оценочного PageRank. Используется _propagate_full."""
-        """Корректный PageRank для НАПРАВЛЕННОГО графа угроз"""
+        """Зарезервирован для оценочного PageRank. Используется _propagate_full."""Корректный PageRank для НАПРАВЛЕННОГО графа угроз"""
         num_nodes = len(node_features)
         if num_nodes == 0:
             return {}
@@ -3466,6 +2878,7 @@ class SelfSupervisedEncoder:
 
     def reset_statistics(self) -> None:
         """Сброс статистики"""
+        self._recompute_statistics()
         with self._loss_lock:
             self._loss_count = 0
             self._loss_mean = 0.0
@@ -3614,8 +3027,7 @@ class ThreatGraphNetwork:
             self.risk_scores = new_scores
 
     def _pagerank_fallback(self, node_features: List, edge_index: List) -> Dict[str, float]:
-        """Зарезервирован для оценочного PageRank. Используется _propagate_full."""
-        """Корректный PageRank для НАПРАВЛЕННОГО графа угроз"""
+        """Зарезервирован для оценочного PageRank. Используется _propagate_full."""Корректный PageRank для НАПРАВЛЕННОГО графа угроз"""
         num_nodes = len(node_features)
         if num_nodes == 0:
             return {}
@@ -3800,9 +3212,7 @@ class AdvancedLearner(BaseModule):
 
     def stop(self) -> None:
         self.running = False
-        if hasattr(self, '_stop_event'):
-            self._stop_event.set()
-        pass  # _stop_event removed
+        pass  # cleanup complete
 
     def on_packet(self, data: Dict) -> None:
         """Обработка пакета (с сэмплированием для производительности)"""
@@ -3944,9 +3354,7 @@ class HoneypotService(BaseModule):
 
     def stop(self) -> None:
         self.running = False
-        if hasattr(self, '_stop_event'):
-            self._stop_event.set()
-        pass  # _stop_event removed
+        pass  # cleanup complete
         for srv in self.services:
             srv.stop()
 
@@ -4038,9 +3446,7 @@ class _HoneypotServer:
 
     def stop(self) -> None:
         self.running = False
-        if hasattr(self, '_stop_event'):
-            self._stop_event.set()
-        pass  # _stop_event removed
+        pass  # cleanup complete
         if self.socket:
             try:
                 self.socket.close()
@@ -4209,9 +3615,7 @@ class AttackSimulator(BaseModule):
 
     def stop(self) -> None:
         self.running = False
-        if hasattr(self, '_stop_event'):
-            self._stop_event.set()
-        pass  # _stop_event removed
+        pass  # cleanup complete
 
     def _loop(self) -> None:
         """Основной цикл симуляции"""
