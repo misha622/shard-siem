@@ -450,10 +450,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(b'Too Many Requests')
                 return
-                self.send_response(429)
-                self.end_headers()
-                self.wfile.write(b'Too Many Requests')
-                return
             # Проверка аутентификации
             if self.dashboard_auth_enabled and self.dashboard_check_auth and \
                     not self.dashboard_check_auth(dict(self.headers)):
@@ -612,10 +608,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(b'Too Many Requests')
                 return
-            if not self._check_rate_limit(self.client_address[0]):
-                self.send_response(429)
-                self.end_headers()
-                self.wfile.write(b'Too Many Requests')
                 return
             parsed = urllib.parse.urlparse(self.path)
             path = parsed.path
@@ -1208,7 +1200,6 @@ class WebDashboard(BaseModule):
         self.running = False
         if hasattr(self, '_stop_event'):
             self._stop_event.set()
-        pass  # _stop_event removed
 
         if self.httpd:
             try:
@@ -1369,7 +1360,6 @@ class EmailThreatAnalyzer(BaseModule):
         self.running = False
         if hasattr(self, '_stop_event'):
             self._stop_event.set()
-        pass  # _stop_event removed
 
     def on_email(self, data: Dict) -> None:
         """Анализ email сообщения"""
@@ -1665,7 +1655,6 @@ class PrometheusMetrics(BaseModule):
         self.running = False
         if hasattr(self, '_stop_event'):
             self._stop_event.set()
-        pass  # _stop_event removed
 
     def _on_packet(self, data: Dict) -> None:
         if self.packets_counter:
@@ -1719,7 +1708,6 @@ class TelegramNotifier(BaseModule):
         self.running = False
         if hasattr(self, '_stop_event'):
             self._stop_event.set()
-        pass  # _stop_event removed
         if self._session:
             self._session.close()
 
@@ -1982,8 +1970,8 @@ class BaselineProfiler:
         """Получение оценки аномальности (исправлено - безопасный кэш)"""
 
         # Проверка кэша с безопасным доступом
-        cache_key = f"{device}_score"
-        cached = self._cached_stats.get(cache_key)  # ← ИСПОЛЬЗУЕМ .get()
+        with self._profile_lock:
+            cached = self._cached_stats.get(cache_key)  # ← ИСПОЛЬЗУЕМ .get()
 
         if cached is not None:
             last_update = self._last_cache_update.get(device, 0)
@@ -2814,7 +2802,6 @@ class JA3Fingerprinter(BaseModule):
         self.running = False
         if hasattr(self, '_stop_event'):
             self._stop_event.set()
-        pass  # _stop_event removed
 
     def on_packet(self, data: Dict) -> None:
         """Обработка пакета"""
@@ -3029,7 +3016,6 @@ class OTIoTSecurity(BaseModule):
         self.running = False
         if hasattr(self, '_stop_event'):
             self._stop_event.set()
-        pass  # _stop_event removed
 
     def on_packet(self, data: Dict) -> None:
         """Анализ OT/IoT трафика"""
@@ -3466,6 +3452,7 @@ class SelfSupervisedEncoder:
 
     def reset_statistics(self) -> None:
         """Сброс статистики"""
+        self._recompute_statistics()
         with self._loss_lock:
             self._loss_count = 0
             self._loss_mean = 0.0
@@ -3802,7 +3789,6 @@ class AdvancedLearner(BaseModule):
         self.running = False
         if hasattr(self, '_stop_event'):
             self._stop_event.set()
-        pass  # _stop_event removed
 
     def on_packet(self, data: Dict) -> None:
         """Обработка пакета (с сэмплированием для производительности)"""
@@ -3946,7 +3932,6 @@ class HoneypotService(BaseModule):
         self.running = False
         if hasattr(self, '_stop_event'):
             self._stop_event.set()
-        pass  # _stop_event removed
         for srv in self.services:
             srv.stop()
 
@@ -4040,7 +4025,6 @@ class _HoneypotServer:
         self.running = False
         if hasattr(self, '_stop_event'):
             self._stop_event.set()
-        pass  # _stop_event removed
         if self.socket:
             try:
                 self.socket.close()
@@ -4211,7 +4195,6 @@ class AttackSimulator(BaseModule):
         self.running = False
         if hasattr(self, '_stop_event'):
             self._stop_event.set()
-        pass  # _stop_event removed
 
     def _loop(self) -> None:
         """Основной цикл симуляции"""
