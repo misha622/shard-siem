@@ -818,7 +818,6 @@ class SecureFederatedClient:
 
         _data_backup = list(self.local_data)
         _labels_backup = list(self.local_labels)
-        _labels_backup = list(self.local_labels)
         self.local_data.clear()
         self.local_labels.clear()
         # Данные сохранены в _data_backup, очищаем после успешного обучения
