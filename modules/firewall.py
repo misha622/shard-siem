@@ -41,7 +41,7 @@ class SmartFirewall(BaseModule):
         self.event_bus.subscribe('alert.detected', self.on_alert)
         self.event_bus.subscribe('exfiltration.detected', self.on_exfiltration)
 
-    def start(self) -> None:
+    def _load_counters(self) -> None:        """Restore block counters after restart"""        try:            path = Path('data/block_counters.json')            if path.exists():                import json                with open(path, 'r') as f:                    data = json.load(f)                    if time.time() - data.get('timestamp', 0) < 86400:                        self.action_levels.update(data.get('action_levels', {}))        except:            pass        def _save_counters(self) -> None:        """Save block counters between restarts"""        try:            import json            Path('data').mkdir(exist_ok=True)            with open('data/block_counters.json', 'w') as f:                json.dump({                    'action_levels': dict(self.action_levels),                    'blocked_ips': {k: v for k, v in self.blocked_ips.items()},                    'timestamp': time.time()                }, f)        except:            pass    def start(self) -> None:
         self.running = True
         self._load_counters()
         threading.Thread(target=self._cleanup_loop, daemon=True).start()
