@@ -897,7 +897,7 @@ class SecureFederatedClient:
         }
 
     def _serialize_weights(self, weights: List[np.ndarray]) -> str:
-        return base64.b64encode(pickle.dumps([w.tolist() for w in weights])).decode()
+        return base64.b64encode(json.dumps([w.tolist() for w in weights])).decode()
 
     def _deserialize_weights(self, data: str) -> List[np.ndarray]:
         return [np.array(w) for w in pickle.loads(base64.b64decode(data))]
@@ -1101,7 +1101,7 @@ class SecureFederatedServer:
         """Сериализация весов для передачи клиентам"""
         if self.global_weights:
             return base64.b64encode(
-                pickle.dumps([w.tolist() for w in self.global_weights])
+                json.dumps([w.tolist() for w in self.global_weights])
             ).decode()
         return ''
 

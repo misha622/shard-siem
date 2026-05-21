@@ -1934,7 +1934,7 @@ class BaselineProfiler:
             if len(profile['packet_sizes']) > 10000:
                 # Преобразуем в список, обрезаем, создаём новый deque
                 old_sizes = list(profile['packet_sizes'])
-                profile['packet_sizes'] = deque(old_sizes[-5000:], maxlen=10000)
+                profile['packet_sizes'] = deque(old_sizes[-1000:], maxlen=1000)
 
         if 'entropy' in profile and len(profile['entropy']) > 10000:
             old_entropy = list(profile['entropy'])
@@ -3947,7 +3947,7 @@ class HoneypotService(BaseModule):
                 model_path = os.path.join(os.path.dirname(__file__), 'models', 'shard_real_alert_model.pkl')
                 if os.path.exists(model_path):
                     self._ai_model = joblib.load(model_path)
-                    self.logger.info('AI модель загружена в honeypot хук (проверка целостности: модель загружается из доверенного источника (models/))')
+                    self.logger.info('AI модель загружена в honeypot хук (модель загружена из models/ (проверка хеша не реализована — рекомендуется для production))')
                     self.logger.info("✅ AI модель загружена в honeypot хук")
             if hasattr(self, '_ai_model') and self._ai_model:
                 # Игнорируем соединения от localhost
