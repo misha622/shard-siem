@@ -608,7 +608,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(b'Too Many Requests')
                 return
-                return
             parsed = urllib.parse.urlparse(self.path)
             path = parsed.path
             if self.dashboard_auth_enabled and self.dashboard_check_auth and \

@@ -186,10 +186,7 @@ class SIEMStorage(BaseModule):
                     ) PARTITION BY RANGE (date)
                 """)
                 cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS alerts_current_month 
-                    PARTITION OF alerts 
-                    FOR VALUES FROM (DATE_TRUNC('month', CURRENT_DATE)) 
-                    TO (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '2 months')
+                    -- alerts_current_month removed (partition_0 covers this range)
                 """)
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_alerts_ts ON alerts(timestamp)')
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_alerts_ip ON alerts(src_ip)')
@@ -493,7 +490,7 @@ class SIEMStorage(BaseModule):
                 '''SELECT DISTINCT src_ip FROM alerts 
                    WHERE explanation LIKE ? AND timestamp > ? 
                    LIMIT 100''',
-                (f'%{username.replace("%", "\\%").replace("_", "\\_")}%', cutoff)
+                (f'%{username.replace("%", "\\%").replace("_", "\\_")}%' ESCAPE '\', cutoff)
             )
 
             ips = [row[0] for row in cursor.fetchall() if row[0]]

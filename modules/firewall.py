@@ -319,8 +319,6 @@ class SmartFirewall(BaseModule):
                     self.logger.warning(f"🚫 Заблокирован IP {ip} на {duration} сек (iptables)")
                     # Аудит
                     # Аудит
-                    with open('data/audit.log', 'a') as audit:
-                        audit.write(f"{time.time()} | BLOCK | {ip} | {duration}s | iptables\n")
                     return True
 
         except Exception as e:
