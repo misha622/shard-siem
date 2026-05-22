@@ -340,6 +340,12 @@ class SIEMStorage(BaseModule):
                 pg_conn.commit()
                 pg_success = True
                 self.logger.debug(f"PG: {len(pg_data)} alerts")
+            finally:
+                if pg_conn:
+                    try:
+                        self.pg_pool.putconn(pg_conn)
+                    except:
+                        pass
             except Exception as e:
                 self.logger.warning(f"PG unavailable ({type(e).__name__}), fallback to SQLite...")
 
