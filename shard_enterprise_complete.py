@@ -2035,9 +2035,7 @@ class BaselineProfiler:
                     # Кэшируем Welford статистику
                     # Welford кэш (потокобезопасно — записываем только при первом вычислении)
                     # Кэшируем Welford статистику
-                    import copy
-                        cached_copy = dict(cached)
-                        cached_copy['_welford_sizes'] = {
+                    cached['_welford_sizes'] = {
                         'count': len(packet_sizes),
                         'mean': mean,
                         'm2': variance * len(packet_sizes) if len(packet_sizes) > 1 else 0
