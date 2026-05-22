@@ -2513,6 +2513,10 @@ class LateralMovementDetector:
         self.credential_usage: Dict[str, Dict[str, Set[str]]] = defaultdict(lambda: defaultdict(set))
         self._lock = threading.RLock()
 
+    def is_local(self, ip: str) -> bool:
+        """Проверка что IP в локальной сети"""
+        return any(ip.startswith(net) for net in self.local_networks)
+
     def add_connection(self, src_ip: str, dst_ip: str, dst_port: int,
                        username: str = None, service: str = None) -> Optional[Dict]:
         """Добавление внутреннего соединения (оптимизированное)"""

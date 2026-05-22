@@ -289,3 +289,115 @@ assert 'total_investigations' in stats
 print("   OK")
 
 print("\nAll 35 tests passed!")
+
+print("\n=== CORE METHODS TESTS ===")
+
+# Test 36: BaselineProfiler
+print("Test 36: BaselineProfiler...")
+from shard_enterprise_complete import BaselineProfiler
+bp = BaselineProfiler()
+bp.update('test_device', 100, 80, 0.5, '8.8.8.8', '192.168.1.1', 6, 0)
+score = bp.get_score('test_device', 100, 80, 0.5, '8.8.8.8')
+assert isinstance(score, float)
+assert 0 <= score <= 1
+stats = bp.get_summary_stats()
+assert 'total_devices' in stats
+print("   OK")
+
+# Test 37: AttackChainTracker
+print("Test 37: AttackChainTracker...")
+from shard_enterprise_complete import AttackChainTracker
+act = AttackChainTracker()
+result = act.add_event('10.0.0.1', 'Port Scan', 0.8, 22)
+assert 'stage' in result
+result2 = act.add_event('10.0.0.1', 'Brute Force', 0.9, 22)
+assert result2['severity'] in ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
+chain = act.get_chain('10.0.0.1')
+assert chain is not None
+stats = act.get_stats()
+assert 'active_chains' in stats
+print("   OK")
+
+# Test 38: LateralMovementDetector
+print("Test 38: LateralMovementDetector...")
+from shard_enterprise_complete import LateralMovementDetector
+lmd = LateralMovementDetector(['192.168.', '10.', '172.16.', '127.'])
+result = lmd.add_connection('192.168.1.1', '192.168.1.2', 445, 'admin', 'SMB')
+assert result is None or 'score' in result
+print("   OK")
+
+# Test 39: AlertExplainer
+print("Test 39: AlertExplainer...")
+from shard_enterprise_complete import AlertExplainer
+ae = AlertExplainer()
+alert = {'attack_type': 'Brute Force', 'score': 0.85, 'src_ip': '10.0.0.1', 'dst_port': 22}
+explanation = ae.explain(alert)
+assert 'Brute Force' in explanation
+rec = ae._get_recommendation('Brute Force', 0.85)
+assert 'БЛОКИРОВК' in rec.upper() or 'блокировк' in rec.lower()
+print("   OK")
+
+# Test 40: SelfSupervisedEncoder
+print("Test 40: SelfSupervisedEncoder...")
+from shard_enterprise_complete import SelfSupervisedEncoder
+encoder = SelfSupervisedEncoder(input_dim=156)
+if encoder.use_torch:
+    stats = encoder.get_statistics()
+    assert 'samples_count' in stats
+    encoder.reset_statistics()
+    assert encoder._loss_count == 0
+print("   OK")
+
+# Test 41: ThreatGNN
+print("Test 41: ThreatGNN...")
+from shard_enterprise_complete import ThreatGNN
+gnn = ThreatGNN()
+features = [[0.1]*8 for _ in range(5)]
+edges = [[0,1],[1,2],[2,3],[3,4]]
+risk = gnn.predict_risk(features, edges)
+assert isinstance(risk, dict)
+print("   OK")
+
+# Test 42: ThreatGraphNetwork
+print("Test 42: ThreatGraphNetwork...")
+from shard_enterprise_complete import ThreatGraphNetwork
+tgn = ThreatGraphNetwork()
+tgn.add_edge('192.168.1.1', '192.168.1.2', 1.0)
+tgn.mark_attack('192.168.1.1', 0.9, 'Test')
+tgn.propagate_risk()
+risk = tgn.risk_scores.get('192.168.1.1', 0)
+assert risk > 0
+stats = tgn.get_stats()
+assert stats['total_nodes'] > 0
+print("   OK")
+
+# Test 43: EmailThreatAnalyzer
+print("Test 43: EmailThreatAnalyzer...")
+from shard_enterprise_complete import EmailThreatAnalyzer
+eta = EmailThreatAnalyzer(config, EventBus(), LoggingService(config, EventBus()))
+result = eta.analyze_email('test@evil.com', 'URGENT: Verify your account', 
+    'Click here immediately to verify your account or it will be suspended',
+    ['invoice.exe'], {})
+assert result['is_suspicious'] == True
+assert result['score'] > 0.3
+print(f"   OK (score={result['score']:.2f})")
+
+# Test 44: JA3Fingerprinter
+print("Test 44: JA3Fingerprinter...")
+from shard_enterprise_complete import JA3Fingerprinter
+ja3 = JA3Fingerprinter(config, EventBus(), LoggingService(config, EventBus()))
+result = ja3._is_malicious('6734f37431670b3ab4292b8f60f29984')
+assert result[0] == True
+ja3.add_malicious_ja3('test_hash_123', 'TestMalware', 'HIGH')
+assert 'test_hash_123' in ja3.MALICIOUS_JA3
+print("   OK")
+
+# Test 45: OTIoTSecurity
+print("Test 45: OT/IoT Security...")
+from shard_enterprise_complete import OTIoTSecurity
+ot = OTIoTSecurity(config, EventBus(), LoggingService(config, EventBus()))
+stats = ot.get_stats()
+assert 'total_devices' in stats
+print("   OK")
+
+print("\nAll 45 tests passed!")
