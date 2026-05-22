@@ -593,6 +593,41 @@ class CircuitBreaker:
             }
 
 
+
+
+class ModelCompressor:
+    """Квантование и прунинг моделей для уменьшения размера обновлений"""
+    
+    @staticmethod
+    def quantize_weights(weights: np.ndarray, bits: int = 8) -> tuple:
+        """Квантование весов в int8 для сжатия"""
+        w_min, w_max = weights.min(), weights.max()
+        scale = (w_max - w_min) / (2**bits - 1)
+        zero_point = -w_min / scale if scale > 0 else 0
+        quantized = np.clip(np.round(weights / scale + zero_point), 0, 2**bits - 1).astype(np.uint8)
+        return quantized, scale, zero_point
+    
+    @staticmethod
+    def dequantize_weights(quantized: np.ndarray, scale: float, zero_point: float) -> np.ndarray:
+        """Восстановление весов из int8"""
+        return (quantized.astype(np.float32) - zero_point) * scale
+    
+    @staticmethod
+    def prune_weights(weights: np.ndarray, sparsity: float = 0.3) -> np.ndarray:
+        """Прунинг (обнуление) наименьших весов"""
+        if sparsity <= 0:
+            return weights
+        flat = np.abs(weights.flatten())
+        threshold = np.percentile(flat, sparsity * 100)
+        pruned = np.where(np.abs(weights) < threshold, 0, weights)
+        return pruned
+    
+    @staticmethod
+    def compression_ratio(original: np.ndarray, quantized: np.ndarray) -> float:
+        """Коэффициент сжатия"""
+        return original.nbytes / max(quantized.nbytes, 1)
+
+
 class SecureFederatedClient:
     """
     Production Federated Learning Client с:
