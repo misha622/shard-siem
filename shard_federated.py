@@ -897,10 +897,10 @@ class SecureFederatedClient:
         }
 
     def _serialize_weights(self, weights: List[np.ndarray]) -> str:
-        return base64.b64encode(json.dumps([w.tolist() for w in weights])).decode()
+        return base64.b64encode(json.dumps([w.tolist() for w in weights]).encode()).decode()
 
     def _deserialize_weights(self, data: str) -> List[np.ndarray]:
-        return [np.array(w) for w in pickle.loads(base64.b64decode(data))]
+        return [np.array(w) for w in np.array(json.loads(base64.b64decode(data).decode()))]
 
 
 class FederatedMetrics:

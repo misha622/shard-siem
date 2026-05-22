@@ -1968,6 +1968,7 @@ class BaselineProfiler:
                   dst_ip: str = '', protocol: int = 0, tcp_flags: int = 0) -> float:
         """Получение оценки аномальности (исправлено - безопасный кэш)"""
 
+        cache_key = f"{device}_score"
         # Проверка кэша с безопасным доступом
         with self._profile_lock:
             cached = self._cached_stats.get(cache_key)  # ← ИСПОЛЬЗУЕМ .get()
@@ -4456,6 +4457,10 @@ class ShardEnterprise:
     def _setup_signal_handlers(self) -> None:
         """Настройка обработчиков сигналов"""
         import signal
+        
+        if hasattr(self, '_signals_setup') and self._signals_setup:
+            return
+        self._signals_setup = True
 
         def signal_handler(sig, frame):
             self.logger.info("\n🛑 Получен сигнал остановки...")
