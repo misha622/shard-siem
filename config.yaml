@@ -181,7 +181,7 @@ storage:
   flush_interval: 5
   max_features_json_size: 10240
   sqlite:
-    path: shard_siem.db
+    path: ':memory:'
   timescaledb:
     dsn: ${SHARD_PG_DSN:-postgresql://shard:shard@localhost:5432/shard_siem}
     enabled: false
