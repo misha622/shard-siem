@@ -1110,6 +1110,20 @@ class SecureFederatedServer:
         if self.current_round % self.config.model_checkpoint_interval == 0:
             self._save_checkpoint()
 
+
+    def _load_checkpoint(self) -> bool:
+        """Restore global model from checkpoint"""
+        try:
+            checkpoint_path = Path(self.config.checkpoint_dir) / 'global_model.pt'
+            if checkpoint_path.exists():
+                checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=True)
+                self.global_model.load_state_dict(checkpoint['model_state_dict'])
+                self.current_round = checkpoint.get('round', 0)
+                return True
+        except Exception as e:
+            self.logger.warning(f"Failed to load checkpoint: {e}")
+        return False
+
     def _save_checkpoint(self):
         """Сохранение чекпоинта"""
         checkpoint_path = Path(self.config.checkpoint_dir) / f'round_{self.current_round}'
