@@ -368,7 +368,7 @@ class AdaptiveBaselineProfiler:
                 key_parts.append(f"{k}={quantized}")
 
         key_string = '|'.join(key_parts)
-        return hashlib.md5(key_string.encode()).hexdigest()
+        return hashlib.md5(key_string.encode()).hexdigest()  # nosec B324 - not used for security
 
     def get_profile(self, device: str) -> Optional[Dict]:
         with self._profile_lock:
@@ -1008,7 +1008,7 @@ class DynamicEnsemble:
     def _make_cache_key(self, features: np.ndarray) -> str:
         features_flat = features.flatten()
         quantized = np.round(features_flat[:20], 3)
-        return hashlib.md5(quantized.tobytes()).hexdigest()
+        return hashlib.md5(quantized.tobytes()).hexdigest()  # nosec B324 - not used for security
 
     def _calibrate_confidence(self, score: float, raw_confidence: float) -> float:
         temperature = 1.5

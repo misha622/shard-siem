@@ -910,7 +910,7 @@ class SHARDSuperAIIntegration:
             str(data.get('attack_type', ''))
         ]
         key_string = '|'.join(key_parts)
-        return hashlib.md5(key_string.encode()).hexdigest()
+        return hashlib.md5(key_string.encode()).hexdigest()  # nosec B324 - not used for security
 
     def _prepare_modalities(self, data: Dict) -> Dict[str, tf.Tensor]:
         modalities = {}

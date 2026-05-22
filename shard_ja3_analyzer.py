@@ -112,7 +112,7 @@ class JA3Fingerprinter:
             ja3_string += "-".join(elliptic_curves) + ","
             ja3_string += "-".join(ec_point_formats)
 
-            ja3_hash = hashlib.md5(ja3_string.encode()).hexdigest()
+            ja3_hash = hashlib.md5(ja3_string.encode()).hexdigest()  # nosec B324 - not used for security
 
             return ja3_hash
 

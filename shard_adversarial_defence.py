@@ -324,7 +324,7 @@ class AdversarialDetector:
                 'details': {
                     'methods': {k: {k2: v2 for k2, v2 in v.items() if k2 != 'anomalous_features'}
                                 for k, v in details.get('methods', {}).items()},
-                    'feature_hash': hashlib.md5(features.tobytes()).hexdigest()[:8]
+                    'feature_hash': hashlib.md5(features.tobytes()).hexdigest()[:8]  # nosec B324 - not used for security
                 }
             }
 
@@ -335,7 +335,7 @@ class AdversarialDetector:
 
     def _auto_block(self, features: np.ndarray, score: float):
         if self.firewall and score > 0.8:
-            feature_hash = hashlib.md5(features.tobytes()).hexdigest()[:12]
+            feature_hash = hashlib.md5(features.tobytes()).hexdigest()[:12]  # nosec B324 - not used for security
 
             logger.critical(f"🚫 Auto-blocking adversarial attack pattern: {feature_hash}")
 

@@ -2932,7 +2932,7 @@ class JA3Fingerprinter(BaseModule):
             ]
 
             ja3_string = ','.join(ja3_parts)
-            return hashlib.md5(ja3_string.encode()).hexdigest()
+            return hashlib.md5(ja3_string.encode()).hexdigest()  # nosec B324 - not used for security
 
         except Exception as e:
             return None

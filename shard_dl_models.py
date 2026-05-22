@@ -749,7 +749,7 @@ class DeepLearningEnsemble:
         quantized_feat = np.round(features[:10], 3)
 
         combined = np.concatenate([quantized_seq, quantized_feat])
-        return hashlib.md5(combined.tobytes()).hexdigest()
+        return hashlib.md5(combined.tobytes()).hexdigest()  # nosec B324 - not used for security
 
     def train_lstm(self, normal_sequences: np.ndarray, epochs: int = None, verbose: int = 1) -> Dict:
         if 'lstm' not in self.models:

@@ -218,8 +218,8 @@ class EncryptedTrafficAnalyzer(BaseModule):
         try:
             ja3_str = f"{payload[1]:02x}{payload[2]:02x}"
             if len(payload) > 50:
-                ja3_str += hashlib.md5(payload[50:100]).hexdigest()[:16]
-            return hashlib.md5(ja3_str.encode()).hexdigest()[:32]
+                ja3_str += hashlib.md5(payload[50:100]).hexdigest()[:16]  # nosec B324 - not used for security
+            return hashlib.md5(ja3_str.encode()).hexdigest()[:32]  # nosec B324 - not used for security
         except:
             return "unknown"
 
@@ -228,8 +228,8 @@ class EncryptedTrafficAnalyzer(BaseModule):
         try:
             ja3s_str = f"{payload[1]:02x}{payload[2]:02x}"
             if len(payload) > 40:
-                ja3s_str += hashlib.md5(payload[40:80]).hexdigest()[:16]
-            return hashlib.md5(ja3s_str.encode()).hexdigest()[:32]
+                ja3s_str += hashlib.md5(payload[40:80]).hexdigest()[:16]  # nosec B324 - not used for security
+            return hashlib.md5(ja3s_str.encode()).hexdigest()[:32]  # nosec B324 - not used for security
         except:
             return "unknown"
 

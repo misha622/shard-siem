@@ -711,7 +711,7 @@ class ForensicsEngine:
             if size_bytes < self.config.max_file_size_mb * 1024 * 1024:
                 with open(file_path, 'rb') as f:
                     data = f.read()
-                    hash_md5 = hashlib.md5(data).hexdigest()
+                    hash_md5 = hashlib.md5(data).hexdigest()  # nosec B324 - not used for security
                     hash_sha256 = hashlib.sha256(data).hexdigest()
         except:
             pass

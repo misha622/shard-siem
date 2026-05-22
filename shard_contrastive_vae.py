@@ -910,7 +910,7 @@ class ContrastiveVAEEngine:
     def _make_cache_key(self, features: np.ndarray) -> str:
         features_flat = features.flatten()
         quantized = np.round(features_flat[:30], 3)
-        return hashlib.md5(quantized.tobytes()).hexdigest()
+        return hashlib.md5(quantized.tobytes()).hexdigest()  # nosec B324 - not used for security
 
     def _get_severity(self, score: float) -> str:
         if score > 0.8:

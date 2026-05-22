@@ -459,7 +459,7 @@ class LLMAttackMLDetector:
         """
         self.stats['total_predictions'] += 1
 
-        cache_key = hashlib.md5(prompt.encode()).hexdigest()
+        cache_key = hashlib.md5(prompt.encode()).hexdigest()  # nosec B324 - not used for security
         with self._lock:
             if cache_key in self.cache:
                 cached_time, result = self.cache[cache_key]
@@ -831,7 +831,7 @@ class LLMGuardian:
             return
 
         timestamp = int(time.time())
-        prompt_hash = hashlib.md5(prompt.encode()).hexdigest()[:8]
+        prompt_hash = hashlib.md5(prompt.encode()).hexdigest()[:8]  # nosec B324 - not used for security
 
         log_entry = {
             'timestamp': timestamp,

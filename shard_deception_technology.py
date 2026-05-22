@@ -359,7 +359,7 @@ class HoneyToken(BaseHoneypot):
         self.path = Path(path)
         self.content = content
         self.callback = callback
-        self.token_id = hashlib.md5(f"{name}{path}".encode()).hexdigest()[:8]
+        self.token_id = hashlib.md5(f"{name}{path}".encode()).hexdigest()[:8]  # nosec B324 - not used for security
         self.watcher_thread: Optional[threading.Thread] = None
         self.last_modified: Optional[float] = None
         self._create_token()
@@ -422,7 +422,7 @@ class CanaryToken(BaseHoneypot):
         self.token_type = token_type
         self.value = value
         self.callback = callback
-        self.token_id = hashlib.md5(value.encode()).hexdigest()[:12]
+        self.token_id = hashlib.md5(value.encode()).hexdigest()[:12]  # nosec B324 - not used for security
 
     def check_trigger(self, data: Dict) -> bool:
         triggered = False
