@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """SHARD MachineLearningEngine Module"""
 from core.base import BaseModule, ConfigManager, EventBus, LoggingService
-import os, time, threading, json, joblib, numpy as np
+import os, time, threading, json, joblib, numpy as np, sqlite3
 from typing import Dict, List, Optional, Any, Tuple
 from collections import defaultdict, deque
 from pathlib import Path
@@ -395,6 +395,7 @@ class MachineLearningEngine(BaseModule):
 
     def _load_history_async(self) -> None:
         """Асинхронная загрузка исторических данных (через общий пул)"""
+        conn = None
         try:
             # Пробуем через общий SIEM пул
             if hasattr(self, 'siem_storage') and self.siem_storage:
@@ -414,6 +415,8 @@ class MachineLearningEngine(BaseModule):
             )
             rows = cursor.fetchall()
             if own_conn:
+            finally:
+            if conn and own_conn:
                 conn.close()
             elif hasattr(self, 'siem_storage') and self.siem_storage:
                 self.siem_storage._return_sqlite_connection(conn)

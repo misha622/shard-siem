@@ -3959,7 +3959,8 @@ class HoneypotService(BaseModule):
                 if src_ip == "127.0.0.1" or src_ip == "::1":
                     return
                 alert_msg = f"WARNING:SHARD.SHARD:🍯 Honeypot triggered by {src_ip}"
-                pred = self._ai_model.predict([alert_msg])[0]
+                # AI model prediction disabled — requires feature vector, not string
+                pred = 'unknown'  # self._ai_model.predict([alert_msg])[0]
                 self.logger.info(f"[AI DETECTION] {pred.upper()} from {src_ip}:{port}")
                 self.logger.warning(f"🎯 AI Model detected: {pred} from {src_ip}")
         except Exception as e:
@@ -4462,9 +4463,9 @@ class ShardEnterprise:
         """Настройка обработчиков сигналов"""
         import signal
         
-        if hasattr(self, '_signals_setup') and self._signals_setup:
+        if hasattr(ShardEnterprise, '_signals_setup') and ShardEnterprise._signals_setup:
             return
-        self._signals_setup = True
+        ShardEnterprise._signals_setup = True
 
         def signal_handler(sig, frame):
             self.logger.info("\n🛑 Получен сигнал остановки...")

@@ -853,8 +853,6 @@ class SecureFederatedClient:
 
         _data_backup = list(self.local_data)
         _labels_backup = list(self.local_labels)
-        self.local_data.clear()
-        self.local_labels.clear()
         # Данные сохранены в _data_backup, очищаем после успешного обучения
         # self.local_data.clear() и self.local_labels.clear() вызываются после обучения
 
@@ -1055,7 +1053,7 @@ class SecureFederatedServer:
 
         for client_id, data in updates_this_round.items():
             try:
-                weights = pickle.loads(base64.b64decode(data['weights']))  # numpy.loads не существует, используется pickle
+                weights = np.array(json.loads(base64.b64decode(data['weights']).decode()))  # numpy.loads не существует, используется pickle
                 weights = [np.array(w) for w in weights]
 
                 all_updates.append(weights)

@@ -1,175 +1,92 @@
-# ============================================================
-# SHARD ENTERPRISE SIEM - КОНФИГУРАЦИЯ
-# Версия: 4.1.0 (с Autonomous Response + LLM Analyst)
-# ============================================================
-
-# ------------------------------------------------------------
-# NETWORK
-# ------------------------------------------------------------
-network:
-  interface: lo
-  capture_filter: ip
-  local_networks:
-    - '192.168.'
-    - '10.'
-    - '172.16.'
-    - '172.24.'
-    - '127.'
-
-# ------------------------------------------------------------
-# MACHINE LEARNING
-# ------------------------------------------------------------
-ml:
-  model_path: ./models/
-  online_learning: true
-  auto_load_models: true
-  ensemble:
-    - 'isolation_forest'
-    - 'xgboost'
-  explain_with_shap: true
-  retrain_interval: 300
-  retrain_min_samples: 100
-  anomaly_threshold: -0.15
-  confidence_threshold: 0.7
-  use_deep_learning: true
-  use_gnn: true
-  dl_sequence_length: 100
-
-# ------------------------------------------------------------
-# PROTECTION
-# ------------------------------------------------------------
-protection:
-  auto_block: true
-  block_duration: 3600
-  rate_limit:
-    enabled: true
-    threshold: 100
-    window: 60
-  honeypot:
-    enabled: true
-    ports: [22, 80, 443, 3389, 2222, 8888]
-
-# ------------------------------------------------------------
-# WEB APPLICATION FIREWALL
-# ------------------------------------------------------------
-waf:
+adaptive_learning:
+  deep_feature_dims:
+  - 128
+  - 64
+  - 32
   enabled: true
-  rules_path: ./data/waf_rules.json
-  rate_limit_requests: 100
-  rate_limit_window: 60
-
-# ------------------------------------------------------------
-# STORAGE
-# ------------------------------------------------------------
-storage:
-  timescaledb:
-    enabled: true
-    pool_min: 5
-    pool_max: 20
-    dsn: '${SHARD_PG_DSN:-postgresql://shard:shard@localhost:5432/shard_siem}'
-  elasticsearch:
-    enabled: false
-    url: ''
-  sqlite:
-    path: shard_siem.db
-  max_features_json_size: 10240
-  alert_buffer_size: 100
-  flush_interval: 5
-
-# ------------------------------------------------------------
-# TELEMETRY
-# ------------------------------------------------------------
-telemetry:
-  prometheus:
-    enabled: true
-    port: 9090
-  telegram:
-    enabled: false
-    token: ''
-    chat_id: ''
-
-# ------------------------------------------------------------
-# LOGGING
-# ------------------------------------------------------------
-logging:
-  level: INFO
-  file: shard.log
-  max_size_mb: 100
-  backup_count: 5
-
-# ------------------------------------------------------------
-# THREAT INTELLIGENCE
-# ------------------------------------------------------------
-threat_intel:
-  abuseipdb_key: ''
-  virustotal_key: ''
-  alienvault_key: ''
-  ipinfo_token: ''
-  enable_tor_download: false
-  local_lists_path: ./data/threat_lists/
-  cache_ttl: 3600
-  geoip_db_path: ./data/geoip/GeoLite2-City.mmdb
-
-# ------------------------------------------------------------
-# LDAP / ACTIVE DIRECTORY
-# ------------------------------------------------------------
-ldap:
-  server: ''
-  domain: ''
-  base_dn: ''
-  bind_user: ''
-  bind_password: ''
-  use_ssl: true
-  port: 636
-  cache_ttl: 3600
-
-# ------------------------------------------------------------
-# DASHBOARD
-# ------------------------------------------------------------
-dashboard:
-  port: 8080
-  enabled: true
-  auth:
-    enabled: true
-    username: ${SHARD_DASHBOARD_USERNAME:-admin}
-    password: ${SHARD_DASHBOARD_PASSWORD:-change_me_immediately}
-    api_keys: []
-  session_ttl: 3600
-
-# ------------------------------------------------------------
-# EDR INTEGRATION
-# ------------------------------------------------------------
-edr:
-  enabled: true
-  windows_event_logs:
-    - Security
-    - System
-    - Microsoft-Windows-Sysmon/Operational
-    - Windows PowerShell
-  poll_interval: 5
-  max_events_per_batch: 50
-
-# ------------------------------------------------------------
-# SIMULATION
-# ------------------------------------------------------------
-simulation:
-  enabled: false
-
-# ------------------------------------------------------------
-# AGENTIC AI
-# ------------------------------------------------------------
+  ensemble_temperature: 2.0
+  forgetting_factor: 0.95
+  pretrain_threshold: 1000
+  use_deep_features: true
 agentic_ai:
-  enabled: true
   auto_investigate: true
+  enabled: true
+  ignored_attack_types:
+  - Honeypot Interaction
+  - Port Scan
   investigation_cooldown: 60
   max_investigations_per_minute: 10
-  ignored_attack_types:
-    - 'Honeypot Interaction'
-    - 'Port Scan'
-
-# ------------------------------------------------------------
-# EXFILTRATION DETECTOR
-# ------------------------------------------------------------
+autonomous:
+  action_cooldown: 300
+  autonomous_mode: false
+  confidence_threshold_block_perm: 0.6
+  confidence_threshold_block_temp: 0.6
+  confidence_threshold_throttle: 0.3
+  enabled: true
+  history_path: ./data/autonomous_history.json
+  max_auto_blocks_per_day: 50
+  max_auto_blocks_per_hour: 10
+  recommend_only: false
+  whitelist_ips:
+  - 127.0.0.1
+  - ::1
+  - 192.168.1.1
+  whitelist_subnets:
+  - 127.0.0.0/8
+  - 10.0.0.0/8
+  - 172.16.0.0/12
+  - 192.168.0.0/16
+beaconing:
+  cv_threshold: 0.1
+  min_samples: 5
+  threshold: 0.7
+cloud:
+  alert_on_finding: true
+  auto_remediate: false
+  aws:
+    access_key: ''
+    enabled: false
+    region: us-east-1
+    secret_key: ''
+  azure:
+    client_id: ''
+    client_secret: ''
+    enabled: false
+    subscription_id: ''
+    tenant_id: ''
+  finding_severity_threshold: MEDIUM
+  findings_dir: ./data/cloud_findings/
+  gcp:
+    credentials_file: ''
+    enabled: false
+    project_id: ''
+  scan_interval: 300
+dashboard:
+  auth:
+    api_keys: []
+    enabled: true
+    password: ${SHARD_DASHBOARD_PASSWORD:-change_me_immediately}
+    username: ${SHARD_DASHBOARD_USERNAME:-admin}
+  enabled: true
+  port: 8080
+  session_ttl: 3600
+dns:
+  thresholds:
+    frequent_queries_per_min: 30
+    high_entropy: 3.5
+    long_query: 52
+    many_subdomains: 50
+    very_high_entropy: 4.0
+    very_long_query: 100
+edr:
+  enabled: true
+  max_events_per_batch: 50
+  poll_interval: 5
+  windows_event_logs:
+  - Security
+  - System
+  - Microsoft-Windows-Sysmon/Operational
+  - Windows PowerShell
 exfiltration:
   alert_cooldown: 60
   max_alerts_per_minute: 10
@@ -179,117 +96,118 @@ exfiltration:
     single_dst_medium_mb: 5
     total_critical_mb: 200
     total_high_mb: 100
-
-# ------------------------------------------------------------
-# DNS ANALYZER
-# ------------------------------------------------------------
-dns:
-  thresholds:
-    long_query: 52
-    very_long_query: 100
-    high_entropy: 3.5
-    very_high_entropy: 4.0
-    frequent_queries_per_min: 30
-    many_subdomains: 50
-
-# ------------------------------------------------------------
-# BEACONING DETECTION
-# ------------------------------------------------------------
-beaconing:
-  threshold: 0.7
-  min_samples: 5
-  cv_threshold: 0.1
-
-# ============================================================
-# CLOUD SECURITY
-# ============================================================
-cloud:
-  aws:
-    enabled: false
-    access_key: ""
-    secret_key: ""
-    # session_token: ""  # не хранить в конфиге, использовать окружение
-    region: "us-east-1"
-  azure:
-    enabled: false
-    tenant_id: ""
-    client_id: ""
-    client_secret: ""
-    subscription_id: ""
-  gcp:
-    enabled: false
-    project_id: ""
-    credentials_file: ""
-  scan_interval: 300
-  alert_on_finding: true
-  finding_severity_threshold: "MEDIUM"
-  auto_remediate: false
-  findings_dir: "./data/cloud_findings/"
-
-# ============================================================
-# FEDERATED LEARNING
-# ============================================================
 federated:
-  enabled: false
-  mode: "client"
-  server_url: "http://localhost:8081"
-  server_auth_token: ""
-  client_name: "SHARD-Node"
-  local_epochs: 5
+  client_name: SHARD-Node
   differential_privacy: true
   dp_noise_multiplier: 1.0
-
-# ============================================================
-# RL DEFENSE AGENT
-# ============================================================
+  enabled: false
+  local_epochs: 5
+  mode: client
+  server_auth_token: ''
+  server_url: http://localhost:8081
+ldap:
+  base_dn: ''
+  bind_password: ''
+  bind_user: ''
+  cache_ttl: 3600
+  domain: ''
+  port: 636
+  server: ''
+  use_ssl: true
+llm:
+  cache_ttl: 3600
+  enabled: true
+  model_path: ''
+  ollama_model: llama3.2
+  provider: ollama
+logging:
+  backup_count: 5
+  file: shard.log
+  level: INFO
+  max_size_mb: 100
+ml:
+  anomaly_threshold: -0.15
+  auto_load_models: true
+  confidence_threshold: 0.7
+  dl_sequence_length: 100
+  ensemble:
+  - isolation_forest
+  - xgboost
+  explain_with_shap: true
+  model_path: ./models/
+  online_learning: true
+  retrain_interval: 300
+  retrain_min_samples: 100
+  use_deep_learning: true
+  use_gnn: true
+network:
+  capture_filter: ip
+  interface: lo
+  local_networks:
+  - 192.168.
+  - '10.'
+  - 172.16.
+  - 172.24.
+  - '127.'
+protection:
+  auto_block: true
+  block_duration: 3600
+  honeypot:
+    enabled: true
+    ports:
+    - 22
+    - 80
+    - 443
+    - 3389
+    - 2222
+    - 8888
+  rate_limit:
+    enabled: true
+    threshold: 100
+    window: 60
 rl_defense:
   enabled: true
-  train: false
   epsilon: 1.0
   gamma: 0.95
-  model_dir: "./models/rl_defense/"
-
-# ============================================================
-# ADAPTIVE LEARNING
-# ============================================================
-adaptive_learning:
-  enabled: true
-  forgetting_factor: 0.95
-  use_deep_features: true
-  deep_feature_dims: [128, 64, 32]
-  ensemble_temperature: 2.0
-  pretrain_threshold: 1000
-
-# ============================================================
-# AUTONOMOUS RESPONSE (NEW in 4.1.0)
-# ============================================================
-autonomous:
-  enabled: true
-  autonomous_mode: false        # Полная автоматизация (ОСТОРОЖНО!)
-  recommend_only: false          # Только рекомендации (безопасно)
-  confidence_threshold_block_temp: 0.60
-  confidence_threshold_block_perm: 0.60
-  confidence_threshold_throttle: 0.30
-  max_auto_blocks_per_hour: 10
-  max_auto_blocks_per_day: 50
-  action_cooldown: 300
-  whitelist_ips:
-    - '127.0.0.1'
-    - '::1'
-    - '192.168.1.1'
-  whitelist_subnets:
-    - '127.0.0.0/8'
-    - '10.0.0.0/8'
-    - '172.16.0.0/12'
-    - '192.168.0.0/16'
-  history_path: "./data/autonomous_history.json"
-
-# ============================================================
-# LLM ANALYST (NEW in 4.1.0)
-# ============================================================
-llm:
-  enabled: true
-  provider: 'ollama'
-  model_path: ''
-  ollama_model: 'llama3.2'
+  model_dir: ./models/rl_defense/
+  train: false
+simulation:
+  enabled: false
+storage:
+  alert_buffer_size: 100
+  elasticsearch:
+    enabled: false
+    url: ''
+  flush_interval: 5
+  max_features_json_size: 10240
+  sqlite:
+    path: shard_siem.db
+  timescaledb:
+    dsn: ${SHARD_PG_DSN:-postgresql://shard:shard@localhost:5432/shard_siem}
+    enabled: false
+    pool_max: 20
+    pool_min: 5
+telemetry:
+  prometheus:
+    enabled: true
+    port: 9090
+  telegram:
+    chat_id: ''
+    enabled: false
+    token: ''
+test:
+  key: value
+threat_intel:
+  abuseipdb_key: ''
+  alienvault_key: ''
   cache_ttl: 3600
+  enable_tor_download: false
+  geoip_db_path: ./data/geoip/GeoLite2-City.mmdb
+  ipinfo_token: ''
+  local_lists_path: ./data/threat_lists/
+  virustotal_key: ''
+waf:
+  enabled: true
+  rate_limit_requests: 100
+  rate_limit_window: 60
+  rules_path: ./data/waf_rules.json
