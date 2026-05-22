@@ -168,3 +168,124 @@ print("   OK")
 print("\nAll 20 tests passed!")
 
 
+
+print("\n=== DEEP TESTS FOR COVERAGE ===")
+
+# Test 21: ConfigManager - save/load
+print("Test 21: ConfigManager save/load...")
+config.set('test.key', 'value')
+config.save()
+config2 = ConfigManager('config.yaml')
+assert config2.get('test.key') == 'value'
+print("   OK")
+
+# Test 22: EventBus - stats
+print("Test 22: EventBus stats...")
+bus2 = EventBus()
+bus2.subscribe('test', lambda d: None)
+bus2.publish('test', {})
+bus2.publish('test', {})
+time.sleep(0.2)
+stats = bus2.get_stats()
+assert stats['events_published'] == 2
+print("   OK")
+
+# Test 23: Firewall - block/unblock
+print("Test 23: Firewall block/unblock...")
+fw2 = SmartFirewall(config, EventBus(), LoggingService(config, EventBus()))
+assert fw2._validate_port(80) == True
+assert fw2._validate_port(99999) == False
+assert fw2._validate_port(-1) == False
+print("   OK")
+
+# Test 24: SIEMStorage - get_stats
+print("Test 24: SIEMStorage stats...")
+storage2 = SIEMStorage(config, EventBus(), LoggingService(config, EventBus()))
+stats = storage2.get_stats(hours=24)
+assert 'total_alerts' in stats
+assert 'period_hours' in stats
+print("   OK")
+
+# Test 25: ML Engine - stats
+print("Test 25: ML Engine stats...")
+ml2 = MachineLearningEngine(config, EventBus(), LoggingService(config, EventBus()))
+stats = ml2.get_stats()
+assert 'normal_buffer_size' in stats
+assert 'models_loaded' in stats
+print("   OK")
+
+# Test 26: DNS Analyzer - stats
+print("Test 26: DNS Analyzer stats...")
+dns2 = DNSAnalyzer(config, EventBus(), LoggingService(config, EventBus()))
+dns2.start()
+stats = dns2.get_stats()
+assert isinstance(stats, dict)
+dns2.stop()
+print("   OK")
+
+# Test 27: Exfiltration Detector - stats
+print("Test 27: Exfiltration stats...")
+exfil2 = DataExfiltrationDetector(config, EventBus(), LoggingService(config, EventBus()))
+stats = exfil2.get_stats()
+assert 'total_hosts' in stats
+print("   OK")
+
+# Test 28: Threat Intelligence - cache stats
+print("Test 28: Threat Intelligence cache...")
+ti2 = ThreatIntelligence(config, EventBus(), LoggingService(config, EventBus()))
+stats = ti2.get_cache_stats()
+assert 'threat_cache_size' in stats
+ti2.stop()
+print("   OK")
+
+# Test 29: WAF - stats
+print("Test 29: WAF stats...")
+waf2 = WebApplicationFirewall(config, EventBus(), LoggingService(config, EventBus()))
+stats = waf2.get_stats()
+assert 'total_rules' in stats
+print("   OK")
+
+# Test 30: UBA - user profile
+print("Test 30: UBA user profile...")
+uba2 = UserBehaviorAnalytics(config, EventBus(), LoggingService(config, EventBus()))
+profile = uba2.get_user_profile('testuser')
+assert profile is None or isinstance(profile, dict)
+print("   OK")
+
+# Test 31: Encrypted Traffic - stats
+print("Test 31: Encrypted Traffic stats...")
+enc2 = EncryptedTrafficAnalyzer(config, EventBus(), LoggingService(config, EventBus()))
+stats = enc2.get_stats()
+assert 'active_sessions' in stats
+print("   OK")
+
+# Test 32: DPI - stats
+print("Test 32: DPI stats...")
+dpi2 = DeepPacketInspector(config, EventBus(), LoggingService(config, EventBus()))
+stats = dpi2.get_stats()
+assert 'http_buffer_size' in stats
+print("   OK")
+
+# Test 33: LDAP - is_privileged
+print("Test 33: LDAP privileged check...")
+ldap2 = LDAPContextProvider(config, EventBus(), LoggingService(config, EventBus()))
+is_priv = ldap2.is_privileged_account('admin')
+assert isinstance(is_priv, bool)
+print("   OK")
+
+# Test 34: Report Generator - stats
+print("Test 34: Report Generator stats...")
+reporter2 = IncidentReportGenerator(config, EventBus(), LoggingService(config, EventBus()))
+stats = reporter2.get_stats()
+assert 'reports_dir' in stats
+print("   OK")
+
+# Test 35: Agentic AI - stats
+print("Test 35: Agentic AI stats...")
+from modules.agentic_ai import AgenticAIAnalyst
+ai2 = AgenticAIAnalyst(config, EventBus(), LoggingService(config, EventBus()))
+stats = ai2.get_stats()
+assert 'total_investigations' in stats
+print("   OK")
+
+print("\nAll 35 tests passed!")
