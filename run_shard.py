@@ -331,7 +331,7 @@ class EnhancedShardEnterprise:
         # Останавливаем Defence Pipeline и детекторы
         for component in [self.defense_pipeline, self.anomaly_detector,
                          self.gnn_analyzer, self.fusion]:
-            if component and hasattr(component, 'stop'):
+            if component and hasattr(component, 'stop'):  # pylint: disable=no-member
                 try:
                     component.stop()
                 except:
@@ -700,7 +700,7 @@ def run_cli_tools(args):
     if args.tip_query:
         try:
             from shard_tip import ShardTIPIntegration
-            tip = ShardTIPIntegration()
+            tip = ShardTIPIntegration()  # pylint: disable=no-member
             tip.setup(event_bus, logger)
             result = tip.query(args.tip_query)
             print(f"\n📊 TIP Query: {args.tip_query}")
