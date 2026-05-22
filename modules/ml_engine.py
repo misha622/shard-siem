@@ -415,7 +415,6 @@ class MachineLearningEngine(BaseModule):
             )
             rows = cursor.fetchall()
             if own_conn:
-            finally:
             if conn and own_conn:
                 conn.close()
             elif hasattr(self, 'siem_storage') and self.siem_storage:
