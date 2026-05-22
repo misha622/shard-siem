@@ -36,6 +36,7 @@ from concurrent.futures import ThreadPoolExecutor, Future
 import warnings
 
 import numpy as np
+import torch
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 warnings.filterwarnings('ignore')
@@ -851,8 +852,8 @@ class SecureFederatedClient:
         X = np.array(list(self.local_data))
         y = np.array(list(self.local_labels)) if self.local_labels else None
 
-        _data_backup = list(self.local_data)
-        _labels_backup = list(self.local_labels)
+        self.local_data.clear()
+        self.local_labels.clear()
         # Данные сохранены в _data_backup, очищаем после успешного обучения
         # self.local_data.clear() и self.local_labels.clear() вызываются после обучения
 
@@ -1126,7 +1127,7 @@ class SecureFederatedServer:
 
     def _save_checkpoint(self):
         """Сохранение чекпоинта"""
-        checkpoint_path = Path(self.config.checkpoint_dir) / f'round_{self.current_round}'
+        checkpoint_path = Path(self.config.checkpoint_dir)
         checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
 
         with open(checkpoint_path / 'model.pkl', 'wb') as f:
