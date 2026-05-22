@@ -80,3 +80,91 @@ print("   OK")
 
 print("\nAll 10 tests passed!")
 
+print("Test 11: Exfiltration Detector...")
+from modules.exfil_detector import DataExfiltrationDetector
+exfil = DataExfiltrationDetector(config, EventBus(), LoggingService(config, EventBus()))
+assert exfil is not None
+exfil.start()
+assert exfil.running == True
+exfil.stop()
+print("   OK")
+
+print("Test 12: Threat Intelligence (local)...")
+from modules.threat_intel import ThreatIntelligence
+ti = ThreatIntelligence(config, EventBus(), LoggingService(config, EventBus()))
+assert ti._is_public_ip('8.8.8.8') == True
+assert ti._is_public_ip('192.168.1.1') == False
+assert ti._is_public_ip('127.0.0.1') == False
+result = ti._check_local_lists('127.0.0.1')
+assert isinstance(result, dict)
+assert 'is_malicious' in result
+ti.stop()
+print("   OK")
+
+print("Test 13: WAF...")
+from modules.waf import WebApplicationFirewall
+waf = WebApplicationFirewall(config, EventBus(), LoggingService(config, EventBus()))
+result = waf._analyze_text("SELECT * FROM users WHERE id=1 UNION SELECT password FROM admin", "test")
+assert result['is_attack'] == True
+result = waf._analyze_text("normal text without attacks", "test")
+assert result['is_attack'] == False
+print("   OK")
+
+print("Test 14: UBA...")
+from modules.uba import UserBehaviorAnalytics
+uba = UserBehaviorAnalytics(config, EventBus(), LoggingService(config, EventBus()))
+uba.bind_ip_to_user('10.0.0.1', 'testuser')
+risk = uba.get_user_risk('testuser')
+assert risk >= 0.0
+result = uba.record_event('10.0.0.1', 'login', {'username': 'testuser'})
+print("   OK")
+
+print("Test 15: Report Generator...")
+from modules.report_generator import IncidentReportGenerator
+reporter = IncidentReportGenerator(config, EventBus(), LoggingService(config, EventBus()))
+inv = {'id': 'T-001', 'start_time': 1234567890.0, 'end_time': 1234567999.0, 'severity': 'HIGH', 'stage': 'test', 'src_ip': '10.0.0.1', 'conclusion': 'Test', 'recommendations': ['Block']}
+alerts = [{'timestamp': 1234567890.0, 'src_ip': '10.0.0.1', 'attack_type': 'Test', 'score': 0.8}]
+report = reporter.generate_report(inv, alerts)
+assert 'ОТЧЁТ' in report or 'INCIDENT' in report.upper()
+print("   OK")
+
+print("Test 16: Threat Intelligence Platform...")
+from shard_tip import ShardTIPIntegration
+tip = ShardTIPIntegration()
+tip.setup(EventBus(), LoggingService(config, EventBus()))
+stats = tip.get_stats()
+assert isinstance(stats, dict)
+print("   OK")
+
+print("Test 17: Red Team...")
+from shard_red_team import ShardRedTeamIntegration
+rt = ShardRedTeamIntegration()
+rt.setup(EventBus(), LoggingService(config, EventBus()))
+assert rt is not None
+print("   OK")
+
+print("Test 18: Threat Hunting...")
+from shard_threat_hunting import ShardThreatHuntingIntegration
+th = ShardThreatHuntingIntegration()
+th.setup(EventBus(), LoggingService(config, EventBus()))
+assert th is not None
+print("   OK")
+
+print("Test 19: MITRE ATT&CK...")
+from shard_mitre_attack import ShardMITREIntegration
+mitre = ShardMITREIntegration()
+mitre.setup(EventBus(), LoggingService(config, EventBus()))
+coverage = mitre.get_coverage_report()
+assert isinstance(coverage, dict)
+print("   OK")
+
+print("Test 20: CVE Intelligence...")
+from shard_cve_intelligence import ShardCVEIntelligenceIntegration
+cve = ShardCVEIntelligenceIntegration()
+cve.setup(EventBus(), LoggingService(config, EventBus()))
+assert cve is not None
+print("   OK")
+
+print("\nAll 20 tests passed!")
+
+
