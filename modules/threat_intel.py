@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from core.base import BaseModule, ConfigManager, EventBus, LoggingService
-from shard_enterprise_complete import AttackType, AlertSeverity
+from core.constants import AttackType, AlertSeverity
 import os, time, threading, queue, json, re, requests
 from typing import Dict, List, Optional, Any, Set, Tuple
 from pathlib import Path

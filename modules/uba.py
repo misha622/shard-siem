@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """SHARD UserBehaviorAnalytics Module"""
 from core.base import BaseModule, ConfigManager, EventBus, LoggingService
-from shard_enterprise_complete import AlertSeverity
+from core.constants import AlertSeverity
 import time, threading
 from typing import Dict, List, Optional, Any, Set
 from collections import defaultdict, deque

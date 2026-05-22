@@ -16,7 +16,7 @@ except ImportError:
 
 # Глобальные переменные из главного файла
 try:
-    from shard_enterprise_complete import shap_module, xgboost_module, sklearn_ensemble
+    from core.constants import shap_module, xgboost_module, sklearn_ensemble
 except ImportError:
     shap_module = None
     xgboost_module = None

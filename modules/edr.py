@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """SHARD EDRIntegration Module"""
 from core.base import BaseModule, ConfigManager, EventBus, LoggingService
-from shard_enterprise_complete import AlertSeverity
+from core.constants import AlertSeverity
 import os, sys, time, threading, queue, json, re, subprocess
 from typing import Dict, List, Optional, Any, Set, Tuple, Callable
 from collections import defaultdict, deque

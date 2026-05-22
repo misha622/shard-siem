@@ -49,3 +49,34 @@ print("   OK")
 
 
 print("\nAll 6 tests passed!")
+print("Test 7: Encrypted Traffic...")
+from modules.encrypted_traffic import EncryptedTrafficAnalyzer
+enc = EncryptedTrafficAnalyzer(config, EventBus(), LoggingService(config, EventBus()))
+assert enc.beacon_threshold == 0.7
+print("   OK")
+
+print("Test 8: DPI...")
+from modules.dpi import DeepPacketInspector
+dpi = DeepPacketInspector(config, EventBus(), LoggingService(config, EventBus()))
+dpi.start()
+assert dpi.running == True
+dpi.stop()
+print("   OK")
+
+print("Test 9: LDAP...")
+from modules.ldap import LDAPContextProvider
+ldap = LDAPContextProvider(config, EventBus(), LoggingService(config, EventBus()))
+ctx = ldap._create_basic_context('testuser')
+assert ctx['username'] == 'testuser'
+print("   OK")
+
+print("Test 10: DNS Analyzer...")
+from modules.dns_analyzer import DNSAnalyzer
+dns = DNSAnalyzer(config, EventBus(), LoggingService(config, EventBus()))
+dns.start()
+assert dns.running == True
+dns.stop()
+print("   OK")
+
+print("\nAll 10 tests passed!")
+
