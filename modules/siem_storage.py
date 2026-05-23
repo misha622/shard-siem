@@ -496,7 +496,7 @@ class SIEMStorage(BaseModule):
                 '''SELECT DISTINCT src_ip FROM alerts 
                    WHERE explanation LIKE ? AND timestamp > ? 
                    LIMIT 100''',
-                (f'%{username.replace("%", "\\%").replace("_", "\\_")}%', cutoff)
+                (f'%{username.replace("%", "\\%").replace("_", "\\_")}%' ESCAPE '\\', cutoff)
             )
 
             ips = [row[0] for row in cursor.fetchall() if row[0]]

@@ -854,7 +854,8 @@ class SecureFederatedClient:
         _data_backup = list(self.local_data)
         _labels_backup = list(self.local_labels)
         # Данные сохранены в _data_backup, очищаем после успешного обучения
-        # self.local_data.clear() и self.local_labels.clear() вызываются после обучения
+        self.local_data.clear()
+        self.local_labels.clear()
 
         if self.global_weights:
             self.model.set_weights(self.global_weights)
@@ -1116,8 +1117,8 @@ class SecureFederatedServer:
         try:
             checkpoint_path = Path(self.config.checkpoint_dir) / 'global_model.pt'
             if checkpoint_path.exists():
-                checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=True)
-                self.global_model.load_state_dict(checkpoint['model_state_dict'])
+                # Federated model uses TF/Keras, not PyTorch — skipping torch.load
+                # TODO: implement TF checkpoint restore
                 self.current_round = checkpoint.get('round', 0)
                 return True
         except Exception as e:
@@ -1126,7 +1127,8 @@ class SecureFederatedServer:
 
     def _save_checkpoint(self):
         """Сохранение чекпоинта"""
-        checkpoint_path = Path(self.config.checkpoint_dir) / f'round_{self.current_round}'
+        checkpoint_path = Path(self.config.checkpoint_dir)
+        checkpoint_path.mkdir(parents=True, exist_ok=True)
         checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
 
         with open(checkpoint_path / 'model.pkl', 'wb') as f:
