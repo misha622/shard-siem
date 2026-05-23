@@ -33,8 +33,6 @@ class SmartFirewall(BaseModule):
 
         # Отдельные блокировки для избежания deadlock
         self._lock = threading.RLock()
-        self._history_lock = threading.RLock()
-        self._cleanup_lock = threading.RLock()
 
         Path('data').mkdir(parents=True, exist_ok=True)
         Path('data').mkdir(parents=True, exist_ok=True)
