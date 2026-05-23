@@ -1119,7 +1119,6 @@ class SecureFederatedServer:
             if checkpoint_path.exists():
                 # Federated model uses TF/Keras, not PyTorch — skipping torch.load
                 # TODO: implement TF checkpoint restore
-                self.current_round = checkpoint.get('round', 0)
                 return True
         except Exception as e:
             self.logger.warning(f"Failed to load checkpoint: {e}")
