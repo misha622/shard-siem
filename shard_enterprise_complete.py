@@ -3375,7 +3375,14 @@ class SelfSupervisedEncoder:
 
             loss_value = float(total_loss.item())
             self.training_buffer.append(loss_value)
-            self._recompute_statistics()
+
+            # Инкрементальное обновление Welford (O(1))
+            with self._loss_lock:
+                self._loss_count += 1
+                delta = loss_value - self._loss_mean
+                self._loss_mean += delta / self._loss_count
+                delta2 = loss_value - self._loss_mean
+                self._loss_m2 += delta * delta2
 
             return loss_value
 
