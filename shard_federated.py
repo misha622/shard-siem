@@ -1054,8 +1054,8 @@ class SecureFederatedServer:
 
         for client_id, data in updates_this_round.items():
             try:
-                weights = np.array(json.loads(base64.b64decode(data['weights']).decode()))  # numpy.loads не существует, используется pickle
-                weights = [np.array(w) for w in weights]
+                weights_raw = json.loads(base64.b64decode(data['weights']).decode())
+            weights = [np.array(w) for w in weights_raw]  # numpy.loads не существует, используется pickle
 
                 all_updates.append(weights)
                 sample_sizes.append(data.get('sample_size', 1))
@@ -1122,13 +1122,13 @@ class SecureFederatedServer:
                 self.current_round = checkpoint.get('round', 0)
                 return True
         except Exception as e:
-            self.logger.warning(f"Failed to load checkpoint: {e}")
+            logging.getLogger('SHARD.Federated').warning(f"Failed to load checkpoint: {e}")
         return False
 
     def _save_checkpoint(self):
         """Сохранение чекпоинта"""
         checkpoint_path = Path(self.config.checkpoint_dir)
-        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+        Path(checkpoint_path).parent.mkdir(parents=True, exist_ok=True)
 
         with open(checkpoint_path / 'model.pkl', 'wb') as f:
             pickle.dump([w.tolist() for w in self.global_weights], f)
