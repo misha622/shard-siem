@@ -2035,7 +2035,7 @@ class BaselineProfiler:
                     # Кэшируем Welford статистику
                     # Welford кэш (потокобезопасно — записываем только при первом вычислении)
                     # Кэшируем Welford статистику
-                    import copy; cached = copy.deepcopy(cached); cached['_welford_sizes'] = {
+                    cached['_welford_sizes'] = {
                         'count': len(packet_sizes),
                         'mean': mean,
                         'm2': variance * len(packet_sizes) if len(packet_sizes) > 1 else 0
@@ -3375,6 +3375,7 @@ class SelfSupervisedEncoder:
 
             loss_value = float(total_loss.item())
             self.training_buffer.append(loss_value)
+            self._recompute_statistics()
 
             return loss_value
 
@@ -3456,7 +3457,6 @@ class SelfSupervisedEncoder:
 
     def reset_statistics(self) -> None:
         """Сброс статистики"""
-        self._recompute_statistics()
         with self._loss_lock:
             self._loss_count = 0
             self._loss_mean = 0.0
