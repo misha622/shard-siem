@@ -36,7 +36,6 @@ from concurrent.futures import ThreadPoolExecutor, Future
 import warnings
 
 import numpy as np
-import torch
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 warnings.filterwarnings('ignore')
@@ -852,8 +851,8 @@ class SecureFederatedClient:
         X = np.array(list(self.local_data))
         y = np.array(list(self.local_labels)) if self.local_labels else None
 
-        self.local_data.clear()
-        self.local_labels.clear()
+        _data_backup = list(self.local_data)
+        _labels_backup = list(self.local_labels)
         # Данные сохранены в _data_backup, очищаем после успешного обучения
         # self.local_data.clear() и self.local_labels.clear() вызываются после обучения
 
@@ -1054,8 +1053,8 @@ class SecureFederatedServer:
 
         for client_id, data in updates_this_round.items():
             try:
-                weights_raw = json.loads(base64.b64decode(data['weights']).decode())
-            weights = [np.array(w) for w in weights_raw]  # numpy.loads не существует, используется pickle
+                weights = np.array(json.loads(base64.b64decode(data['weights']).decode()))  # numpy.loads не существует, используется pickle
+                weights = [np.array(w) for w in weights]
 
                 all_updates.append(weights)
                 sample_sizes.append(data.get('sample_size', 1))
@@ -1122,13 +1121,13 @@ class SecureFederatedServer:
                 self.current_round = checkpoint.get('round', 0)
                 return True
         except Exception as e:
-            logging.getLogger('SHARD.Federated').warning(f"Failed to load checkpoint: {e}")
+            self.logger.warning(f"Failed to load checkpoint: {e}")
         return False
 
     def _save_checkpoint(self):
         """Сохранение чекпоинта"""
-        checkpoint_path = Path(self.config.checkpoint_dir)
-        Path(checkpoint_path).parent.mkdir(parents=True, exist_ok=True)
+        checkpoint_path = Path(self.config.checkpoint_dir) / f'round_{self.current_round}'
+        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
 
         with open(checkpoint_path / 'model.pkl', 'wb') as f:
             pickle.dump([w.tolist() for w in self.global_weights], f)
