@@ -1133,7 +1133,7 @@ class SecureFederatedServer:
         checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
 
         with open(checkpoint_path / 'model.pkl', 'wb') as f:
-            pickle.dump([w.tolist() for w in self.global_weights], f)
+            pickle.dump([w.tolist() for w in (self.global_weights or [])], f)
 
         with open(checkpoint_path / 'state.json', 'w') as f:
             json.dump({
@@ -1151,7 +1151,7 @@ class SecureFederatedServer:
         """Сериализация весов для передачи клиентам"""
         if self.global_weights:
             return base64.b64encode(
-                json.dumps([w.tolist() for w in self.global_weights])
+                json.dumps([w.tolist() for w in (self.global_weights or [])])
             ).decode()
         return ''
 

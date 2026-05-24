@@ -258,6 +258,7 @@ class CleanupIntervals:
 
 # Вынесено в core/base.py
 from core.base import ConfigManager, LoggingService, EventBus, BaseModule
+from core.constants import AttackType, AlertSeverity, DNSThresholds, ExfilThresholds, WAFThresholds
 from modules.dns_analyzer import DNSAnalyzer
 from modules.exfil_detector import DataExfiltrationDetector
 from modules.threat_intel import ThreatIntelligence
@@ -3843,7 +3844,7 @@ class HoneypotService(BaseModule):
                 model_path = os.path.join(os.path.dirname(__file__), 'models', 'shard_real_alert_model.pkl')
                 if os.path.exists(model_path):
                     self._ai_model = joblib.load(model_path)
-                    self.logger.info('AI модель загружена в honeypot хук (модель загружена с проверкой хеша)')
+                    self.logger.info('AI модель загружена в honeypot хук (модель загружена (верификация хеша не реализована — рекомендуется для production))')
                     self.logger.info("✅ AI модель загружена в honeypot хук")
             if hasattr(self, '_ai_model') and self._ai_model:
                 # Игнорируем соединения от localhost
