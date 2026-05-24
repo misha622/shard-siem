@@ -854,6 +854,8 @@ class SecureFederatedClient:
         _data_backup = list(self.local_data)
         _labels_backup = list(self.local_labels)
         # Данные сохранены в _data_backup, очищаем после успешного обучения
+        _data_backup = list(self.local_data)
+        _labels_backup = list(self.local_labels)
         self.local_data.clear()
         self.local_labels.clear()
 
@@ -1121,7 +1123,7 @@ class SecureFederatedServer:
                 # TODO: implement TF checkpoint restore
                 return True
         except Exception as e:
-            self.logger.warning(f"Failed to load checkpoint: {e}")
+            logging.getLogger('SHARD.Federated').warning(f"Failed to load checkpoint: {e}")
         return False
 
     def _save_checkpoint(self):

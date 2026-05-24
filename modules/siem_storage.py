@@ -345,6 +345,10 @@ class SIEMStorage(BaseModule):
             finally:
                 if pg_conn:
                     try:
+                        try:
+                            pg_conn.rollback()
+                        except:
+                            pass
                         self.pg_pool.putconn(pg_conn)
                     except:
                         pass
