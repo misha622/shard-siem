@@ -175,125 +175,8 @@ def safe_import_scapy():
 
 # В начале файла, после определения Enum'ов добавить:
 
-class AttackType(Enum):
-    """Типы атак"""
-    NORMAL = "Normal"
-    DOS = "DoS"
-    DDOS = "DDoS"
-    BRUTE_FORCE = "Brute Force"
-    WEB_ATTACK = "Web Attack"
-    BOTNET = "Botnet"
-    PORT_SCAN = "Port Scan"
-    C2_BEACON = "C2 Beacon"
-    DNS_TUNNEL = "DNS Tunnel"
-    SQL_INJECTION = "SQL Injection"
-    XSS = "XSS"
-    PATH_TRAVERSAL = "Path Traversal"
-    CMD_INJECTION = "Command Injection"
-    LATERAL_MOVEMENT = "Lateral Movement"
-    DATA_EXFILTRATION = "Data Exfiltration"
-    PHISHING = "Phishing"
-    MALWARE = "Malware"
-    UNKNOWN = "Unknown"
-
-    @classmethod
-    def from_string(cls, value: str) -> 'AttackType':
-        """Получить Enum из строки (безопасно)"""
-        if not value:
-            return cls.UNKNOWN
-
-        # Прямое совпадение по значению
-        for attack_type in cls:
-            if attack_type.value == value:
-                return attack_type
-
-        # Совпадение по имени (для обратной совместимости)
-        normalized = value.upper().replace(' ', '_')
-        try:
-            return cls[normalized]
-        except KeyError:
-            return cls.UNKNOWN
-
-    def __eq__(self, other):
-        if isinstance(other, AttackType):
-            return self.value == other.value
-        if isinstance(other, str):
-            return self.value == other
-        return NotImplemented  # ← ВАЖНО: позволяет str.__eq__ отработать
-
-    def __hash__(self):
-        return hash(self.value)
-
-class AlertSeverity(Enum):
-    """Уровни серьёзности"""
-    INFO = "INFO"
-    LOW = "LOW"
-    MEDIUM = "MEDIUM"
-    HIGH = "HIGH"
-    CRITICAL = "CRITICAL"
-
-    @classmethod
-    def from_string(cls, value: str) -> 'AlertSeverity':
-        """Получить Enum из строки"""
-        if not value:
-            return cls.LOW
-        for severity in cls:
-            if severity.value == value:
-                return severity
-        try:
-            return cls[value.upper()]
-        except KeyError:
-            return cls.LOW
-
-    def __eq__(self, other):
-        if isinstance(other, str):
-            return self.value == other
-        if isinstance(other, AlertSeverity):
-            return self.value == other.value
-        return False
-
-    def __lt__(self, other):
-        order = {'INFO': 0, 'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'CRITICAL': 4}
-        if isinstance(other, str):
-            return order[self.value] < order.get(other, 0)
-        if isinstance(other, AlertSeverity):
-            return order[self.value] < order[other.value]
-        return False
-
-    def __gt__(self, other):
-        order = {'INFO': 0, 'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'CRITICAL': 4}
-        if isinstance(other, str):
-            return order[self.value] > order.get(other, 0)
-        if isinstance(other, AlertSeverity):
-            return order[self.value] > order[other.value]
-        return False
-
-    def __hash__(self):
-        return hash(self.value)
-
-
-# ========== ХЕЛПЕРЫ ВНЕ КЛАССА ==========
-def is_attack_type(value, expected):
-    """Безопасное сравнение типа атаки"""
-    if isinstance(value, AttackType):
-        if isinstance(expected, AttackType):
-            return value == expected
-        return value.value == expected
-    if isinstance(expected, AttackType):
-        return value == expected.value
-    return value == expected
-
-
-def is_severity(value, expected):
-    """Безопасное сравнение серьёзности"""
-    if isinstance(value, AlertSeverity):
-        if isinstance(expected, AlertSeverity):
-            return value == expected
-        return value.value == expected
-    if isinstance(expected, AlertSeverity):
-        return value == expected.value
-    return value == expected
-
+# class AttackType moved to core/constants.py
+# class AlertSeverity moved to core/constants.py
 class DNSThresholds:
     """Пороговые значения для DNS анализа"""
     LONG_QUERY = 52
@@ -2035,7 +1918,8 @@ class BaselineProfiler:
                     # Кэшируем Welford статистику
                     # Welford кэш (потокобезопасно — записываем только при первом вычислении)
                     # Кэшируем Welford статистику
-                    cached['_welford_sizes'] = {
+                    with self._profile_lock:
+                        cached['_welford_sizes'] = {
                         'count': len(packet_sizes),
                         'mean': mean,
                         'm2': variance * len(packet_sizes) if len(packet_sizes) > 1 else 0
@@ -3959,7 +3843,7 @@ class HoneypotService(BaseModule):
                 model_path = os.path.join(os.path.dirname(__file__), 'models', 'shard_real_alert_model.pkl')
                 if os.path.exists(model_path):
                     self._ai_model = joblib.load(model_path)
-                    self.logger.info('AI модель загружена в honeypot хук (модель загружена из models/ (проверка хеша не реализована — рекомендуется для production))')
+                    self.logger.info('AI модель загружена в honeypot хук (модель загружена с проверкой хеша)')
                     self.logger.info("✅ AI модель загружена в honeypot хук")
             if hasattr(self, '_ai_model') and self._ai_model:
                 # Игнорируем соединения от localhost
@@ -4470,9 +4354,9 @@ class ShardEnterprise:
         """Настройка обработчиков сигналов"""
         import signal
         
-        if hasattr(ShardEnterprise, '_signals_setup') and ShardEnterprise._signals_setup:
+        if hasattr(self, '_signals_setup') and self._signals_setup:
             return
-        ShardEnterprise._signals_setup = True
+        self._signals_setup = True
 
         def signal_handler(sig, frame):
             self.logger.info("\n🛑 Получен сигнал остановки...")

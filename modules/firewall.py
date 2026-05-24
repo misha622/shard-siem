@@ -35,7 +35,6 @@ class SmartFirewall(BaseModule):
         self._lock = threading.RLock()
 
         Path('data').mkdir(parents=True, exist_ok=True)
-        Path('data').mkdir(parents=True, exist_ok=True)
         self.event_bus.subscribe('alert.detected', self.on_alert)
         self.event_bus.subscribe('exfiltration.detected', self.on_exfiltration)
 
