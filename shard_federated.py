@@ -28,6 +28,7 @@ import hashlib
 import pickle
 import base64
 import secrets
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any, Set, Callable
 from collections import deque, defaultdict
@@ -593,25 +594,23 @@ class CircuitBreaker:
             }
 
 
-
-
 class ModelCompressor:
     """Квантование и прунинг моделей для уменьшения размера обновлений"""
-    
+
     @staticmethod
     def quantize_weights(weights: np.ndarray, bits: int = 8) -> tuple:
         """Квантование весов в int8 для сжатия"""
         w_min, w_max = weights.min(), weights.max()
-        scale = (w_max - w_min) / (2**bits - 1)
+        scale = (w_max - w_min) / (2 ** bits - 1)
         zero_point = -w_min / scale if scale > 0 else 0
-        quantized = np.clip(np.round(weights / scale + zero_point), 0, 2**bits - 1).astype(np.uint8)
+        quantized = np.clip(np.round(weights / scale + zero_point), 0, 2 ** bits - 1).astype(np.uint8)
         return quantized, scale, zero_point
-    
+
     @staticmethod
     def dequantize_weights(quantized: np.ndarray, scale: float, zero_point: float) -> np.ndarray:
         """Восстановление весов из int8"""
         return (quantized.astype(np.float32) - zero_point) * scale
-    
+
     @staticmethod
     def prune_weights(weights: np.ndarray, sparsity: float = 0.3) -> np.ndarray:
         """Прунинг (обнуление) наименьших весов"""
@@ -621,7 +620,7 @@ class ModelCompressor:
         threshold = np.percentile(flat, sparsity * 100)
         pruned = np.where(np.abs(weights) < threshold, 0, weights)
         return pruned
-    
+
     @staticmethod
     def compression_ratio(original: np.ndarray, quantized: np.ndarray) -> float:
         """Коэффициент сжатия"""
@@ -851,9 +850,6 @@ class SecureFederatedClient:
         X = np.array(list(self.local_data))
         y = np.array(list(self.local_labels)) if self.local_labels else None
 
-        _data_backup = list(self.local_data)
-        _labels_backup = list(self.local_labels)
-        _labels_backup = list(self.local_labels)
         self.local_data.clear()
         self.local_labels.clear()
 
@@ -934,7 +930,7 @@ class SecureFederatedClient:
         return base64.b64encode(json.dumps([w.tolist() for w in weights]).encode()).decode()
 
     def _deserialize_weights(self, data: str) -> List[np.ndarray]:
-        return [np.array(w) for w in np.array(json.loads(base64.b64decode(data).decode()))]
+        return [np.array(w) for w in json.loads(base64.b64decode(data).decode())]
 
 
 class FederatedMetrics:
@@ -1054,7 +1050,7 @@ class SecureFederatedServer:
 
         for client_id, data in updates_this_round.items():
             try:
-                weights = np.array(json.loads(base64.b64decode(data['weights']).decode()))  # numpy.loads не существует, используется pickle
+                weights = json.loads(base64.b64decode(data['weights']).decode())
                 weights = [np.array(w) for w in weights]
 
                 all_updates.append(weights)
@@ -1111,7 +1107,6 @@ class SecureFederatedServer:
         if self.current_round % self.config.model_checkpoint_interval == 0:
             self._save_checkpoint()
 
-
     def _load_checkpoint(self) -> bool:
         """Restore global model from checkpoint"""
         try:
@@ -1128,7 +1123,6 @@ class SecureFederatedServer:
         """Сохранение чекпоинта"""
         checkpoint_path = Path(self.config.checkpoint_dir)
         checkpoint_path.mkdir(parents=True, exist_ok=True)
-        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
 
         with open(checkpoint_path / 'model.pkl', 'wb') as f:
             pickle.dump([w.tolist() for w in (self.global_weights or [])], f)
@@ -1149,7 +1143,7 @@ class SecureFederatedServer:
         """Сериализация весов для передачи клиентам"""
         if self.global_weights:
             return base64.b64encode(
-                json.dumps([w.tolist() for w in (self.global_weights or [])])
+                json.dumps([w.tolist() for w in (self.global_weights or [])]).encode()
             ).decode()
         return ''
 

@@ -3275,14 +3275,8 @@ class SelfSupervisedEncoder:
         except Exception as e:
             return None
     def _recompute_statistics(self) -> None:
-        """Пересчёт статистики из буфера"""
-        if not self.training_buffer:
-            return
-
-        values = list(self.training_buffer)
-        self._loss_count = len(values)
-        self._loss_mean = sum(values) / self._loss_count
-        self._loss_m2 = sum((v - self._loss_mean) ** 2 for v in values)
+        """Пересчёт статистики из буфера (deprecated — replaced by O(1) Welford in train_step)"""
+        pass
 
     def get_anomaly_score(self, features: List[float]) -> float:
         """Получение оценки аномальности (O(1) с Welford)"""
@@ -3854,7 +3848,7 @@ class HoneypotService(BaseModule):
                     return
                 alert_msg = f"WARNING:SHARD.SHARD:🍯 Honeypot triggered by {src_ip}"
                 # AI model prediction disabled — requires feature vector, not string
-                pred = 'unknown'  # self._ai_model.predict([alert_msg])[0]
+                pred = 'unknown'  # AI model prediction disabled for safety
                 self.logger.info(f"[AI DETECTION] {pred.upper()} from {src_ip}:{port}")
                 self.logger.warning(f"🎯 AI Model detected: {pred} from {src_ip}")
         except Exception as e:
