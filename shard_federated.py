@@ -1115,7 +1115,7 @@ class SecureFederatedServer:
     def _load_checkpoint(self) -> bool:
         """Restore global model from checkpoint"""
         try:
-            checkpoint_path = Path(self.config.checkpoint_dir) / 'global_model.pt'
+            checkpoint_path = Path(self.config.checkpoint_dir) / 'model.pkl'
             if checkpoint_path.exists():
                 # Federated model uses TF/Keras, not PyTorch — skipping torch.load
                 # TODO: implement TF checkpoint restore

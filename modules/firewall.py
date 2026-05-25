@@ -256,7 +256,7 @@ class SmartFirewall(BaseModule):
             # Устанавливаем блокировку
             self.blocked_ips[ip] = time.time() + duration
             # Аудит: логируем кто заблокировал IP
-            self._audit_log(ip, duration, 'manual' if not hasattr(self, '_last_alert') else 'auto')
+            self._audit_log(ip, duration, 'auto')
 
         # Проверяем существование правила в iptables
         if os.name != 'nt':

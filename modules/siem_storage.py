@@ -2,6 +2,7 @@
 """SHARD SIEMStorage Module"""
 from core.base import BaseModule, ConfigManager, EventBus, LoggingService
 import os, time, threading, queue, json, sqlite3, re
+from datetime import datetime
 from typing import Dict, List, Optional, Any
 from collections import defaultdict, deque
 from pathlib import Path
