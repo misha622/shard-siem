@@ -3275,8 +3275,14 @@ class SelfSupervisedEncoder:
         except Exception as e:
             return None
     def _recompute_statistics(self) -> None:
-        """Пересчёт статистики из буфера (deprecated — replaced by O(1) Welford in train_step)"""
-        pass
+        """Пересчёт статистики из буфера (вызывается при загрузке модели)"""
+        if not self.training_buffer:
+            return
+        with self._loss_lock:
+            values = list(self.training_buffer)
+            self._loss_count = len(values)
+            self._loss_mean = sum(values) / self._loss_count if self._loss_count > 0 else 0.0
+            self._loss_m2 = sum((v - self._loss_mean) ** 2 for v in values) if self._loss_count > 1 else 0.0
 
     def get_anomaly_score(self, features: List[float]) -> float:
         """Получение оценки аномальности (O(1) с Welford)"""
