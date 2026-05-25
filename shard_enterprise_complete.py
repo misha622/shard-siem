@@ -1042,6 +1042,7 @@ class WebDashboard(BaseModule):
             return
 
         self.running = True
+        self._start_time = time.time()
         self.use_ssl = self.config.get('dashboard.ssl.enabled', False)
         self.ssl_cert = self.config.get('dashboard.ssl.cert_path', '')
         self.ssl_key = self.config.get('dashboard.ssl.key_path', '')
@@ -3817,6 +3818,7 @@ class HoneypotService(BaseModule):
             return
 
         self.running = True
+        self._start_time = time.time()
         for port in self.ports:
             srv = _HoneypotServer(port, self.event_bus, self.logger, self._on_connection)
             srv.start()
@@ -4355,9 +4357,9 @@ class ShardEnterprise:
         """Настройка обработчиков сигналов"""
         import signal
         
-        if hasattr(self, '_signals_setup') and self._signals_setup:
+        if hasattr(ShardEnterprise, '_signals_setup_done') and ShardEnterprise._signals_setup_done:
             return
-        self._signals_setup = True
+        ShardEnterprise._signals_setup_done = True
 
         def signal_handler(sig, frame):
             self.logger.info("\n🛑 Получен сигнал остановки...")

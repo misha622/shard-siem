@@ -500,7 +500,7 @@ class SIEMStorage(BaseModule):
             cutoff = time.time() - (hours * 3600)
             cursor.execute(
                 '''SELECT DISTINCT src_ip FROM alerts 
-                   WHERE explanation LIKE ? AND timestamp > ? 
+                   WHERE explanation LIKE ? ESCAPE '\' AND timestamp > ? 
                    LIMIT 100''',
                 (f'%{username.replace("%", "\\%").replace("_", "\\_")}%', cutoff)
             )
