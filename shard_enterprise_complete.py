@@ -4199,7 +4199,7 @@ class ShardEnterprise:
         ]
 
         # Добавляем симулятор если нужно
-        if self.config.get('simulation.enabled', False):
+        if self.config.get('simulation.enabled', False) or self.enable_simulation:
             self.modules.append(AttackSimulator(self.config, self.event_bus, self.logger_service))
             self.logger.info("🎮 Симулятор атак запущен")
 

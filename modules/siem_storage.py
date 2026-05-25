@@ -192,6 +192,7 @@ class SIEMStorage(BaseModule):
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_alerts_ip ON alerts(src_ip)')
                 # Создаём партиции на 3 месяца вперёд
                 for month_offset in range(3):
+                    partition_name = f"alerts_{datetime.now().strftime('%Y_%m')}_{month_offset}"
                     cursor.execute(f"""
                         CREATE TABLE IF NOT EXISTS alerts_partition_{month_offset}
                         PARTITION OF alerts
