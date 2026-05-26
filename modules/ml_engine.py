@@ -1,20 +1,38 @@
 #!/usr/bin/env python3
-"""SHARD MachineLearningEngine Module"""
-from core.base import BaseModule, ConfigManager, EventBus, LoggingService
-import os, time, threading, json, joblib, numpy as np, sqlite3
-from typing import Dict, List, Optional, Any, Tuple
+"""SHARD MachineLearningEngine Module - Refactored Version"""
+import os
+import time
+import threading
+import json
+import uuid
+import sqlite3
+from typing import Dict, List, Optional, Any, Tuple, Set
 from collections import defaultdict, deque
 from pathlib import Path
+from dataclasses import dataclass, field
+from abc import ABC, abstractmethod
 
-# Импорты из главного файла (для обратной совместимости)
+import numpy as np
+
+from core.base import BaseModule, ConfigManager, EventBus, LoggingService
+
+# Conditional imports with proper fallback
 try:
-    # Models imported from shared module
+    import joblib
+
+    HAS_JOBLIB = True
+except ImportError:
+    HAS_JOBLIB = False
+
+try:
     from modules.ml_models import SelfSupervisedEncoder, ThreatGNN
+
+    HAS_ML_MODELS = True
 except ImportError:
     SelfSupervisedEncoder = None
     ThreatGNN = None
+    HAS_ML_MODELS = False
 
-# Глобальные переменные из главного файла
 try:
     from core.constants import shap_module, xgboost_module, sklearn_ensemble
 except ImportError:
@@ -22,799 +40,1356 @@ except ImportError:
     xgboost_module = None
     sklearn_ensemble = None
 
-class MachineLearningEngine(BaseModule):
-    """ML движок с дообучением и Deep Learning моделями (LSTM + VAE + Transformer)"""
 
-    def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
-        super().__init__("ML", config, event_bus, logger)
-        self.model_path = Path(config.get('ml.model_path', './models/'))
-        self.model_path.mkdir(parents=True, exist_ok=True)
+# ============================================================================
+# Data Classes
+# ============================================================================
 
-        self.models = {}
-        self.scaler = None
-        self.features = []
-        self.normal_buffer: deque = deque(maxlen=5000)
-        self.attack_buffer: deque = deque(maxlen=5000)
-        self.online_learning = config.get('ml.online_learning', True)
-        self.retrain_interval = config.get('ml.retrain_interval', 300)
-        self.retrain_min_samples = config.get('ml.retrain_min_samples', 100)
-        self.confidence_threshold = config.get('ml.confidence_threshold', 0.7)
-        self.anomaly_threshold = config.get('ml.anomaly_threshold', -0.15)
-        self.use_xgboost = 'xgboost' in config.get('ml.ensemble', [])
-        self.explain_with_shap = config.get('ml.explain_with_shap', True)
-        self.use_deep_learning = config.get('ml.use_deep_learning', True)
+@dataclass
+class PredictionResult:
+    """Структурированный результат предсказания"""
+    is_attack: bool = False
+    score: float = 0.0
+    confidence: float = 0.0
+    attack_type: str = 'Normal'
+    timestamp: float = field(default_factory=time.time)
 
-        self.shap_explainer = None
-        self.shap_background_data = []
-        self.ssl_model = SelfSupervisedEncoder(input_dim=156) if SelfSupervisedEncoder else None
-        self.gnn_model = ThreatGNN() if ThreatGNN else None
+    # Детекторы
+    ml_detected: bool = False
+    dl_detected: bool = False
+    gnn_detected: bool = False
+    vae_detected: bool = False
+    adaptive_detected: bool = False
 
-        # Deep Learning Engine
-        self.dl_engine = None
-        if self.use_deep_learning:
+    # Детали
+    details: Dict[str, Any] = field(default_factory=dict)
+    explanations: List[Dict] = field(default_factory=list)
+    recommended_action: Optional[str] = None
+
+    def to_dict(self) -> Dict:
+        return {
+            'is_attack': self.is_attack,
+            'score': self.score,
+            'confidence': self.confidence,
+            'attack_type': self.attack_type,
+            'timestamp': self.timestamp,
+            'ml_detected': self.ml_detected,
+            'dl_detected': self.dl_detected,
+            'gnn_detected': self.gnn_detected,
+            'vae_detected': self.vae_detected,
+            'adaptive_detected': self.adaptive_detected,
+            'details': self.details,
+            'explanations': self.explanations,
+            'recommended_action': self.recommended_action
+        }
+
+
+@dataclass
+class ModelConfig:
+    """Конфигурация ML модели"""
+    use_xgboost: bool = True
+    use_deep_learning: bool = True
+    explain_with_shap: bool = True
+    online_learning: bool = True
+    retrain_interval: int = 300
+    retrain_min_samples: int = 100
+    confidence_threshold: float = 0.7
+    anomaly_threshold: float = -0.15
+    model_path: Path = Path('./models/')
+    autosave_interval: int = 300
+    buffer_maxlen: int = 5000
+    sequence_maxlen: int = 100
+
+    # Параметры Isolation Forest
+    n_estimators: int = 100
+    contamination: float = 0.1
+
+    # Коэффициенты для ненадежной модели
+    unreliable_threshold_multiplier: float = 1.5
+    unreliable_confidence_multiplier: float = 0.5
+
+
+# ============================================================================
+# Base Model Interface (Strategy Pattern)
+# ============================================================================
+
+class BaseDetector(ABC):
+    """Базовый интерфейс для всех детекторов"""
+
+    @abstractmethod
+    def predict(self, features: np.ndarray) -> Tuple[float, float]:
+        """
+        Возвращает (score, confidence)
+        score: 0.0 (normal) до 1.0 (attack)
+        confidence: 0.0 до 1.0
+        """
+        pass
+
+    @abstractmethod
+    def is_fitted(self) -> bool:
+        """Проверка, что модель обучена"""
+        pass
+
+    @abstractmethod
+    def save(self, path: Path) -> bool:
+        """Сохранение модели"""
+        pass
+
+    @abstractmethod
+    def load(self, path: Path) -> bool:
+        """Загрузка модели"""
+        pass
+
+    @abstractmethod
+    def partial_fit(self, X: np.ndarray, y: Optional[np.ndarray] = None) -> bool:
+        """Дообучение модели"""
+        pass
+
+
+class IsolationForestDetector(BaseDetector):
+    """Isolation Forest детектор аномалий"""
+
+    def __init__(self, config: ModelConfig, logger: LoggingService):
+        self.config = config
+        self.logger = logger
+        self.model = None
+        self._is_reliable = False
+        self._samples_trained = 0
+
+        self._initialize()
+
+    def _initialize(self):
+        """Инициализация модели"""
+        if sklearn_ensemble is None:
+            self.logger.error("sklearn не доступен, Isolation Forest не будет работать")
+            return
+
+        from sklearn.ensemble import IsolationForest
+
+        self.model = IsolationForest(
+            n_estimators=self.config.n_estimators,
+            contamination=self.config.contamination,
+            random_state=42,
+            n_jobs=-1
+        )
+
+    def predict(self, features: np.ndarray) -> Tuple[float, float]:
+        if self.model is None:
+            return 0.5, 0.1
+
+        try:
+            raw_score = float(self.model.score_samples(features)[0])
+            # Нормализация в [0, 1], где 1 = аномалия
+            normalized_score = np.clip(1.0 - (raw_score + 0.5), 0.0, 1.0)
+
+            threshold = self.config.anomaly_threshold
+            if not self._is_reliable:
+                threshold *= self.config.unreliable_threshold_multiplier
+
+            distance = abs(raw_score - threshold)
+            confidence = min(0.99, distance / 0.5)
+
+            if not self._is_reliable:
+                confidence *= self.config.unreliable_confidence_multiplier
+
+            return normalized_score, confidence
+        except Exception as e:
+            self.logger.error(f"Isolation Forest prediction error: {e}")
+            return 0.5, 0.1
+
+    def is_fitted(self) -> bool:
+        return self.model is not None and hasattr(self.model, 'estimators_')
+
+    def save(self, path: Path) -> bool:
+        if not HAS_JOBLIB or self.model is None:
+            return False
+        try:
+            joblib.dump(self.model, path)
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to save IF model: {e}")
+            return False
+
+    def load(self, path: Path) -> bool:
+        if not HAS_JOBLIB or not path.exists():
+            return False
+        try:
+            self.model = joblib.load(path)
+            self._is_reliable = True
+            self._samples_trained = 500  # Загруженная модель считается обученной
+            self.logger.info("Isolation Forest model loaded successfully")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to load IF model: {e}")
+            return False
+
+    def partial_fit(self, X: np.ndarray, y: Optional[np.ndarray] = None) -> bool:
+        if self.model is None or len(X) < 50:
+            return False
+
+        try:
+            # Увеличиваем количество деревьев для улучшения модели
+            if hasattr(self.model, 'estimators_'):
+                current_trees = len(self.model.estimators_)
+                self.model.set_params(n_estimators=current_trees + 10)
+
+            self.model.fit(X)
+            self._samples_trained += len(X)
+
+            if self._samples_trained >= 500:
+                self._is_reliable = True
+                self.logger.info("Isolation Forest marked as reliable")
+
+            return True
+        except Exception as e:
+            self.logger.error(f"IF partial_fit error: {e}")
+            return False
+
+    @property
+    def is_reliable(self) -> bool:
+        return self._is_reliable
+
+    @property
+    def samples_trained(self) -> int:
+        return self._samples_trained
+
+
+class XGBoostDetector(BaseDetector):
+    """XGBoost классификатор атак"""
+
+    ATTACK_MAP = {
+        1: 'DoS', 2: 'DDoS', 3: 'Brute Force',
+        4: 'Web Attack', 5: 'Botnet', 8: 'Port Scan'
+    }
+
+    def __init__(self, config: ModelConfig, logger: LoggingService, num_features: int):
+        self.config = config
+        self.logger = logger
+        self.model = None
+        self._num_features = num_features
+
+        if config.use_xgboost and xgboost_module is not None:
+            self._initialize()
+
+    def _initialize(self):
+        """Инициализация XGBoost модели"""
+        if xgboost_module is None:
+            self.logger.error("XGBoost module not available")
+            return
+
+        self.model = xgboost_module.XGBClassifier(
+            n_estimators=100,
+            max_depth=6,
+            learning_rate=0.1,
+            objective='multi:softprob',
+            num_class=10,
+            random_state=42,
+            verbosity=0
+        )
+
+    def predict(self, features: np.ndarray) -> Tuple[float, float]:
+        if self.model is None or not self.is_fitted():
+            return 0.0, 0.0
+
+        try:
+            proba = self.model.predict_proba(features)[0]
+            attack_id = int(np.argmax(proba))
+            confidence = float(proba[attack_id])
+
+            if attack_id == 0:  # Normal class
+                return 0.0, confidence
+
+            return confidence, confidence
+        except Exception as e:
+            self.logger.error(f"XGBoost prediction error: {e}")
+            return 0.0, 0.0
+
+    def predict_attack_type(self, features: np.ndarray) -> Tuple[str, float]:
+        """Определение типа атаки"""
+        if self.model is None or not self.is_fitted():
+            return 'Unknown', 0.0
+
+        try:
+            proba = self.model.predict_proba(features)[0]
+            attack_id = int(np.argmax(proba))
+            confidence = float(proba[attack_id])
+            attack_type = self.ATTACK_MAP.get(attack_id, 'Unknown')
+            return attack_type, confidence
+        except Exception as e:
+            self.logger.error(f"XGBoost attack type error: {e}")
+            return 'Unknown', 0.0
+
+    def is_fitted(self) -> bool:
+        if self.model is None:
+            return False
+        try:
+            self.model.get_booster()
+            return True
+        except:
+            return False
+
+    def save(self, path: Path) -> bool:
+        if not HAS_JOBLIB or self.model is None:
+            return False
+        try:
+            joblib.dump(self.model, path)
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to save XGB model: {e}")
+            return False
+
+    def load(self, path: Path) -> bool:
+        if not HAS_JOBLIB or not path.exists():
+            return False
+        try:
+            self.model = joblib.load(path)
+            self.logger.info("XGBoost model loaded successfully")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to load XGB model: {e}")
+            return False
+
+    def partial_fit(self, X: np.ndarray, y: np.ndarray) -> bool:
+        if self.model is None or len(X) < 10:
+            return False
+
+        try:
+            if self.is_fitted():
+                # Warm start with previous model
+                self.model.fit(X, y, xgb_model=self.model.get_booster())
+                self.logger.info("XGBoost updated (warm start)")
+            else:
+                self.model.fit(X, y)
+                self.logger.info("XGBoost initialized")
+            return True
+        except Exception as e:
+            self.logger.error(f"XGBoost partial_fit error: {e}")
+            # Fallback: train from scratch
             try:
-                from shard_dl_models import DeepLearningEngine
-                self.dl_engine = DeepLearningEngine()
-                self.logger.info("Deep Learning Engine инициализирован")
-            except ImportError:
-                self.logger.warning("shard_dl_models не найден, Deep Learning отключен")
-                self.use_deep_learning = False
+                self.model.fit(X, y)
+                self.logger.info("XGBoost trained from scratch (fallback)")
+                return True
+            except Exception as e2:
+                self.logger.error(f"XGBoost fallback training failed: {e2}")
+                return False
 
-        # Автосохранение (ТОЛЬКО ОДИН РАЗ)
-        self._autosave_interval = 300
-        self._last_save = time.time()
-        self._save_thread = None
-        self._models_dirty = False
-        self._model_reliable = False
-        self._samples_since_init = 0
-        self._save_lock = threading.RLock()
 
-        # Буфер для последовательностей (ТОЛЬКО ОДИН РАЗ)
-        self.sequence_buffer: Dict[str, deque] = defaultdict(lambda: deque(maxlen=100))
+class StandardScalerWrapper:
+    """Обертка над StandardScaler с проверкой состояния"""
 
-        # Счётчик для GNN
-        self._gnn_packet_counter = 0
-        self._last_dst_ip = "0.0.0.0"
-        self._last_dst_port = 0
+    def __init__(self):
+        self.scaler = None
 
-        # Ссылки на улучшения
-        self.temporal_gnn = None
-        self.contrastive_vae = None
-        self.rl_defense = None
+    def fit(self, X: np.ndarray) -> bool:
+        if sklearn_ensemble is None:
+            return False
+        from sklearn.preprocessing import StandardScaler
+        self.scaler = StandardScaler()
+        self.scaler.fit(X)
+        return True
 
-        self._lock = threading.RLock()
-        self.siem_storage = None  # Будет назначен при подключении
-        self._load_models()
-        self._init_shap()
+    def transform(self, X: np.ndarray) -> np.ndarray:
+        if not self.is_fitted():
+            return X
+        try:
+            return self.scaler.transform(X)
+        except Exception:
+            return X
 
-        self.event_bus.subscribe('packet.features', self.on_features)
+    def fit_transform(self, X: np.ndarray) -> np.ndarray:
+        if not self.fit(X):
+            return X
+        return self.transform(X)
 
-    def _init_shap(self) -> None:
+    def is_fitted(self) -> bool:
+        return (self.scaler is not None and
+                hasattr(self.scaler, 'mean_') and
+                hasattr(self.scaler, 'scale_'))
+
+    def save(self, path: Path) -> bool:
+        if not HAS_JOBLIB or self.scaler is None:
+            return False
+        try:
+            joblib.dump(self.scaler, path)
+            return True
+        except Exception:
+            return False
+
+    def load(self, path: Path) -> bool:
+        if not HAS_JOBLIB or not path.exists():
+            return False
+        try:
+            self.scaler = joblib.load(path)
+            return True
+        except Exception:
+            return False
+
+
+# ============================================================================
+# SHAP Explainer
+# ============================================================================
+
+class SHAPExplainer:
+    """SHAP объяснитель с поддержкой разных моделей"""
+
+    def __init__(self, config: ModelConfig, logger: LoggingService):
+        self.config = config
+        self.logger = logger
+        self.explainer = None
+        self.feature_names: List[str] = []
+        self._background_ready = False
+
+    def initialize(self, model, background_data: np.ndarray, feature_names: List[str]) -> bool:
         """Инициализация SHAP объяснителя"""
-        if not self.explain_with_shap:
-            return
+        if not self.config.explain_with_shap or shap_module is None:
+            return False
 
-        if shap_module is None:
-            self.logger.warning("SHAP не установлен, объяснения отключены")
-            self.explain_with_shap = False
-            return
-
-        self.shap_background_data = []
-        self.logger.debug("SHAP будет инициализирован при накоплении данных")
-
-    def _initialize_shap_explainer(self, background_samples: List[List[float]]) -> None:
-        """Создание SHAP объяснителя с фоновыми данными"""
-        if not self.explain_with_shap or shap_module is None:
-            return
+        self.feature_names = feature_names
 
         try:
             import shap
-            import numpy as np
 
-            X_background = np.array(background_samples)
-            if self.scaler and self._is_scaler_fitted():
-                X_background = self.scaler.transform(X_background)
+            if len(background_data) > 50:
+                background_data = background_data[:50]
 
-            if 'xgb' in self.models and self.use_xgboost:
-                model = self.models['xgb']
-                self.shap_explainer = shap.TreeExplainer(model)
-                self.logger.info("SHAP TreeExplainer инициализирован для XGBoost")
-
-            elif 'if' in self.models:
-                model = self.models['if']
-                if len(X_background) > 50:
-                    X_background = X_background[:50]
-
+            # Проверяем тип модели для выбора объяснителя
+            if xgboost_module and isinstance(model, xgboost_module.XGBClassifier):
+                self.explainer = shap.TreeExplainer(model)
+                self.logger.info("SHAP TreeExplainer initialized")
+            else:
+                # KernelExplainer для других моделей
                 def predict_fn(x):
                     scores = model.score_samples(x)
                     return (scores + 0.5) / 0.5
 
-                self.shap_explainer = shap.KernelExplainer(predict_fn, X_background)
-                self.logger.info("SHAP KernelExplainer инициализирован для Isolation Forest")
+                self.explainer = shap.KernelExplainer(predict_fn, background_data)
+                self.logger.info("SHAP KernelExplainer initialized")
 
+            self._background_ready = True
+            return True
         except Exception as e:
-            self.logger.error(f"Ошибка инициализации SHAP: {e}")
-            self.explain_with_shap = False
-
-    def _is_scaler_fitted(self) -> bool:
-        """Проверка что scaler обучен"""
-        if self.scaler is None:
-            return False
-        try:
-            return hasattr(self.scaler, 'mean_') and hasattr(self.scaler, 'scale_')
-        except:
+            self.logger.error(f"SHAP initialization failed: {e}")
             return False
 
-    def _get_class_index(self, attack_type: str) -> int:
-        """Получение индекса класса для SHAP"""
-        class_map = {
-            'Normal': 0,
-            'DoS': 1,
-            'DDoS': 2,
-            'Brute Force': 3,
-            'Web Attack': 4,
-            'Botnet': 5,
-            'Port Scan': 8
-        }
-        return class_map.get(attack_type, 0)
-
-    def explain_prediction(self, features: List[float]) -> Dict:
-        """Подробное объяснение предсказания"""
-        if not self.explain_with_shap or not self.shap_explainer:
-            return {'error': 'SHAP не инициализирован'}
+    def explain(self, features: np.ndarray, class_idx: Optional[int] = None) -> List[Dict]:
+        """Объяснение предсказания"""
+        if not self._background_ready or self.explainer is None:
+            return []
 
         try:
-            import numpy as np
+            shap_values = self.explainer.shap_values(features)
 
-            X = np.array([features])
-            if self.scaler and self._is_scaler_fitted():
-                X = self.scaler.transform(X)
-
-            shap_values = self.shap_explainer.shap_values(X)
-
+            # Handle multi-class SHAP values
             if isinstance(shap_values, list):
-                shap_vals = shap_values[0][0] if len(shap_values) > 0 else []
+                if class_idx is not None and class_idx < len(shap_values):
+                    shap_vals = shap_values[class_idx][0]
+                else:
+                    shap_vals = shap_values[0][0]
             else:
                 shap_vals = shap_values[0]
 
             explanations = []
             for idx, shap_val in enumerate(shap_vals):
-                if idx < len(self.features) and abs(shap_val) > 0.01:
+                if idx < len(self.feature_names) and abs(shap_val) > 0.01:
                     explanations.append({
-                        'feature': self.features[idx],
-                        'value': features[idx] if idx < len(features) else None,
+                        'feature': self.feature_names[idx],
                         'shap_value': float(shap_val),
                         'impact': 'positive' if shap_val > 0 else 'negative',
                         'importance': abs(float(shap_val))
                     })
 
             explanations.sort(key=lambda x: x['importance'], reverse=True)
-            total_impact = sum(e['shap_value'] for e in explanations)
+            return explanations[:10]
+        except Exception as e:
+            self.logger.error(f"SHAP explanation error: {e}")
+            return []
 
-            expected_value = 0.0
-            if hasattr(self.shap_explainer, 'expected_value'):
-                ev = self.shap_explainer.expected_value
-                if isinstance(ev, (list, np.ndarray)) and len(ev) > 0:
-                    expected_value = float(ev[0]) if isinstance(ev[0], (int, float)) else 0.0
-                else:
-                    expected_value = float(ev) if isinstance(ev, (int, float)) else 0.0
 
+# ============================================================================
+# Data Buffer Manager
+# ============================================================================
+
+class DataBuffer:
+    """Потокобезопасный буфер для обучающих данных"""
+
+    def __init__(self, maxlen: int = 5000):
+        self._normal_buffer: deque = deque(maxlen=maxlen)
+        self._attack_buffer: deque = deque(maxlen=maxlen)
+        self._lock = threading.RLock()
+        self._backup_normal: List = []
+        self._backup_attack: List = []
+
+    def add_normal(self, features: List[float]):
+        with self._lock:
+            self._normal_buffer.append(features)
+
+    def add_attack(self, features: List[float], attack_type: str):
+        with self._lock:
+            self._attack_buffer.append((features, attack_type))
+
+    def get_and_clear(self) -> Tuple[List, List]:
+        """Атомарно получить и очистить буферы (с бэкапом)"""
+        with self._lock:
+            normal = list(self._normal_buffer)
+            attacks = list(self._attack_buffer)
+
+            # Создаем бэкап перед очисткой
+            self._backup_normal = normal.copy()
+            self._backup_attack = attacks.copy()
+
+            return normal, attacks
+
+    def commit_clear(self):
+        """Подтвердить очистку после успешного обучения"""
+        with self._lock:
+            self._normal_buffer.clear()
+            self._attack_buffer.clear()
+            self._backup_normal.clear()
+            self._backup_attack.clear()
+
+    def rollback(self):
+        """Восстановить данные при ошибке обучения"""
+        with self._lock:
+            self._normal_buffer.extend(self._backup_normal)
+            self._attack_buffer.extend(self._backup_attack)
+            self._backup_normal.clear()
+            self._backup_attack.clear()
+
+    @property
+    def total_samples(self) -> int:
+        with self._lock:
+            return len(self._normal_buffer) + len(self._attack_buffer)
+
+    @property
+    def stats(self) -> Dict:
+        with self._lock:
             return {
-                'explanations': explanations[:10],
-                'total_impact': float(total_impact),
-                'prediction': 'attack' if total_impact > 0 else 'normal',
-                'base_value': expected_value
+                'normal_count': len(self._normal_buffer),
+                'attack_count': len(self._attack_buffer),
+                'total': self.total_samples
             }
 
-        except Exception as e:
-            return {'error': str(e)}
 
-    def _load_models(self) -> None:
-        """Загрузка моделей"""
+# ============================================================================
+# Model Persistence Manager
+# ============================================================================
+
+class ModelPersistence:
+    """Управление сохранением и загрузкой моделей"""
+
+    def __init__(self, base_path: Path, logger: LoggingService):
+        self.base_path = base_path
+        self.logger = logger
+        self.base_path.mkdir(parents=True, exist_ok=True)
+        self._lock = threading.RLock()
+
+    def save_atomic(self, obj: Any, filename: str) -> bool:
+        """Атомарное сохранение с временным файлом"""
+        if not HAS_JOBLIB:
+            return False
+
+        with self._lock:
+            temp_path = self.base_path / f"{filename}.tmp"
+            final_path = self.base_path / filename
+
+            try:
+                joblib.dump(obj, temp_path)
+                os.replace(str(temp_path), str(final_path))
+                return True
+            except Exception as e:
+                self.logger.error(f"Failed to save {filename}: {e}")
+                if temp_path.exists():
+                    temp_path.unlink()
+                return False
+
+    def save_all(self, models: Dict[str, Any]) -> bool:
+        """Атомарное сохранение всех моделей с бэкапом"""
+        with self._lock:
+            # Создаем бэкап текущих файлов
+            backup_dir = self.base_path / 'backup'
+            backup_dir.mkdir(exist_ok=True)
+
+            timestamp = int(time.time())
+            temp_files = []
+
+            try:
+                # Сохраняем во временные файлы
+                for name, obj in models.items():
+                    if obj is not None:
+                        temp_path = self.base_path / f"{name}.pkl.tmp"
+                        joblib.dump(obj, temp_path)
+                        temp_files.append((temp_path, self.base_path / f"{name}.pkl"))
+
+                # Бэкапим старые версии
+                for _, final_path in temp_files:
+                    if final_path.exists():
+                        backup_path = backup_dir / f"{final_path.name}.{timestamp}"
+                        final_path.rename(backup_path)
+
+                # Перемещаем новые версии
+                for temp_path, final_path in temp_files:
+                    os.replace(str(temp_path), str(final_path))
+
+                self.logger.debug(f"All models saved successfully (backup: {timestamp})")
+                return True
+
+            except Exception as e:
+                self.logger.error(f"Failed to save models: {e}")
+                # Очищаем временные файлы
+                for temp_path, _ in temp_files:
+                    if temp_path.exists():
+                        temp_path.unlink()
+                return False
+
+    def load(self, filename: str) -> Optional[Any]:
+        """Загрузка модели"""
+        if not HAS_JOBLIB:
+            return None
+
+        path = self.base_path / filename
+        if not path.exists():
+            return None
+
         try:
-            import joblib
-
-            if_path = self.model_path / 'shard_enterprise_model_if.pkl'
-            if if_path.exists() and joblib:
-                self.models['if'] = joblib.load(if_path)
-                self.logger.info("Isolation Forest загружен")
-            else:
-                self._init_isolation_forest()
-
-            if self.use_xgboost and xgboost_module:
-                xgb_path = self.model_path / 'shard_enterprise_model_xgb.pkl'
-                if xgb_path.exists() and joblib:
-                    self.models['xgb'] = joblib.load(xgb_path)
-                    self.logger.info("XGBoost загружен")
-                else:
-                    self._init_xgboost()
-
-            rf_path = self.model_path / 'shard_enterprise_model_rf.pkl'
-            if rf_path.exists() and joblib:
-                self.models['rf'] = joblib.load(rf_path)
-
-            scaler_path = self.model_path / 'shard_enterprise_scaler.pkl'
-            if scaler_path.exists() and joblib:
-                self.scaler = joblib.load(scaler_path)
-
-            features_path = self.model_path / 'shard_enterprise_features.pkl'
-            if features_path.exists() and joblib:
-                self.features = joblib.load(features_path)
-            else:
-                self._init_features()
-
+            return joblib.load(path)
         except Exception as e:
-            self.logger.warning(f"Ошибка загрузки моделей: {e}")
-            self._init_features()
-            self._init_isolation_forest()
+            self.logger.warning(f"Failed to load {filename}: {e}")
+            return None
 
-    def _init_features(self) -> None:
-        """Инициализация признаков"""
+
+# ============================================================================
+# Main Machine Learning Engine
+# ============================================================================
+
+class MachineLearningEngine(BaseModule):
+    """
+    ML движок с модульной архитектурой для обнаружения атак.
+
+    Поддерживает:
+    - Isolation Forest (обнаружение аномалий)
+    - XGBoost (классификация атак)
+    - Deep Learning модели
+    - SHAP объяснения
+    - Онлайн-дообучение
+    - Интеграцию с GNN, VAE, RL
+    """
+
+    # Константы для маппинга атак
+    ATTACK_TO_ID = {
+        'Normal': 0, 'DoS': 1, 'DDoS': 2, 'Brute Force': 3,
+        'Web Attack': 4, 'Botnet': 5, 'Port Scan': 8
+    }
+
+    ID_TO_ATTACK = {v: k for k, v in ATTACK_TO_ID.items()}
+
+    def __init__(self, config: ConfigManager, event_bus: EventBus, logger: LoggingService):
+        super().__init__("ML", config, event_bus, logger)
+
+        # Конфигурация
+        self.ml_config = self._load_config(config)
+
+        # Persistence
+        self.persistence = ModelPersistence(self.ml_config.model_path, logger)
+
+        # Инициализация компонентов
+        self._init_features()
+        self._init_scaler()
+        self._init_detectors()
+
+        # Data buffer
+        self.buffer = DataBuffer(maxlen=self.ml_config.buffer_maxlen)
+
+        # Sequence buffer for temporal analysis
+        self.sequence_buffer: Dict[str, deque] = defaultdict(
+            lambda: deque(maxlen=self.ml_config.sequence_maxlen)
+        )
+
+        # SHAP
+        self.shap = SHAPExplainer(self.ml_config, logger)
+        self._shap_background: List[List[float]] = []
+
+        # Deep Learning
+        self.dl_engine = None
+        if self.ml_config.use_deep_learning:
+            self._init_deep_learning()
+
+        # SSL модель
+        self.ssl_model = SelfSupervisedEncoder(input_dim=156) if SelfSupervisedEncoder else None
+
+        # Внешние движки (внедряются через setter)
+        self.temporal_gnn = None
+        self.contrastive_vae = None
+        self.rl_defense = None
+        self.adaptive_engine = None
+
+        # Состояние
+        self._lock = threading.RLock()
+        self._autosave_lock = threading.RLock()
+        self._models_dirty = False
+        self._last_save = time.time()
+        self._save_thread: Optional[threading.Thread] = None
+        self._gnn_packet_counter = 0
+
+        # Контекст для GNN
+        self._last_dst_ip = "0.0.0.0"
+        self._last_dst_port = 0
+
+        # DB connection pool reference
+        self.siem_storage = None
+
+        # Загружаем сохраненные модели
+        self._load_saved_models()
+
+        # Подписываемся на события
+        self.event_bus.subscribe('packet.features', self.on_features)
+
+        self.logger.info(
+            f"ML Engine initialized (XGB: {self.ml_config.use_xgboost}, "
+            f"DL: {self.ml_config.use_deep_learning}, SHAP: {self.ml_config.explain_with_shap})"
+        )
+
+    # ========================================================================
+    # Initialization Methods
+    # ========================================================================
+
+    def _load_config(self, config: ConfigManager) -> ModelConfig:
+        """Загрузка конфигурации из ConfigManager"""
+        return ModelConfig(
+            use_xgboost='xgboost' in config.get('ml.ensemble', []),
+            use_deep_learning=config.get('ml.use_deep_learning', True),
+            explain_with_shap=config.get('ml.explain_with_shap', True),
+            online_learning=config.get('ml.online_learning', True),
+            retrain_interval=config.get('ml.retrain_interval', 300),
+            retrain_min_samples=config.get('ml.retrain_min_samples', 100),
+            confidence_threshold=config.get('ml.confidence_threshold', 0.7),
+            anomaly_threshold=config.get('ml.anomaly_threshold', -0.15),
+            model_path=Path(config.get('ml.model_path', './models/')),
+            autosave_interval=config.get('ml.autosave_interval', 300)
+        )
+
+    def _init_features(self):
+        """Инициализация списка признаков"""
         self.features = [f'payload_byte_{i + 1}' for i in range(150)]
         self.features.extend([
             'payload_entropy', 'packet_size', 'protocol',
             'ttl', 'src_port', 'dst_port'
         ])
 
-    def _init_isolation_forest(self) -> None:
-        """Инициализация Isolation Forest"""
-        if sklearn_ensemble:
-            from sklearn.ensemble import IsolationForest
-            import numpy as np
+    def _init_scaler(self):
+        """Инициализация scaler"""
+        self.scaler = StandardScalerWrapper()
 
-            self.models['if'] = IsolationForest(
-                n_estimators=100,
-                contamination=0.1,
-                random_state=42,
-                n_jobs=-1
+    def _init_detectors(self):
+        """Инициализация детекторов"""
+        self.if_detector = IsolationForestDetector(self.ml_config, self.logger)
+
+        if self.ml_config.use_xgboost:
+            self.xgb_detector = XGBoostDetector(
+                self.ml_config, self.logger, len(self.features)
             )
+        else:
+            self.xgb_detector = None
 
-            pretrained_path = self.model_path / 'shard_enterprise_model_if_pretrained.pkl'
-            if pretrained_path.exists() and joblib:
-                try:
-                    self.models['if'] = joblib.load(pretrained_path)
-                    self.logger.info("✅ Загружена предобученная Isolation Forest модель")
-                    self._model_reliable = True
-                    return
-                except Exception as e:
-                    self.logger.warning(f"Ошибка загрузки предобученной модели: {e}")
+    def _init_deep_learning(self):
+        """Инициализация Deep Learning Engine"""
+        try:
+            from shard_dl_models import DeepLearningEngine
+            self.dl_engine = DeepLearningEngine()
+            self.logger.info("Deep Learning Engine initialized")
+        except ImportError:
+            self.logger.warning("shard_dl_models not found, DL disabled")
+            self.ml_config.use_deep_learning = False
 
-            saved_path = self.model_path / 'shard_enterprise_model_if.pkl'
-            if saved_path.exists() and joblib:
-                try:
-                    self.models['if'] = joblib.load(saved_path)
-                    self.logger.info("✅ Загружена сохранённая Isolation Forest модель")
-                    self._model_reliable = True
-                    return
-                except Exception as e:
-                    self.logger.warning(f"Ошибка загрузки сохранённой модели: {e}")
+    def _load_saved_models(self):
+        """Загрузка сохраненных моделей с диска"""
+        # Scaler
+        scaler_obj = self.persistence.load('shard_enterprise_scaler.pkl')
+        if scaler_obj:
+            self.scaler.scaler = scaler_obj
+            self.logger.info("Scaler loaded")
 
-            dummy_data = np.random.randn(100, len(self.features))
-            for i in range(len(dummy_data)):
-                dummy_data[i] = dummy_data[i] * 0.3
-                if len(dummy_data[i]) > 150:
-                    dummy_data[i][150] = np.random.uniform(0, 0.3)
-                    dummy_data[i][151] = np.random.uniform(64, 1500)
+        # Features
+        features_obj = self.persistence.load('shard_enterprise_features.pkl')
+        if features_obj and isinstance(features_obj, list):
+            self.features = features_obj
+            self.logger.info(f"Features loaded ({len(self.features)} features)")
 
-            self.models['if'].fit(dummy_data)
-            self._model_reliable = False
-            self._samples_since_init = 0
+        # Isolation Forest
+        self.if_detector.load(self.ml_config.model_path / 'shard_enterprise_model_if.pkl')
 
-            self.logger.warning(
-                "⚠️ Isolation Forest инициализирован на синтетических данных. "
-                "Требуется дообучение на реальном трафике!"
-            )
+        # XGBoost
+        if self.xgb_detector:
+            self.xgb_detector.load(self.ml_config.model_path / 'shard_enterprise_model_xgb.pkl')
 
-    def _init_xgboost(self) -> None:
-        """Инициализация XGBoost с предустановленными классами"""
-        if xgboost_module:
-            self.models['xgb'] = xgboost_module.XGBClassifier(
-                n_estimators=100,
-                max_depth=6,
-                learning_rate=0.1,
-                objective='multi:softprob',
-                num_class=10,
-                random_state=42,
-                verbosity=0
-            )
-            self.logger.info("XGBoost инициализирован")
+    # ========================================================================
+    # Lifecycle Methods
+    # ========================================================================
 
     def start(self) -> None:
+        """Запуск ML движка"""
         self.running = True
-        if self.online_learning:
-            threading.Thread(target=self._retrain_loop, daemon=True, name="ML-Retrain").start()
-        threading.Thread(target=self._load_history_async, daemon=True, name="ML-LoadHistory").start()
-        self._save_thread = threading.Thread(target=self._autosave_loop, daemon=True, name="ML-Autosave")
+
+        # Запуск потоков
+        if self.ml_config.online_learning:
+            threading.Thread(
+                target=self._retrain_loop,
+                daemon=True,
+                name="ML-Retrain"
+            ).start()
+
+        threading.Thread(
+            target=self._load_history_async,
+            daemon=True,
+            name="ML-LoadHistory"
+        ).start()
+
+        self._save_thread = threading.Thread(
+            target=self._autosave_loop,
+            daemon=True,
+            name="ML-Autosave"
+        )
         self._save_thread.start()
 
-        if self.use_deep_learning and self.dl_engine:
+        if self.ml_config.use_deep_learning and self.dl_engine:
             self.dl_engine.start()
 
-        self.logger.info(
-            f"ML запущен (online: {self.online_learning}, XGBoost: {self.use_xgboost}, DL: {self.use_deep_learning})")
+        # Инициализация SHAP с фоновыми данными
+        if self.ml_config.explain_with_shap and len(self._shap_background) >= 50:
+            threading.Thread(
+                target=self._init_shap_async,
+                daemon=True,
+                name="ML-SHAP-Init"
+            ).start()
+
+        self.logger.info("ML Engine started")
 
     def stop(self) -> None:
+        """Остановка ML движка"""
         self.running = False
-        with self._save_lock:
-            self._save_models()
-            self._models_dirty = False
-        if self._save_thread and self._save_thread.is_alive():
-            self._save_thread.join(timeout=2)
 
-        if self.use_deep_learning and self.dl_engine:
+        # Сохраняем модели перед остановкой
+        self._save_all_models()
+
+        if self._save_thread and self._save_thread.is_alive():
+            self._save_thread.join(timeout=5)
+
+        if self.ml_config.use_deep_learning and self.dl_engine:
             self.dl_engine.stop()
 
-        self.logger.info("ML остановлен, модели сохранены")
+        self.logger.info("ML Engine stopped, models saved")
 
-    def _autosave_loop(self) -> None:
-        """Периодическое автосохранение моделей"""
-        while self.running:
-            time.sleep(60)
-            with self._save_lock:
-                if self._models_dirty and time.time() - self._last_save >= self._autosave_interval:
-                    self._save_models()
-                    self._models_dirty = False
-                    self._last_save = time.time()
+    # ========================================================================
+    # External Engine Setters (Dependency Injection)
+    # ========================================================================
 
-    def _save_models(self) -> None:
-        """Атомарное сохранение моделей"""
-        if not joblib:
-            return
+    def set_temporal_gnn(self, gnn):
+        """Внедрение Temporal GNN движка"""
+        self.temporal_gnn = gnn
+        self.logger.info("Temporal GNN engine injected")
 
-        try:
-            temp_files = []
+    def set_contrastive_vae(self, vae):
+        """Внедрение Contrastive VAE движка"""
+        self.contrastive_vae = vae
+        self.logger.info("Contrastive VAE engine injected")
 
-            if 'if' in self.models:
-                temp_path = self.model_path / 'shard_enterprise_model_if.pkl.tmp'
-                joblib.dump(self.models['if'], temp_path)
-                temp_files.append((temp_path, self.model_path / 'shard_enterprise_model_if.pkl'))
+    def set_rl_defense(self, rl):
+        """Внедрение RL Defense движка"""
+        self.rl_defense = rl
+        self.logger.info("RL Defense engine injected")
 
-            if 'xgb' in self.models:
-                temp_path = self.model_path / 'shard_enterprise_model_xgb.pkl.tmp'
-                joblib.dump(self.models['xgb'], temp_path)
-                temp_files.append((temp_path, self.model_path / 'shard_enterprise_model_xgb.pkl'))
+    def set_adaptive_engine(self, adaptive):
+        """Внедрение Adaptive Learning движка"""
+        self.adaptive_engine = adaptive
+        self.logger.info("Adaptive Learning engine injected")
 
-            if self.scaler:
-                temp_path = self.model_path / 'shard_enterprise_scaler.pkl.tmp'
-                joblib.dump(self.scaler, temp_path)
-                temp_files.append((temp_path, self.model_path / 'shard_enterprise_scaler.pkl'))
-
-            temp_path = self.model_path / 'shard_enterprise_features.pkl.tmp'
-            joblib.dump(self.features, temp_path)
-            temp_files.append((temp_path, self.model_path / 'shard_enterprise_features.pkl'))
-
-            for temp_path, final_path in temp_files:
-                if temp_path.exists():
-                    import os
-                    os.replace(str(temp_path), str(final_path))
-
-            self.logger.debug("Модели сохранены (автосохранение)")
-
-        except Exception as e:
-            self.logger.error(f"Ошибка сохранения: {e}")
-
-    def _load_history_async(self) -> None:
-        """Асинхронная загрузка исторических данных (через общий пул)"""
-        conn = None
-        try:
-            # Пробуем через общий SIEM пул
-            if hasattr(self, 'siem_storage') and self.siem_storage:
-                conn = self.siem_storage._get_sqlite_connection()
-                own_conn = False
-            else:
-                import sqlite3
-                conn = sqlite3.connect('shard_siem.db')
-                own_conn = True
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-
-            cursor.execute(
-                '''SELECT features_json, attack_type FROM alerts 
-                   WHERE features_json IS NOT NULL 
-                   ORDER BY timestamp DESC LIMIT 500'''
-            )
-            rows = cursor.fetchall()
-            if own_conn:
-                conn.close()
-            if conn and own_conn:
-                conn.close()
-            elif hasattr(self, 'siem_storage') and self.siem_storage:
-                self.siem_storage._return_sqlite_connection(conn)
-
-            loaded = 0
-            for row in rows:
-                try:
-                    features = json.loads(row[0])
-                    attack_type = row[1] if row[1] else 'Normal'
-
-                    with self._lock:
-                        if attack_type != 'Normal':
-                            self.attack_buffer.append((features, attack_type))
-                        else:
-                            self.normal_buffer.append(features)
-                    loaded += 1
-                except:
-                    pass
-
-            self.logger.info(f"Загружено {loaded} исторических сэмплов")
-        except Exception as e:
-            self.logger.warning(f"Ошибка загрузки истории: {e}")
+    # ========================================================================
+    # Event Handlers
+    # ========================================================================
 
     def on_features(self, data: Dict) -> None:
-        """Обработка признаков"""
+        """Обработка извлеченных признаков пакета"""
         features = data.get('features')
         if not features:
             return
-        
-        src_ip = data.get('src_ip', 'unknown')
-        
-        # Инициализируем adaptive_result
-        adaptive_result = {'is_anomaly': False, 'overall_score': 0.0}
-        
-        if hasattr(self, 'adaptive_engine') and self.adaptive_engine:
-            adaptive_result = self.adaptive_engine.process_packet(src_ip, features)
-            if adaptive_result['is_anomaly']:
-                self.logger.info(f"Adaptive Learning anomaly: score={adaptive_result['overall_score']:.3f}")
-        
-        prediction = self._predict(features, src_ip)
-        
-        if prediction['is_attack'] and prediction['confidence'] >= self.confidence_threshold:
-            prediction['src_ip'] = src_ip
-            prediction['dst_ip'] = data.get('dst_ip', 'unknown')
-            prediction['dst_port'] = data.get('dst_port', 0)
-            
-            ssl_score = self.ssl_model.get_anomaly_score(features) if self.ssl_model else 0.5
-            if ssl_score > 0.7:
-                prediction['score'] = max(prediction['score'], ssl_score)
-                prediction['ssl_anomaly'] = True
-            
-            if hasattr(self, 'adaptive_engine') and self.adaptive_engine:
-                if adaptive_result.get('is_anomaly', False):
-                    prediction['score'] = max(prediction['score'], adaptive_result['overall_score'])
-                    prediction['adaptive_detected'] = True
-            
-            self.event_bus.publish('alert.detected', prediction)
-            
-            if self.online_learning:
-                with self._lock:
-                    self.attack_buffer.append((features, prediction['attack_type']))
-        
-        elif not prediction['is_attack'] and prediction['confidence'] >= self.confidence_threshold:
-            if self.online_learning:
-                with self._lock:
-                    self.normal_buffer.append(features)
-                    self._samples_since_init += 1
 
-    def _predict(self, features: List[float], device: str = "unknown") -> Dict:
-        """Предсказание с использованием ML и DL моделей"""
-        result = {
-            'is_attack': False,
-            'score': 0.0,
-            'confidence': 0.0,
-            'attack_type': 'Normal',
-            'timestamp': time.time()
-        }
+        src_ip = data.get('src_ip', 'unknown')
+        dst_ip = data.get('dst_ip', 'unknown')
+        dst_port = data.get('dst_port', 0)
+
+        # Сохраняем контекст для GNN
+        self._last_dst_ip = dst_ip
+        self._last_dst_port = dst_port
+
+        # Предсказание
+        result = self._predict(features, src_ip)
+
+        # Обработка результата
+        if result.is_attack and result.confidence >= self.ml_config.confidence_threshold:
+            self._handle_attack_detection(result, data)
+        elif not result.is_attack and result.confidence >= self.ml_config.confidence_threshold:
+            self._handle_normal_traffic(features)
+
+    def _handle_attack_detection(self, result: PredictionResult, data: Dict):
+        """Обработка обнаруженной атаки"""
+        # Публикация алерта
+        alert_data = result.to_dict()
+        alert_data.update({
+            'src_ip': data.get('src_ip', 'unknown'),
+            'dst_ip': data.get('dst_ip', 'unknown'),
+            'dst_port': data.get('dst_port', 0),
+            'features': data.get('features', [])
+        })
+
+        self.event_bus.publish('alert.detected', alert_data)
+
+        # Добавляем в буфер атак для дообучения
+        if self.ml_config.online_learning:
+            self.buffer.add_attack(data['features'], result.attack_type)
+
+    def _handle_normal_traffic(self, features: List[float]):
+        """Обработка нормального трафика"""
+        if self.ml_config.online_learning:
+            self.buffer.add_normal(features)
+
+        # Собираем фоновые данные для SHAP
+        if len(self._shap_background) < 100:
+            self._shap_background.append(features)
+
+    # ========================================================================
+    # Prediction Pipeline
+    # ========================================================================
+
+    def _predict(self, features: List[float], device: str = "unknown") -> PredictionResult:
+        """Основной пайплайн предсказания"""
+        result = PredictionResult()
 
         try:
-            import numpy as np
-
             X = np.array([features])
 
-            if self.scaler and self._is_scaler_fitted():
+            # Масштабирование
+            if self.scaler.is_fitted():
                 X = self.scaler.transform(X)
 
-            # Isolation Forest
-            if 'if' in self.models:
-                if_score = float(self.models['if'].score_samples(X)[0])
-                normalized_score = 1.0 - (if_score + 0.5)
-                normalized_score = max(0.0, min(1.0, normalized_score))
+            # 1. Isolation Forest
+            if_score, if_confidence = self.if_detector.predict(X)
+            result.score = if_score
+            result.confidence = if_confidence
+            result.ml_detected = if_score > 0.5
 
-                result['score'] = normalized_score
+            # 2. XGBoost классификация
+            if self.xgb_detector and self.xgb_detector.is_fitted():
+                xgb_score, xgb_conf = self.xgb_detector.predict(X)
+                if xgb_conf > 0:
+                    attack_type, type_conf = self.xgb_detector.predict_attack_type(X)
+                    result.attack_type = attack_type
+                    result.confidence = max(result.confidence, type_conf)
+                    result.score = max(result.score, xgb_score)
 
-                threshold = self.anomaly_threshold
-                if not self._model_reliable:
-                    threshold = threshold * 1.5
+            # 3. Deep Learning
+            if self.ml_config.use_deep_learning and self.dl_engine:
+                self._run_dl_prediction(X, result)
 
-                result['is_attack'] = if_score < threshold
-                distance = abs(if_score - threshold)
-                result['confidence'] = min(0.99, distance / 0.5)
+            # 4. Внешние движки
+            self._run_external_engines(features, X, device, result)
 
-                if not self._model_reliable:
-                    result['confidence'] *= 0.5
+            # 5. Определение is_attack
+            if result.score >= self.ml_config.confidence_threshold:
+                result.is_attack = True
+                if not result.attack_type or result.attack_type == 'Normal':
+                    result.attack_type = 'Anomaly'
 
-            # ========== ИНТЕГРАЦИЯ С УЛУЧШЕНИЯМИ ==========
+            # 6. SHAP объяснения
+            if result.is_attack and self.ml_config.explain_with_shap:
+                result.explanations = self._generate_shap_explanations(X, result.attack_type)
 
-            # Temporal GNN - анализ графа угроз
-            if hasattr(self, 'temporal_gnn') and self.temporal_gnn is not None:
-                try:
-                    # Обновляем граф каждые 50 пакетов для производительности
-                    self._gnn_packet_counter = getattr(self, '_gnn_packet_counter', 0) + 1
-
-                    if self._gnn_packet_counter % 50 == 0:
-                        # Получаем данные о соединении из контекста (если доступны)
-                        src_ip = device
-                        dst_ip = getattr(self, '_last_dst_ip', '0.0.0.0')
-                        dst_port = getattr(self, '_last_dst_port', 0)
-                        protocol = 6  # TCP по умолчанию
-                        bytes_count = int(features[151]) if len(features) > 151 else 1000
-
-                        self.temporal_gnn.add_connection(src_ip, dst_ip, 0, dst_port, protocol, bytes_count, 1)
-
-                        # Анализируем граф каждые 500 пакетов
-                        if self._gnn_packet_counter % 500 == 0:
-                            gnn_result = self.temporal_gnn.process_time_window()
-                            if gnn_result and gnn_result.get('is_graph_anomaly'):
-                                gnn_score = gnn_result.get('graph_score', 0.5)
-                                result['is_attack'] = result['is_attack'] or (gnn_score > 0.6)
-                                result['score'] = max(result['score'], gnn_score)
-                                result['confidence'] = max(result['confidence'], 0.7)
-                                result['gnn_detected'] = True
-                                result['gnn_details'] = {
-                                    'graph_score': gnn_score,
-                                    'anomalous_nodes': gnn_result.get('anomalous_nodes', [])[:5],
-                                    'num_nodes': gnn_result.get('num_nodes', 0),
-                                    'num_edges': gnn_result.get('num_edges', 0)
-                                }
-                                self.logger.debug(f"GNN detected anomaly: score={gnn_score:.3f}")
-                except Exception as e:
-                    self.logger.debug(f"GNN prediction error: {e}")
-
-            # Contrastive VAE - анализ вектора признаков
-            if hasattr(self, 'contrastive_vae') and self.contrastive_vae is not None:
-                try:
-                    vae_result = self.contrastive_vae.predict_anomaly(features)
-                    if vae_result and vae_result.get('is_anomaly'):
-                        vae_score = vae_result.get('score', 0.5)
-                        result['is_attack'] = result['is_attack'] or (vae_score > 0.55)
-                        result['score'] = max(result['score'], vae_score)
-                        result['confidence'] = max(result['confidence'], vae_score)
-                        result['vae_detected'] = True
-                        result['vae_details'] = {
-                            'reconstruction_score': vae_result.get('reconstruction_score', 0),
-                            'latent_score': vae_result.get('latent_score', 0),
-                            'mse': vae_result.get('mse', 0)
-                        }
-                        self.logger.debug(f"VAE detected anomaly: score={vae_score:.3f}")
-                except Exception as e:
-                    self.logger.debug(f"VAE prediction error: {e}")
-
-            # Определение типа атаки
-            if result['is_attack']:
-                if 'xgb' in self.models and self.use_xgboost:
-                    try:
-                        proba = self.models['xgb'].predict_proba(X)[0]
-                        attack_id = int(np.argmax(proba))
-                        confidence = float(proba[attack_id])
-
-                        attack_map = {
-                            1: 'DoS', 2: 'DDoS', 3: 'Brute Force',
-                            4: 'Web Attack', 5: 'Botnet', 8: 'Port Scan'
-                        }
-                        result['attack_type'] = attack_map.get(attack_id, 'Unknown')
-                        result['confidence'] = max(result['confidence'], confidence)
-                    except Exception as e:
-                        self.logger.debug(f"XGBoost prediction error: {e}")
-                        result['attack_type'] = 'Anomaly'
-                else:
-                    result['attack_type'] = 'Anomaly'
-
-                # Если обнаружено через GNN или VAE, уточняем тип атаки
-                if result.get('gnn_detected') and not result.get('vae_detected'):
-                    if result['attack_type'] == 'Anomaly':
-                        result['attack_type'] = 'Lateral Movement'
-                elif result.get('vae_detected') and not result.get('gnn_detected'):
-                    if result['attack_type'] == 'Anomaly':
-                        result['attack_type'] = 'Data Exfiltration'
-
-                # SHAP объяснение
-                if self.explain_with_shap and self.shap_explainer:
-                    try:
-                        shap_values = self.shap_explainer.shap_values(X)
-                        if isinstance(shap_values, list):
-                            shap_values = shap_values[0]
-
-                        if len(shap_values) > 0 and len(shap_values[0]) > 0:
-                            top_indices = np.argsort(np.abs(shap_values[0]))[-3:]
-                            explanations = []
-                            for idx in top_indices:
-                                if idx < len(self.features):
-                                    explanations.append(self.features[idx])
-
-                            if explanations:
-                                result['shap_explanation'] = f"Важные признаки: {', '.join(explanations)}"
-                    except Exception as e:
-                        self.logger.debug(f"SHAP error: {e}")
-
-            # ========== RL DEFENSE - РЕКОМЕНДАЦИЯ ПО ЗАЩИТЕ ==========
-            if hasattr(self, 'rl_defense') and self.rl_defense is not None and result['is_attack']:
-                try:
-                    alert_state = {
-                        'alert_score': result['score'],
-                        'alert_count': 1,
-                        'connection_rate': getattr(self, '_connection_rate', 10),
-                        'unique_ports': getattr(self, '_unique_ports', 1),
-                        'bytes_transferred': int(features[151]) if len(features) > 151 else 1000,
-                        'is_internal': device.startswith(('192.168.', '10.', '172.', '127.')),
-                        'hour_of_day': time.localtime().tm_hour,
-                        'day_of_week': time.localtime().tm_wday
-                    }
-                    action_id, action_name = self.rl_defense.agent.act(alert_state, training=False)
-                    result['rl_recommended_action'] = action_name
-                    result['rl_action_id'] = action_id
-                    self.logger.debug(f"RL Defense recommends: {action_name} (score={result['score']:.3f})")
-                except Exception as e:
-                    self.logger.debug(f"RL Defense error: {e}")
+            # 7. RL Defense рекомендации
+            if result.is_attack and self.rl_defense:
+                result.recommended_action = self._get_rl_recommendation(result, device, features)
 
         except Exception as e:
-            self.logger.debug(f"Prediction error: {e}")
-            result['score'] = 0.5
-            result['confidence'] = 0.3
+            self.logger.error(f"Prediction pipeline error: {e}")
+            result.score = 0.1
+            result.confidence = 0.1
 
         return result
 
-    def _retrain_loop(self) -> None:
-        """Цикл дообучения"""
-        while self.running:
-            time.sleep(self.retrain_interval)
+    def _run_dl_prediction(self, X: np.ndarray, result: PredictionResult):
+        """Запуск Deep Learning предсказания"""
+        try:
+            dl_result = self.dl_engine.predict(X)
+            if dl_result and dl_result.get('is_anomaly'):
+                result.dl_detected = True
+                result.score = max(result.score, dl_result.get('score', 0))
+                result.confidence = max(result.confidence, dl_result.get('confidence', 0))
+                result.details['dl'] = dl_result
+        except Exception as e:
+            self.logger.debug(f"DL prediction error: {e}")
 
-            with self._lock:
-                total = len(self.normal_buffer) + len(self.attack_buffer)
-                if total >= self.retrain_min_samples:
-                    self._retrain()
+    def _run_external_engines(self, features: List[float], X: np.ndarray,
+                              device: str, result: PredictionResult):
+        """Запуск внешних движков обнаружения"""
+        # Adaptive Engine
+        if self.adaptive_engine:
+            try:
+                adaptive_result = self.adaptive_engine.process_packet(device, features)
+                if adaptive_result.get('is_anomaly'):
+                    result.adaptive_detected = True
+                    result.score = max(result.score, adaptive_result.get('overall_score', 0))
+            except Exception as e:
+                self.logger.debug(f"Adaptive engine error: {e}")
+
+        # SSL Model
+        if self.ssl_model:
+            try:
+                ssl_score = self.ssl_model.get_anomaly_score(features)
+                if ssl_score > 0.7:
+                    result.score = max(result.score, ssl_score)
+                    result.details['ssl_anomaly'] = True
+            except Exception as e:
+                self.logger.debug(f"SSL model error: {e}")
+
+        # Temporal GNN (каждые 50 пакетов)
+        if self.temporal_gnn:
+            self._gnn_packet_counter += 1
+            if self._gnn_packet_counter % 50 == 0:
+                self._run_gnn_analysis(features, device, result)
+
+        # Contrastive VAE
+        if self.contrastive_vae:
+            try:
+                vae_result = self.contrastive_vae.predict_anomaly(features)
+                if vae_result and vae_result.get('is_anomaly'):
+                    result.vae_detected = True
+                    result.score = max(result.score, vae_result.get('score', 0))
+                    result.details['vae'] = vae_result
+
+                    if result.attack_type == 'Anomaly':
+                        result.attack_type = 'Data Exfiltration'
+            except Exception as e:
+                self.logger.debug(f"VAE error: {e}")
+
+    def _run_gnn_analysis(self, features: List[float], src_ip: str, result: PredictionResult):
+        """Анализ графа угроз через GNN"""
+        try:
+            dst_ip = self._last_dst_ip
+            dst_port = self._last_dst_port
+
+            self.temporal_gnn.add_connection(
+                src_ip, dst_ip, 0, dst_port, 6,
+                int(features[151]) if len(features) > 151 else 1000, 1
+            )
+
+            if self._gnn_packet_counter % 500 == 0:
+                gnn_result = self.temporal_gnn.process_time_window()
+                if gnn_result and gnn_result.get('is_graph_anomaly'):
+                    gnn_score = gnn_result.get('graph_score', 0.5)
+                    result.gnn_detected = True
+                    result.score = max(result.score, gnn_score)
+                    result.details['gnn'] = {
+                        'graph_score': gnn_score,
+                        'anomalous_nodes': gnn_result.get('anomalous_nodes', [])[:5]
+                    }
+
+                    if result.attack_type == 'Anomaly':
+                        result.attack_type = 'Lateral Movement'
+        except Exception as e:
+            self.logger.debug(f"GNN analysis error: {e}")
+
+    def _generate_shap_explanations(self, X: np.ndarray, attack_type: str) -> List[Dict]:
+        """Генерация SHAP объяснений"""
+        try:
+            class_idx = self.ATTACK_TO_ID.get(attack_type, 0)
+            return self.shap.explain(X, class_idx)
+        except Exception as e:
+            self.logger.debug(f"SHAP explanation error: {e}")
+            return []
+
+    def _get_rl_recommendation(self, result: PredictionResult, device: str,
+                               features: List[float]) -> Optional[str]:
+        """Получение рекомендации от RL Defense"""
+        try:
+            alert_state = {
+                'alert_score': result.score,
+                'alert_count': 1,
+                'connection_rate': getattr(self, '_connection_rate', 10),
+                'unique_ports': getattr(self, '_unique_ports', 1),
+                'bytes_transferred': int(features[151]) if len(features) > 151 else 1000,
+                'is_internal': device.startswith(('192.168.', '10.', '172.', '127.')),
+                'hour_of_day': time.localtime().tm_hour,
+                'day_of_week': time.localtime().tm_wday
+            }
+            _, action_name = self.rl_defense.agent.act(alert_state, training=False)
+            return action_name
+        except Exception as e:
+            self.logger.debug(f"RL Defense error: {e}")
+            return None
+
+    # ========================================================================
+    # Online Learning
+    # ========================================================================
+
+    def _retrain_loop(self) -> None:
+        """Цикл дообучения моделей"""
+        while self.running:
+            time.sleep(self.ml_config.retrain_interval)
+
+            if self.buffer.total_samples >= self.ml_config.retrain_min_samples:
+                self._retrain()
 
     def _retrain(self) -> None:
-        """Дообучение моделей (без потери данных при ошибке)"""
-        with self._lock:
-            normal = list(self.normal_buffer)
-            attacks = list(self.attack_buffer)
-            self.normal_buffer.clear()
-            self.attack_buffer.clear()
-            # Очищаем только после успешного обучения
-            _normal_backup = normal.copy()
-            _attacks_backup = attacks.copy()
+        """Дообучение моделей на накопленных данных"""
+        # Атомарно получаем данные
+        normal_samples, attack_samples = self.buffer.get_and_clear()
 
-        if not normal and not attacks:
+        if not normal_samples and not attack_samples:
             return
 
-        self.logger.info(f"🔄 Дообучение на {len(normal)} нормальных и {len(attacks)} атаках")
+        self.logger.info(
+            f"Retraining on {len(normal_samples)} normal and "
+            f"{len(attack_samples)} attack samples"
+        )
 
         try:
-            import numpy as np
-            scaler_fitted = self._is_scaler_fitted()
+            success = True
 
-            # Isolation Forest
-            if 'if' in self.models and len(normal) >= 50:
-                X_normal = np.array(normal)
+            # Дообучение Isolation Forest
+            if len(normal_samples) >= 50:
+                X_normal = np.array(normal_samples)
+                if self.scaler.is_fitted():
+                    X_normal = self.scaler.transform(X_normal)
 
-                if scaler_fitted and self.scaler:
-                    try:
-                        X_normal = self.scaler.transform(X_normal)
-                    except Exception as e:
-                        self.logger.warning(f"Ошибка масштабирования IF: {e}")
+                if not self.if_detector.partial_fit(X_normal):
+                    success = False
 
-                if hasattr(self.models['if'], 'estimators_'):
-                    current_trees = len(self.models['if'].estimators_)
-                    self.models['if'].set_params(n_estimators=current_trees + 10)
-                    self.models['if'].fit(X_normal)
-                    self.logger.info(f"   IF: +10 деревьев (всего {current_trees + 10})")
-                else:
-                    self.models['if'].fit(X_normal)
-                    self.logger.info(f"   IF: инициализирован на {len(normal)} сэмплах")
+            # Дообучение XGBoost
+            if (self.xgb_detector and
+                    len(attack_samples) >= 10 and
+                    len(normal_samples) >= 10):
+                success &= self._retrain_xgboost(normal_samples, attack_samples)
 
-            # SSL модель
-            for features in normal[:100]:
-                self.ssl_model.train_step([features])
+            # Дообучение SSL модели
+            if self.ssl_model and normal_samples:
+                for features in normal_samples[:100]:
+                    self.ssl_model.train_step([features])
 
-            # XGBoost с балансированным дообучением
-            if 'xgb' in self.models and len(attacks) >= 10 and len(normal) >= 10:
-                X_attacks = np.array([a[0] for a in attacks])
-                y_attacks = np.array([self._attack_to_id(a[1]) for a in attacks])
-                
-                # Добавляем нормальные сэмплы чтобы модель не смещалась
-                X_normal = np.array(normal[:len(attacks)])
-                y_normal = np.zeros(len(X_normal))
-                
-                X_balanced = np.vstack([X_attacks, X_normal])
-                y_balanced = np.hstack([y_attacks, y_normal])
-                
-                shuffle_idx = np.random.permutation(len(X_balanced))
-                X_balanced = X_balanced[shuffle_idx]
-                y_balanced = y_balanced[shuffle_idx]
-
-                if scaler_fitted and self.scaler:
-                    try:
-                        X_balanced = self.scaler.transform(X_balanced)
-                    except Exception as e:
-                        self.logger.warning(f"XGBoost scaling error: {e}")
-
-                is_fitted = False
-                try:
-                    if hasattr(self.models['xgb'], 'get_booster'):
-                        self.models['xgb'].get_booster()
-                        is_fitted = True
-                    elif hasattr(self.models['xgb'], '_Booster'):
-                        is_fitted = self.models['xgb']._Booster is not None
-                except:
-                    pass
-
-                if is_fitted:
-                    try:
-                        self.models['xgb'].fit(X_balanced, y_balanced, xgb_model=self.models['xgb'].get_booster())
-                        self.logger.info("   XGBoost: дообучен (сбалансированный батч)")
-                    except Exception as e:
-                        self.logger.warning(f"XGBoost warm-start error: {e}")
-                        self.models['xgb'].fit(X_balanced, y_balanced)
-                        self.logger.info("   XGBoost: переобучен (сбалансированный батч)")
-                else:
-                    self.models['xgb'].fit(X_balanced, y_balanced)
-                    self.logger.info("   XGBoost: инициализирован (сбалансированный батч)")
-
-            # Отметка о надёжности
-            if len(normal) >= 500:
-                self._model_reliable = True
-                self.logger.info("Модель помечена как надёжная")
-
-            with self._save_lock:
+            if success:
+                self.buffer.commit_clear()
                 self._models_dirty = True
+                self.logger.info("Retraining completed successfully")
+            else:
+                self.buffer.rollback()
+                self.logger.warning("Retraining failed, data restored")
 
         except Exception as e:
-            self.logger.error(f"Ошибка дообучения: {e}")
-            with self._lock:
-                self.normal_buffer.extend(_normal_backup)
-                self.attack_buffer.extend(_attacks_backup)
+            self.logger.error(f"Retraining error: {e}")
+            self.buffer.rollback()
+
+    def _retrain_xgboost(self, normal_samples: List, attack_samples: List) -> bool:
+        """Дообучение XGBoost с балансировкой классов"""
+        try:
+            X_attacks = np.array([a[0] for a in attack_samples])
+            y_attacks = np.array([self.ATTACK_TO_ID.get(a[1], 99) for a in attack_samples])
+
+            # Балансировка: добавляем normal samples
+            balanced_count = min(len(normal_samples), len(attack_samples))
+            X_normal = np.array(normal_samples[:balanced_count])
+            y_normal = np.zeros(balanced_count)
+
+            X_balanced = np.vstack([X_attacks, X_normal])
+            y_balanced = np.hstack([y_attacks, y_normal])
+
+            # Перемешивание
+            shuffle_idx = np.random.permutation(len(X_balanced))
+            X_balanced = X_balanced[shuffle_idx]
+            y_balanced = y_balanced[shuffle_idx]
+
+            if self.scaler.is_fitted():
+                X_balanced = self.scaler.transform(X_balanced)
+
+            return self.xgb_detector.partial_fit(X_balanced, y_balanced)
+        except Exception as e:
+            self.logger.error(f"XGBoost retrain error: {e}")
+            return False
+
+    # ========================================================================
+    # Persistence
+    # ========================================================================
+
+    def _autosave_loop(self) -> None:
+        """Периодическое автосохранение"""
+        while self.running:
+            time.sleep(60)
+            with self._autosave_lock:
+                if (self._models_dirty and
+                        time.time() - self._last_save >= self.ml_config.autosave_interval):
+                    self._save_all_models()
+                    self._models_dirty = False
+                    self._last_save = time.time()
+
+    def _save_all_models(self) -> bool:
+        """Сохранение всех моделей"""
+        models_to_save = {}
+
+        if self.if_detector.model is not None:
+            models_to_save['shard_enterprise_model_if'] = self.if_detector.model
+
+        if self.xgb_detector and self.xgb_detector.model is not None:
+            models_to_save['shard_enterprise_model_xgb'] = self.xgb_detector.model
+
+        if self.scaler.scaler is not None:
+            models_to_save['shard_enterprise_scaler'] = self.scaler.scaler
+
+        if self.features:
+            models_to_save['shard_enterprise_features'] = self.features
+
+        return self.persistence.save_all(models_to_save)
+
+    def save_now(self) -> None:
+        """Принудительное сохранение"""
+        with self._autosave_lock:
+            self._save_all_models()
+            self._models_dirty = False
+            self._last_save = time.time()
+        self.logger.info("Models saved manually")
+
+    # ========================================================================
+    # History Loading
+    # ========================================================================
+
+    def _load_history_async(self) -> None:
+        """Асинхронная загрузка исторических данных"""
+        try:
+            conn = self._get_db_connection()
+            if conn is None:
+                return
+
+            try:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+
+                cursor.execute(
+                    '''SELECT features_json, attack_type FROM alerts 
+                       WHERE features_json IS NOT NULL 
+                       ORDER BY timestamp DESC LIMIT 500'''
+                )
+                rows = cursor.fetchall()
+
+                loaded = 0
+                for row in rows:
+                    try:
+                        features = json.loads(row[0])
+                        attack_type = row[1] if row[1] else 'Normal'
+
+                        if attack_type != 'Normal':
+                            self.buffer.add_attack(features, attack_type)
+                        else:
+                            self.buffer.add_normal(features)
+                        loaded += 1
+                    except json.JSONDecodeError:
+                        continue
+
+                self.logger.info(f"Loaded {loaded} historical samples")
+            finally:
+                self._return_db_connection(conn)
+
+        except Exception as e:
+            self.logger.warning(f"History loading error: {e}")
+
+    def _get_db_connection(self):
+        """Получение соединения с БД"""
+        if hasattr(self, 'siem_storage') and self.siem_storage is not None:
+            return self.siem_storage._get_sqlite_connection()
+        else:
+            return sqlite3.connect('shard_siem.db')
+
+    def _return_db_connection(self, conn):
+        """Возврат соединения в пул"""
+        if conn is None:
             return
 
+        if hasattr(self, 'siem_storage') and self.siem_storage is not None:
+            self.siem_storage._return_sqlite_connection(conn)
+        else:
+            conn.close()
 
+    # ========================================================================
+    # SHAP Initialization
+    # ========================================================================
 
-    def _attack_to_id(self, attack_type: str) -> int:
-        """Преобразование типа атаки в ID"""
-        mapping = {
-            'Normal': 0, 'DoS': 1, 'DDoS': 2, 'Brute Force': 3,
-            'Web Attack': 4, 'Botnet': 5, 'Port Scan': 8
+    def _init_shap_async(self):
+        """Асинхронная инициализация SHAP"""
+        try:
+            X_background = np.array(self._shap_background[:100])
+            if self.scaler.is_fitted():
+                X_background = self.scaler.transform(X_background)
+
+            if self.xgb_detector and self.xgb_detector.is_fitted():
+                self.shap.initialize(
+                    self.xgb_detector.model,
+                    X_background,
+                    self.features
+                )
+            elif self.if_detector.is_fitted():
+                self.shap.initialize(
+                    self.if_detector.model,
+                    X_background,
+                    self.features
+                )
+        except Exception as e:
+            self.logger.warning(f"Async SHAP initialization failed: {e}")
+
+    # ========================================================================
+    # Public API
+    # ========================================================================
+
+    def predict_single(self, features: List[float], device: str = "unknown") -> Dict:
+        """Публичный метод для предсказания (для API)"""
+        result = self._predict(features, device)
+        return result.to_dict()
+
+    def explain_prediction(self, features: List[float]) -> Dict:
+        """Объяснение предсказания"""
+        result = self._predict(features)
+        return {
+            'prediction': result.to_dict(),
+            'explanations': result.explanations
         }
-        return mapping.get(attack_type, 99)
 
     def get_stats(self) -> Dict:
-        """Получить статистику ML"""
+        """Статистика ML движка"""
         with self._lock:
             stats = {
-                'normal_buffer_size': len(self.normal_buffer),
-                'attack_buffer_size': len(self.attack_buffer),
-                'online_learning': self.online_learning,
-                'use_xgboost': self.use_xgboost,
-                'explain_with_shap': self.explain_with_shap,
-                'use_deep_learning': self.use_deep_learning,
-                'scaler_fitted': self._is_scaler_fitted(),
-                'models_loaded': list(self.models.keys()),
+                'buffer_stats': self.buffer.stats,
+                'models': {
+                    'if_fitted': self.if_detector.is_fitted(),
+                    'if_reliable': self.if_detector.is_reliable,
+                    'if_samples': self.if_detector.samples_trained,
+                    'xgb_fitted': self.xgb_detector.is_fitted() if self.xgb_detector else False,
+                },
+                'scaler_fitted': self.scaler.is_fitted(),
                 'features_count': len(self.features),
-                'autosave_interval': self._autosave_interval,
-                'models_dirty': self._models_dirty,
-                'model_reliable': self._model_reliable
+                'config': {
+                    'online_learning': self.ml_config.online_learning,
+                    'use_xgboost': self.ml_config.use_xgboost,
+                    'use_deep_learning': self.ml_config.use_deep_learning,
+                    'explain_with_shap': self.ml_config.explain_with_shap,
+                },
+                'engines': {
+                    'gnn': self.temporal_gnn is not None,
+                    'vae': self.contrastive_vae is not None,
+                    'rl': self.rl_defense is not None,
+                    'adaptive': self.adaptive_engine is not None,
+                    'dl': self.dl_engine is not None,
+                }
             }
 
-            if self.use_deep_learning and self.dl_engine:
+            if self.dl_engine and hasattr(self.dl_engine, 'ensemble'):
                 stats['dl_stats'] = self.dl_engine.ensemble.get_stats()
 
             return stats
 
-    def save_now(self) -> None:
-        """Принудительное сохранение моделей"""
-        with self._save_lock:
-            self._save_models()
-            self._models_dirty = False
-            self._last_save = time.time()
-        self.logger.info("Модели сохранены принудительно")
-
     def reset_buffers(self) -> None:
         """Очистка буферов обучения"""
-        with self._lock:
-            self.normal_buffer.clear()
-            self.attack_buffer.clear()
-        self.logger.info("Буферы обучения очищены")
-
-# ============================================================
-
-# ============================================================
-# THREAT GRAPH NETWORK
-# ============================================================
-
+        _, _ = self.buffer.get_and_clear()
+        self.buffer.commit_clear()
+        self.logger.info("Training buffers cleared")

@@ -1856,7 +1856,7 @@ class BaselineProfiler:
         cache_key = f"{device}_score"
         # Проверка кэша с безопасным доступом
         with self._profile_lock:
-            cached = self._cached_stats.get(cache_key)  # ← ИСПОЛЬЗУЕМ .get()
+            cached = dict(self._cached_stats.get(cache_key, {}))  # ← ИСПОЛЬЗУЕМ .get()
 
         if cached is not None:
             last_update = self._last_cache_update.get(device, 0)
