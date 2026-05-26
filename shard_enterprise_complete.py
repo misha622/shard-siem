@@ -1858,7 +1858,7 @@ class BaselineProfiler:
         with self._profile_lock:
             cached = self._cached_stats.get(cache_key, {})  # Возвращаем ссылку для сохранения Welford  # ← ИСПОЛЬЗУЕМ .get()
 
-        if cached is not None:
+        if cached is not None and cached:  # Проверяем что кэш не пустой
             last_update = self._last_cache_update.get(device, 0)
             if time.time() - last_update < self._cache_ttl:
                 return self._calculate_score_fast(device, size, port, entropy, dst_ip, cached)
@@ -1888,8 +1888,10 @@ class BaselineProfiler:
                                            protocol, profile_snapshot)
 
         # Кэширование снапшота
-        self._cached_stats[cache_key] = profile_snapshot
-        self._last_cache_update[device] = time.time()
+        with self._profile_lock:
+            self._cached_stats[cache_key] = profile_snapshot
+        with self._profile_lock:
+            self._last_cache_update[device] = time.time()
 
         return score
 
