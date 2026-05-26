@@ -173,6 +173,26 @@ Insider threats
 🎥 Demo
 https://youtube.com/shorts/aeyiGMYsbn0?si=b5GO0zHzIJV2Q2P6
 
+## 🔍 Real Detection Examples
+
+### SSH Brute Force
+- **Attack:** Multiple failed SSH attempts from 185.142.53.101
+- **Detected:** Isolation Forest anomaly + Behavioral deviation
+- **Response:** IP automatically blocked via iptables
+- **MITRE:** T1110 - Brute Force
+
+### Web Attack (SQL Injection)
+- **Attack:** SQL injection attempt on port 8080
+- **Detected:** WAF signature match + Seq2Seq Transformer
+- **Response:** Request blocked, IP throttled
+- **MITRE:** T1190 - Exploit Public-Facing Application
+
+### Honeypot Interaction
+- **Attack:** Connection to honeypot SSH (port 2222)
+- **Detected:** Honeypot trigger + Threat Intelligence lookup
+- **Response:** IP added to watchlist, alert generated
+- **MITRE:** T1046 - Network Service Scanning
+
 📚 Roadmap
 v5.3
 Kubernetes support
