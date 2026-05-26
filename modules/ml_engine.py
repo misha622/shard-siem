@@ -1188,7 +1188,7 @@ class MachineLearningEngine(BaseModule):
         """Дообучение XGBoost с балансировкой классов"""
         try:
             X_attacks = np.array([a[0] for a in attack_samples])
-            y_attacks = np.array([self.ATTACK_TO_ID.get(a[1], 99) for a in attack_samples])
+            y_attacks = np.array([self.ATTACK_TO_ID.get(a[1], 0) for a in attack_samples])
 
             # Балансировка: добавляем normal samples
             balanced_count = min(len(normal_samples), len(attack_samples))
