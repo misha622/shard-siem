@@ -183,6 +183,7 @@ class SQLiteStorage(StorageBackend):
                     self._pool.put_nowait(conn)
                 except queue.Full:
                     conn.close()
+                    conn = None
 
     def store_alerts(self, alerts: List[Dict]) -> bool:
         """Пакетная запись алертов"""
