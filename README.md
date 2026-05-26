@@ -98,7 +98,7 @@ SHARD can autonomously:
 
 # 🏗️ Architecture
 
-```text
+
 Traffic Sources
        ↓
 Packet Capture Layer
