@@ -908,6 +908,10 @@ class SecureFederatedClient:
             return masked_updates
 
         return updates
+        except Exception:
+            self.local_data.extend(_data_backup)
+            self.local_labels.extend(_labels_backup)
+            raise
 
     def add_local_data(self, features: List[float], label: Optional[int] = None):
         """Добавление данных для локального обучения"""

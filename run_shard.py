@@ -172,7 +172,7 @@ class SecurityValidator:
             # Проверка на выход за пределы разрешённых директорий
             if context.allowed_paths:
                 allowed = any(
-                    str(allowed_path) in str(path)
+                    str(path).startswith(str(allowed_path) + '/') or str(path) == str(allowed_path)
                     for allowed_path in context.allowed_paths
                 )
                 if not allowed:
@@ -1467,7 +1467,14 @@ def run_health_check(args):
         )
 
         import threading
-        t = threading.Thread(target=enterprise.start, daemon=True)
+        # Создаём ShardEnterprise в main thread, daemon только для capture_loop
+        enterprise.shard = ShardEnterprise(
+            config_path=enterprise.config_path,
+            enable_simulation=enterprise.enable_simulation,
+            no_capture=enterprise.no_capture,
+            event_bus=enterprise.event_bus
+        )
+        t = threading.Thread(target=enterprise.shard.start, daemon=True)
         t.start()
         time.sleep(5)  # Даём время на инициализацию
 
