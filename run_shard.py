@@ -1394,6 +1394,7 @@ def main():
     parser.add_argument('--mitre-layer', action='store_true', help='Сгенерировать слой MITRE Navigator')
     parser.add_argument('--list-playbooks', action='store_true', help='Список SOAR playbooks')
     parser.add_argument('--tip-query', help='Запрос к TIP (IP/domain/hash)')
+    parser.add_argument('--allow-private', action='store_true', help='Разрешить сканирование приватных сетей')
     parser.add_argument('--health-check', action='store_true', help='Проверка здоровья системы')
 
     args = parser.parse_args()
