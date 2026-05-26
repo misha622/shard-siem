@@ -231,7 +231,7 @@ class IsolationForestDetector(BaseDetector):
             # Увеличиваем количество деревьев для улучшения модели
             if hasattr(self.model, 'estimators_'):
                 current_trees = len(self.model.estimators_)
-                self.model.set_params(n_estimators=current_trees + 10)
+                self.model.set_params(n_estimators=min(current_trees + 10, self.config.n_estimators * 3))
 
             self.model.fit(X)
             self._samples_trained += len(X)

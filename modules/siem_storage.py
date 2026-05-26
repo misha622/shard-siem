@@ -201,8 +201,8 @@ class SQLiteStorage(StorageBackend):
                         features_json = json.dumps(features)
                         if len(features_json) > 10240:  # 10KB limit
                             features_json = json.dumps({
-                                'packet_size': features.get('packet_size', 0),
-                                'protocol': features.get('protocol', 0),
+                                'packet_size': (features.get('packet_size', 0) if isinstance(features, dict) else 0),
+                                'protocol': (features.get('protocol', 0) if isinstance(features, dict) else 0),
                                 'truncated': True
                             })
                     except:
@@ -998,8 +998,8 @@ class SIEMStorage(BaseModule):
                 if len(features_json) > 10240:  # 10KB
                     # Сохраняем только ключевые поля
                     truncated = {
-                        'packet_size': features.get('packet_size', 0),
-                        'protocol': features.get('protocol', 0),
+                        'packet_size': (features.get('packet_size', 0) if isinstance(features, dict) else 0),
+                        'protocol': (features.get('protocol', 0) if isinstance(features, dict) else 0),
                         'dst_port': features.get('dst_port', 0),
                         'entropy': features.get('entropy', 0),
                         'truncated': True
