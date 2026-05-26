@@ -296,7 +296,7 @@ class DifferentialPrivacyEngine:
         self.moments_accountant['steps'] += 1
 
         for i, alpha in enumerate(self.moments_accountant['orders']):
-            rdp = alpha / (2 * self.noise_scale ** 2)
+            rdp = alpha / (2 * (self.noise_multiplier * self.l2_norm_clip) ** 2)
             self.moments_accountant['rdp_values'][i] += rdp
 
         eps_values = []
