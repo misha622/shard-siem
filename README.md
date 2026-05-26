@@ -160,17 +160,15 @@ Brute force attacks
 Command & control activity
 Insider threats
 📸 Screenshots
-Dashboard
 
-(Add screenshot)
+### Dashboard
+![SHARD Dashboard](docs/screenshots/dashboard.png)
 
-Threat Detection
+### Threats
+![Threat Detection](docs/screenshots/threats.png)
 
-(Add screenshot)
-
-Incident Timeline
-
-(Add screenshot)
+### Alerts
+![Incident Timeline](docs/screenshots/alerts.png)
 
 🎥 Demo
 
