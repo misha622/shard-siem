@@ -850,8 +850,8 @@ class SecureFederatedClient:
         X = np.array(list(self.local_data))
         y = np.array(list(self.local_labels)) if self.local_labels else None
 
-        # Данные очищаются после успешного обучения
-        # self.local_data.clear() — moved to after training
+        self.local_data.clear()
+        self.local_labels.clear()
 
         if self.global_weights:
             self.model.set_weights(self.global_weights)

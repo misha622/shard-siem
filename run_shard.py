@@ -1466,8 +1466,10 @@ def run_health_check(args):
             no_capture=True
         )
 
-        enterprise.start()
-        time.sleep(2)  # Даём время на инициализацию
+        import threading
+        t = threading.Thread(target=enterprise.start, daemon=True)
+        t.start()
+        time.sleep(5)  # Даём время на инициализацию
 
         print("\n" + enterprise.get_health_report())
 
