@@ -7,7 +7,6 @@ import queue
 import json
 import sqlite3
 import re
-import signal
 import ipaddress
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Generator
@@ -756,7 +755,6 @@ class SIEMStorage(BaseModule):
         self._stats_thread = None
 
         # Настройка graceful shutdown
-        self._setup_signal_handlers()
 
     def _init_backends(self) -> None:
         """Инициализация бэкендов хранилища"""
@@ -778,19 +776,7 @@ class SIEMStorage(BaseModule):
         if not self.backends:
             self.logger.critical("Не удалось инициализировать ни один бэкенд!")
 
-    def _setup_signal_handlers(self) -> None:
-        """Настройка обработчиков сигналов"""
-        for sig in [signal.SIGTERM, signal.SIGINT]:
-            try:
-                signal.signal(sig, self._handle_shutdown)
-            except ValueError:
-                # Сигнал не может быть обработан в этом потоке
-                pass
 
-    def _handle_shutdown(self, signum, frame) -> None:
-        """Обработчик сигналов завершения"""
-        self.logger.info(f"Получен сигнал {signum}, выполняется остановка...")
-        threading.Thread(target=self.stop, daemon=True).start()
 
     def start(self) -> None:
         """Запуск модуля"""
