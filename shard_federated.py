@@ -1072,8 +1072,14 @@ class SecureFederatedServer:
                 elif self.config.byzantine_method == 'trimmed_mean':
                     aggregated = self.byzantine.aggregate_trimmed_mean(all_updates)
                 else:
+                    # FedAvg: усреднение всех клиентов
+                    # FedAvg: усреднение всех клиентов
                     aggregated = all_updates[0]
-            else:
+                    for update in all_updates[1:]:
+                        for i in range(len(aggregated)):
+                            aggregated[i] += update[i]
+                    for i in range(len(aggregated)):
+                        aggregated[i] /= len(all_updates)
                 total = sum(sample_sizes)
                 aggregated = []
                 for layer_weights in zip(*all_updates):
