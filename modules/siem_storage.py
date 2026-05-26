@@ -635,13 +635,14 @@ class TimescaleStorage(StorageBackend):
                 cursor = conn.cursor()
                 cutoff = time.time() - (hours * 3600)
 
+                escaped_username = username.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
                 cursor.execute(
                     '''SELECT DISTINCT src_ip 
                        FROM alerts 
                        WHERE explanation LIKE %s 
                        AND timestamp > %s 
                        LIMIT 100''',
-                    (f'%{username}%', cutoff)
+                    (f'%{escaped_username}%', cutoff)
                 )
 
                 return [row[0] for row in cursor.fetchall() if row[0]]
