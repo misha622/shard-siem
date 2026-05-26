@@ -1,7 +1,7 @@
 # SHARD Enterprise SIEM — Security Policy
 
 ## Reporting a Vulnerability
-Email: misha622@github — PGP ключ пришлю по запросу. Не создавай публичный issue.
+Email: shard019@mail.ru — PGP I'll send you the key upon request. Don't create a public one. issue.
 
 ## Supported Versions
 | Version | Supported |
@@ -11,24 +11,24 @@ Email: misha622@github — PGP ключ пришлю по запросу. Не �
 | < 5.0   | ❌ EOL |
 
 ## Security Architecture
-- **10 нейросетей** для детекции атак
-- **EventBus** с per-subscriber очередями (lock-free)
-- **iptables** интеграция с валидацией IP (инъекции заблокированы)
-- **API ключи** в переменных окружения, не в коде
-- **RBAC** для Dashboard (admin/analyst/viewer)
-- **HMAC-подпись** конфигурации (защита от подмены)
-- **WAF** защита от SQLi/XSS/Path Traversal
+- 10 neural networks for attack detection
+- EventBus with per-subscriber queues (lock-free)
+- iptables integration with IP validation (injections blocked)
+- API keys in environment variables, not in code
+- RBAC for Dashboard (admin/analyst/viewer)
+- HMAC signature of configuration (anti-spoofing)
+- WAF protection against SQLi/XSS/Path Traversal
 
 ## Threat Model
-- **Доверенная зона:** localhost, внутренняя сеть
-- **Недоверенная зона:** внешний трафик, API запросы
-- **Векторы атак:** сетевые пакеты → валидация через Scapy, shell-инъекции → строгая валидация IP
-- **Модель нарушителя:** внешний атакующий с доступом к сети
+- Trusted zone: localhost, internal network
+- Untrusted zone: external traffic, API requests
+- Attack vectors: network packets → validation via Scapy, shell injections → strong IP validation
+- Attacker model: external attacker with network access
 
 ## Security Headers (Dashboard)
 - Content-Security-Policy
 - X-Content-Type-Options: nosniff
-- Access-Control-Allow-Origin ограничен
+- Access-Control-Allow-Origin limited
 
 ## Audit
-Рекомендуется независимый пентест перед production-деплоем.
+An independent pentest is recommended before production deployment.
