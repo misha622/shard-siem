@@ -171,8 +171,7 @@ Insider threats
 ![Incident Timeline](docs/screenshots/alerts.png)
 
 🎥 Demo
-
-(Add demo video link)
+https://youtube.com/shorts/aeyiGMYsbn0?si=b5GO0zHzIJV2Q2P6
 
 📚 Roadmap
 v5.3
