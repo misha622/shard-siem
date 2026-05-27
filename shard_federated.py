@@ -1080,21 +1080,6 @@ class SecureFederatedServer:
                         for w, s in zip(layer_weights, sample_sizes):
                             weighted += w * (s / total)
                         aggregated.append(weighted)
-                    # FedAvg: усреднение всех клиентов
-                    aggregated = all_updates[0]
-                    for update in all_updates[1:]:
-                        for i in range(len(aggregated)):
-                            aggregated[i] += update[i]
-                    for i in range(len(aggregated)):
-                        aggregated[i] /= len(all_updates)
-                total = sum(sample_sizes)
-                aggregated = []
-                for layer_weights in zip(*all_updates):
-                    weighted = np.zeros_like(layer_weights[0])
-                    for w, s in zip(layer_weights, sample_sizes):
-                        weighted += w * (s / total)
-                    aggregated.append(weighted)
-        except Exception as e:
             return
 
         self.global_weights = aggregated
