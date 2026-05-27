@@ -850,8 +850,7 @@ class SecureFederatedClient:
         X = np.array(list(self.local_data))
         y = np.array(list(self.local_labels)) if self.local_labels else None
 
-        self.local_data.clear()
-        self.local_labels.clear()
+        # Data backed up in X, y — clear after successful training
 
         if self.global_weights:
             self.model.set_weights(self.global_weights)
@@ -881,6 +880,8 @@ class SecureFederatedClient:
                     zip(grads, self.model.trainable_variables)
                 )
 
+        self.local_data.clear()
+        self.local_labels.clear()
         self.stats['total_samples_trained'] += len(X)
 
         if self.global_weights:
