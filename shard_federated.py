@@ -418,6 +418,14 @@ class ByzantineResilience:
 
     def _fedavg(self, updates: List[List[np.ndarray]],
                 sizes: List[int]) -> List[np.ndarray]:
+        """Базовый FedAvg"""
+        total = sum(sizes)
+        aggregated = []
+        for layer_weights in zip(*updates):
+            weighted = np.zeros_like(layer_weights[0])
+            for w, s in zip(layer_weights, sizes):
+                weighted += w * (s / total)
+            aggregated.append(weighted)
         return aggregated
 
 
@@ -1064,8 +1072,28 @@ class SecureFederatedServer:
                 elif self.config.byzantine_method == 'trimmed_mean':
                     aggregated = self.byzantine.aggregate_trimmed_mean(all_updates)
                 else:
-                    # FedAvg fallback removed (Byzantine mode handles aggregation)
-                    # FedAvg fallback removed (Byzantine mode handles aggregation)
+                    # FedAvg: усреднение всех клиентов
+                    total = sum(sample_sizes)
+                    aggregated = []
+                    for layer_weights in zip(*all_updates):
+                        weighted = np.zeros_like(layer_weights[0])
+                        for w, s in zip(layer_weights, sample_sizes):
+                            weighted += w * (s / total)
+                        aggregated.append(weighted)
+                    # FedAvg: усреднение всех клиентов
+                    aggregated = all_updates[0]
+                    for update in all_updates[1:]:
+                        for i in range(len(aggregated)):
+                            aggregated[i] += update[i]
+                    for i in range(len(aggregated)):
+                        aggregated[i] /= len(all_updates)
+                total = sum(sample_sizes)
+                aggregated = []
+                for layer_weights in zip(*all_updates):
+                    weighted = np.zeros_like(layer_weights[0])
+                    for w, s in zip(layer_weights, sample_sizes):
+                        weighted += w * (s / total)
+                    aggregated.append(weighted)
         except Exception as e:
             return
 
