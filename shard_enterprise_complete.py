@@ -3848,6 +3848,8 @@ class HoneypotService(BaseModule):
                 model_path = os.path.join(os.path.dirname(__file__), 'models', 'shard_real_alert_model.pkl')
                 if os.path.exists(model_path):
                     self._ai_model = joblib.load(model_path)
+                else:
+                    self._ai_model = None  # Кешируем отсутствие модели
                     self.logger.info('AI модель загружена в honeypot хук (модель загружена (верификация хеша: отключена для разработки. В production используйте подписанные модели))')
                     self.logger.info("✅ AI модель загружена в honeypot хук")
             if hasattr(self, '_ai_model') and self._ai_model:
