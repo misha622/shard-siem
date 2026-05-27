@@ -1080,6 +1080,7 @@ class SecureFederatedServer:
                         for w, s in zip(layer_weights, sample_sizes):
                             weighted += w * (s / total)
                         aggregated.append(weighted)
+        except Exception as e:
             return
 
         self.global_weights = aggregated
