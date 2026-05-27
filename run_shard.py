@@ -1475,7 +1475,7 @@ def run_health_check(args):
             no_capture=enterprise.no_capture,
             event_bus=enterprise.event_bus
         )
-        t = threading.Thread(target=enterprise.shard.start, daemon=True)
+        t = threading.Thread(target=enterprise.start, daemon=True)
         t.start()
         time.sleep(5)  # Даём время на инициализацию
 
