@@ -1469,12 +1469,6 @@ def run_health_check(args):
 
         import threading
         # Создаём ShardEnterprise в main thread, daemon только для capture_loop
-        enterprise.shard = ShardEnterprise(
-            config_path=enterprise.config_path,
-            enable_simulation=enterprise.enable_simulation,
-            no_capture=enterprise.no_capture,
-            event_bus=enterprise.event_bus
-        )
         t = threading.Thread(target=enterprise.start, daemon=True)
         t.start()
         time.sleep(5)  # Даём время на инициализацию
