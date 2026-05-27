@@ -494,8 +494,7 @@ class TimescaleStorage(StorageBackend):
         today = datetime.now().replace(day=1)
 
         for i in range(6):
-            partition_date = today + timedelta(days=32 * i)
-            partition_month = partition_date.replace(day=1)
+            partition_month = today + relativedelta(months=i)
             next_month = partition_month + relativedelta(months=1)
 
             partition_name = f"alerts_{partition_month.strftime('%Y_%m')}"
