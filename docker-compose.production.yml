@@ -1,0 +1,118 @@
+# SHARD Enterprise — Production Cluster
+version: '3.8'
+
+services:
+  shard-master:
+    image: shard-enterprise:latest
+    command: python run_shard.py --mode master
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    environment:
+      - SHARD_REDIS_URL=redis://redis:6379
+      - SHARD_USE_GPU=${SHARD_USE_GPU:-false}
+      - SHARD_PRODUCTION=true
+    volumes:
+      - ./config.yaml:/app/config.yaml
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - shard-models:/app/models
+    depends_on:
+      - redis
+      - postgres
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
+
+  shard-worker:
+    image: shard-enterprise:latest
+    command: python run_shard.py --mode worker
+    environment:
+      - SHARD_REDIS_URL=redis://redis:6379
+      - SHARD_USE_GPU=${SHARD_USE_GPU:-false}
+    volumes:
+      - ./config.yaml:/app/config.yaml
+      - shard-models:/app/models
+    depends_on:
+      - redis
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+
+  shard-gpu-worker:
+    image: shard-enterprise:gpu
+    command: python run_shard.py --mode worker --gpu
+    environment:
+      - SHARD_REDIS_URL=redis://redis:6379
+      - SHARD_USE_GPU=true
+    volumes:
+      - ./config.yaml:/app/config.yaml
+      - shard-models:/app/models
+    depends_on:
+      - redis
+    deploy:
+      replicas: 1
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+
+  postgres:
+    image: timescale/timescaledb:latest-pg15
+    environment:
+      - POSTGRES_DB=shard_siem
+      - POSTGRES_USER=shard
+      - POSTGRES_PASSWORD=${SHARD_PG_PASSWORD:-changeme}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+
+  triton:
+    image: nvcr.io/nvidia/tritonserver:24.01-py3
+    command: tritonserver --model-repository=/models --strict-model-config=false
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+      - "8002:8002"
+    volumes:
+      - shard-models:/models
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  shard-models:
+  redis-data:
+  postgres-data:

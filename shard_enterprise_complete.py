@@ -4358,8 +4358,14 @@ class ShardEnterprise:
         self.logger.info("=" * 70)
 
     def _setup_signal_handlers(self) -> None:
-        """Настройка обработчиков сигналов"""
+        """Настройка обработчиков сигналов (только в main thread)"""
         import signal
+        import threading
+        
+        # Проверяем, что мы в main thread
+        if threading.current_thread() is not threading.main_thread():
+            self.logger.debug("Signal handlers skipped (not main thread)")
+            return
         
         if hasattr(ShardEnterprise, '_signals_setup_done') and ShardEnterprise._signals_setup_done:
             return
@@ -4370,8 +4376,11 @@ class ShardEnterprise:
             self.stop()
             sys.exit(0)
 
-        signal.signal(signal.SIGINT, signal_handler)
-        signal.signal(signal.SIGTERM, signal_handler)
+        try:
+            signal.signal(signal.SIGINT, signal_handler)
+            signal.signal(signal.SIGTERM, signal_handler)
+        except ValueError as e:
+            self.logger.debug(f"Signal setup skipped: {e}")
 
     def start(self) -> None:
         """Запуск всех модулей"""
@@ -4421,9 +4430,14 @@ class ShardEnterprise:
                 continue
             try:
                 module.stop()
-                self.logger.debug(f"  ✅ {module.name} остановлен")
+                self.logger.debug(f"  ✅ {getattr(module, 'name', 'unknown')} остановлен")
             except Exception as e:
-                self.logger.error(f"  ❌ Ошибка остановки {getattr(module, 'name', 'unknown')}: {e}")
+                # Use getattr for logger in case module has its own
+                mod_logger = getattr(module, 'logger', self.logger)
+                try:
+                    mod_logger.error(f"  ❌ Ошибка остановки {getattr(module, 'name', 'unknown')}: {e}")
+                except:
+                    self.logger.debug(f"  ❌ Ошибка остановки {getattr(module, 'name', 'unknown')}: {e}")
 
         self.event_bus.shutdown()
 

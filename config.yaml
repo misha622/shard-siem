@@ -19,14 +19,14 @@ agentic_ai:
 autonomous:
   action_cooldown: 300
   autonomous_mode: false
-  confidence_threshold_block_perm: 0.6
-  confidence_threshold_block_temp: 0.6
+  confidence_threshold_block_perm: 0.95
+  confidence_threshold_block_temp: 0.85
   confidence_threshold_throttle: 0.3
   enabled: true
   history_path: ./data/autonomous_history.json
   max_auto_blocks_per_day: 50
   max_auto_blocks_per_hour: 10
-  recommend_only: false
+  recommend_only: true
   whitelist_ips:
   - 127.0.0.1
   - ::1
@@ -63,9 +63,10 @@ cloud:
   scan_interval: 300
 dashboard:
   auth:
-    api_keys: []
+    api_keys:
+    - ${SHARD_API_KEY:-}
     enabled: true
-    password: ${SHARD_DASHBOARD_PASSWORD:-change_me_immediately}
+    password: ${SHARD_DASHBOARD_PASSWORD:-}
     username: ${SHARD_DASHBOARD_USERNAME:-admin}
   enabled: true
   port: 8080
@@ -149,6 +150,47 @@ network:
   - 172.16.
   - 172.24.
   - '127.'
+production:
+  adversarial_ml:
+    adversarial_training: true
+    defense_enabled: true
+    detection_threshold: 0.85
+    epsilon: 0.1
+  compliance:
+    gdpr: true
+    iso27001: true
+    pci_dss: true
+    report_dir: compliance_reports
+    soc2: true
+  gpu:
+    device: 0
+    enabled: ${SHARD_USE_GPU:-false}
+    precision: fp16
+    triton_url: ${SHARD_TRITON_URL:-localhost:8000}
+  kafka:
+    bootstrap_servers: ${SHARD_KAFKA_SERVERS:-localhost:9092}
+    enabled: false
+  ml:
+    adversarial_training: true
+    ensemble_diversity: true
+    model_rotation_hours: 24
+  redis:
+    cluster_mode: false
+    enabled: true
+    url: ${SHARD_REDIS_URL:-redis://localhost:6379}
+  scaling:
+    auto_scaling: true
+    cooldown_seconds: 60
+    max_workers: 16
+    min_workers: 2
+    scale_down_threshold: 0.3
+    scale_up_threshold: 0.7
+  security:
+    audit_log_dir: /var/log/shard/audit
+    cert_dir: /etc/shard/certs
+    fips_mode: ${SHARD_FIPS_MODE:-false}
+    hsm_type: software
+    mtls_enabled: true
 protection:
   auto_block: true
   block_duration: 3600
@@ -167,7 +209,7 @@ protection:
     window: 60
 rl_defense:
   enabled: true
-  epsilon: 1.0
+  epsilon: 0.1
   gamma: 0.95
   model_dir: ./models/rl_defense/
   train: false

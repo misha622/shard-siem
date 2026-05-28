@@ -703,21 +703,26 @@ class AlertBuffer:
             return alerts
 
     def flush_if_needed(self, callback) -> None:
-        """Выполнить flush если буфер не пуст и callback не выполняется"""
-        with self._flush_lock:
-            if not self._flush_in_progress and self._buffer:
+        """Выполнить flush если буфер не пуст и callback не выполняется (без рекурсии)"""
+        while True:
+            with self._flush_lock:
+                if self._flush_in_progress or not self._buffer:
+                    break
                 self._flush_in_progress = True
-                try:
-                    alerts = self.get_and_clear()
-                    if alerts:
-                        success = callback(alerts)
-                        if success:
-                            self._total_flushed += len(alerts)
-                finally:
+                alerts = self.get_and_clear()
+            
+            # Выполняем callback ВНЕ лока для избежания deadlock
+            try:
+                if alerts:
+                    success = callback(alerts)
+                    if success:
+                        self._total_flushed += len(alerts)
+            finally:
+                with self._flush_lock:
                     self._flush_in_progress = False
                     # Проверяем, не накопились ли новые данные
-                    if len(self._buffer) >= self.batch_size:
-                        self.flush_if_needed(callback)
+                    if len(self._buffer) < self.batch_size:
+                        break
 
     @property
     def stats(self) -> Dict:

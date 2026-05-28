@@ -380,7 +380,7 @@ class ByzantineResilience:
         scores = np.zeros(num_clients)
         for i in range(num_clients):
             sorted_dists = np.sort(distances[i])
-            scores[i] = np.sum(sorted_dists[1:num_clients - f])
+            scores[i] = np.sum(sorted_dists[1:num_clients - f - 1])
 
         best_clients = np.argsort(scores)[:m]
 
@@ -1112,8 +1112,19 @@ class SecureFederatedServer:
         try:
             checkpoint_path = Path(self.config.checkpoint_dir) / 'model.pkl'
             if checkpoint_path.exists():
-                # Federated model uses TF/Keras, not PyTorch — skipping torch.load
-                # TODO: implement TF checkpoint restore
+                with open(checkpoint_path, 'rb') as f:
+                    weights_data = pickle.load(f)
+                self.global_weights = [np.array(w) for w in weights_data]
+                if self.global_model is not None and TF_AVAILABLE:
+                    self.global_model.set_weights(self.global_weights)
+                state_path = Path(self.config.checkpoint_dir) / 'state.json'
+                if state_path.exists():
+                    with open(state_path, 'r') as f:
+                        state = json.load(f)
+                    self.current_round = state.get('round', 0)
+                logging.getLogger('SHARD.Federated').info(
+                    f"Checkpoint loaded: round {self.current_round}"
+                )
                 return True
         except Exception as e:
             logging.getLogger('SHARD.Federated').warning(f"Failed to load checkpoint: {e}")
