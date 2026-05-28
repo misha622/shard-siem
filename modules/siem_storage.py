@@ -703,24 +703,26 @@ class AlertBuffer:
             return alerts
 
     def flush_if_needed(self, callback) -> None:
-        """Выполнить flush если буфер не пуст и callback не выполняется (без рекурсии)"""
+        """Выполнить flush если буфер не пуст (единый лок, без TOCTOU)"""
         while True:
-            with self._flush_lock:
+            with self._lock:
                 if self._flush_in_progress or not self._buffer:
                     break
                 self._flush_in_progress = True
-                alerts = self.get_and_clear()
+                alerts = self._buffer[:]
+                self._buffer.clear()
+                self._last_flush = time.time()
             
-            # Выполняем callback ВНЕ лока для избежания deadlock
+            # Выполняем callback ВНЕ лока
             try:
                 if alerts:
                     success = callback(alerts)
                     if success:
-                        self._total_flushed += len(alerts)
+                        with self._lock:
+                            self._total_flushed += len(alerts)
             finally:
-                with self._flush_lock:
+                with self._lock:
                     self._flush_in_progress = False
-                    # Проверяем, не накопились ли новые данные
                     if len(self._buffer) < self.batch_size:
                         break
 

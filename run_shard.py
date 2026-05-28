@@ -37,20 +37,21 @@ from module_specs import MODULE_SPECS, MODULES_WITH_SETUP, MODULES_WITH_STOP
 # КОНСТАНТЫ И ПЕРЕЧИСЛЕНИЯ
 # ============================================================
 
-class ModuleGroup(Enum):
-    """Группы модулей по порядку инициализации"""
-    EARLY = [
+# Группы модулей по порядку инициализации (константы вместо Enum)
+MODULE_GROUPS = {
+    'EARLY': [
         'cloud_security', 'code_security', 'cve_intelligence',
         'deception', 'tip'
-    ]
-    LATE = [
+    ],
+    'LATE': [
         'llm_guardian', 'threat_hunting', 'soar',
         'forensics', 'mitre', 'red_team'
-    ]
-    ML = [
+    ],
+    'ML': [
         'temporal_gnn', 'contrastive_vae', 'rl_defense',
         'adaptive_learning', 'gnn_analyzer', 'fusion'
     ]
+}
 
 
 class ModuleStatus(Enum):
@@ -539,7 +540,7 @@ class EnhancedShardEnterprise:
         self._stop_requested = False
 
         # Запускаем ранние модули
-        self._start_module_group(ModuleGroup.EARLY.value)
+        self._start_module_group(MODULE_GROUPS['EARLY'])
 
         # Создаём основной ShardEnterprise
         with safe_operation("создание ShardEnterprise", self.logger):
@@ -568,7 +569,7 @@ class EnhancedShardEnterprise:
         self._subscribe_to_events()
 
         # Запускаем поздние модули
-        self._start_module_group(ModuleGroup.LATE.value)
+        self._start_module_group(MODULE_GROUPS['LATE'])
 
         # Проверка здоровья модулей
         health = self._verify_modules_health()
