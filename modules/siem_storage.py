@@ -679,7 +679,8 @@ class AlertBuffer:
         self.batch_size = batch_size
         self.flush_interval = flush_interval
         self._flush_in_progress = False
-        self._flush_lock = threading.RLock()
+        # _flush_lock оставлен для обратной совместимости
+        self._flush_lock = self._lock  # Единый лок
         self._last_flush = time.time()
         self._total_buffered = 0
         self._total_flushed = 0
