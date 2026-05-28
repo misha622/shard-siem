@@ -10,7 +10,7 @@ import json
 import time
 from pathlib import Path
 from typing import Optional, Dict
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from cryptography import x509
 from cryptography.x509.oid import NameOID
@@ -74,7 +74,7 @@ class mTLSSecurity:
             x509.NameAttribute(NameOID.COMMON_NAME, "SHARD Root CA"),
         ])
         
-        ca_cert = x509.CertificateBuilder()            .subject_name(subject)            .issuer_name(issuer)            .public_key(ca_key.public_key())            .serial_number(x509.random_serial_number())            .not_valid_before(datetime.utcnow())            .not_valid_after(datetime.utcnow().replace(year=datetime.utcnow().year + 10))            .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)            .sign(ca_key, hashes.SHA256())
+        ca_cert = x509.CertificateBuilder()            .subject_name(subject)            .issuer_name(issuer)            .public_key(ca_key.public_key())            .serial_number(x509.random_serial_number())            .not_valid_before(datetime.now(timezone.utc))            .not_valid_after(datetime.now(timezone.utc).replace(year=datetime.now(timezone.utc).year + 10))            .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)            .sign(ca_key, hashes.SHA256())
         
         # Save CA
         with open(self.cert_dir / 'ca.crt', 'wb') as f:
@@ -125,7 +125,7 @@ class mTLSSecurity:
             x509.NameAttribute(NameOID.COMMON_NAME, f"SHARD {name}"),
         ])
         
-        return x509.CertificateBuilder()            .subject_name(subject)            .issuer_name(ca_cert.subject)            .public_key(key.public_key())            .serial_number(x509.random_serial_number())            .not_valid_before(dt.datetime.utcnow())            .not_valid_after(dt.datetime.utcnow() + dt.timedelta(days=365))            .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)            .sign(ca_key, hashes.SHA256())
+        return x509.CertificateBuilder()            .subject_name(subject)            .issuer_name(ca_cert.subject)            .public_key(key.public_key())            .serial_number(x509.random_serial_number())            .not_valid_before(dt.datetime.now(timezone.utc))            .not_valid_after(dt.datetime.now(timezone.utc) + dt.timedelta(days=365))            .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)            .sign(ca_key, hashes.SHA256())
 
 
 class HSMManager:
@@ -266,7 +266,7 @@ class AuditLogger:
         """Log an auditable event with tamper evidence"""
         
         event = {
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
             'action': action,
             'user': user,
             'resource': resource,
