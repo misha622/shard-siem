@@ -552,6 +552,7 @@ class EnhancedShardEnterprise:
                 )
             except Exception as e:
                 self.logger.critical(f"Не удалось создать ShardEnterprise: {e}")
+                self.shard = None
                 raise
 
         # Подключаем ML-модули к ML Engine
@@ -583,7 +584,11 @@ class EnhancedShardEnterprise:
             self.logger.info("Все модули успешно запущены")
 
         self._running = True
-        self.shard.start()
+        if self.shard is not None:
+            self.shard.start()
+        else:
+            self.logger.error("Невозможно запустить: ShardEnterprise не создан")
+            return
 
     def _start_module_group(self, module_names: List[str]):
         """
@@ -1458,7 +1463,8 @@ def main():
 
 
 def run_health_check(args):
-    """Проверка здоровья системы"""
+    """Проверка здоровья системы (исправленная версия)"""
+    enterprise = None
     try:
         enterprise = EnhancedShardEnterprise(
             config_path=args.config,
@@ -1468,10 +1474,61 @@ def run_health_check(args):
         )
 
         import threading
-        # Создаём ShardEnterprise в main thread, daemon только для capture_loop
-        t = threading.Thread(target=enterprise.start, daemon=True)
+        
+        # Используем основной метод start(), который обновляет статусы модулей
+        # Но ShardEnterprise.start() вызывает capture_loop() — блокирующий вызов
+        # Поэтому патчим capture на время health-check
+        if hasattr(enterprise, 'shard') and enterprise.shard is not None:
+            # Подменяем capture на заглушку чтобы start() не заблокировался
+            enterprise.shard._health_check_mode = True
+            original_start = enterprise.shard.start
+            
+            def patched_start():
+                """Запуск без блокирующего capture_loop"""
+                enterprise.shard.logger.info("🚀 Health-check: запуск модулей...")
+                for module in enterprise.shard.modules:
+                    if module is not None and not isinstance(module, str):
+                        try:
+                            module.start()
+                            enterprise.shard.logger.debug(f"  ✅ {module.name} запущен")
+                        except Exception as e:
+                            enterprise.shard.logger.error(f"  ❌ Ошибка {module.name}: {e}")
+                enterprise.shard._running = True
+            
+            enterprise.shard.start = patched_start
+        
+        # Запускаем в потоке с таймаутом
+        init_complete = threading.Event()
+        start_error = []
+        
+        def run_start():
+            try:
+                enterprise.start()
+            except Exception as e:
+                start_error.append(str(e))
+            finally:
+                init_complete.set()
+        
+        t = threading.Thread(target=run_start, daemon=True, name="HealthCheck-Run")
         t.start()
-        time.sleep(5)  # Даём время на инициализацию
+        
+        # Ждём с прогресс-индикатором
+        print("⏳ Инициализация модулей...")
+        for i in range(30):
+            if init_complete.is_set():
+                break
+            time.sleep(1)
+            print(f"   ... {i+1}с", end='\r')
+        
+        if not init_complete.wait(timeout=0):
+            print("\n⚠️ Инициализация не завершилась за 30 секунд")
+        else:
+            time.sleep(3)  # Даём время фоновым потокам стартовать
+            print("\n✅ Инициализация завершена")
+        
+        if start_error:
+            print(f"❌ Ошибка инициализации: {start_error[0]}")
+            return 1
 
         print("\n" + enterprise.get_health_report())
 
@@ -1482,6 +1539,11 @@ def run_health_check(args):
         print(f"❌ Ошибка проверки здоровья: {e}")
         import traceback
         traceback.print_exc()
+        if enterprise is not None:
+            try:
+                enterprise.stop()
+            except:
+                pass
         return 1
 
 

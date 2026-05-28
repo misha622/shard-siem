@@ -480,20 +480,21 @@ class SmartFirewall(BaseModule):
         if not self._chain_created:
             self.add_iptables_chain()
 
-        # Check if rule already exists
-        check_result = subprocess.run(
-            ['iptables', '-C', 'SHARD_BLOCK', '-s', ip, '-j', 'DROP'],
-            capture_output=True, timeout=5
-        )
+        # Check if rule already exists (using -L to avoid comment mismatch)
+        try:
+            check_result = subprocess.run(
+                ['iptables', '-L', 'SHARD_BLOCK', '-n'],
+                capture_output=True, text=True, timeout=5
+            )
+            if ip in check_result.stdout:
+                self.logger.debug(f"iptables rule already exists for {ip}")
+                return True
+        except Exception:
+            pass
 
-        if check_result.returncode == 0:
-            self.logger.debug(f"iptables rule already exists for {ip}")
-            return True
-
-        # Add blocking rule
+        # Add blocking rule (без comment для совместимости с проверкой)
         result = subprocess.run(
-            ['iptables', '-A', 'SHARD_BLOCK', '-s', ip, '-j', 'DROP',
-             '-m', 'comment', '--comment', f'SHARD_block_{int(time.time())}'],
+            ['iptables', '-A', 'SHARD_BLOCK', '-s', ip, '-j', 'DROP'],
             capture_output=True, timeout=5, check=False
         )
 

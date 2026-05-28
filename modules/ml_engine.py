@@ -737,6 +737,9 @@ class MachineLearningEngine(BaseModule):
         # DB connection pool reference
         self.siem_storage = None
 
+        # ML Drift Monitor
+        self.drift_monitor = MLDriftMonitor()
+
         # Загружаем сохраненные модели
         self._load_saved_models()
 
@@ -997,6 +1000,12 @@ class MachineLearningEngine(BaseModule):
                 result.is_attack = True
                 if not result.attack_type or result.attack_type == 'Normal':
                     result.attack_type = 'Anomaly'
+
+            # Запись score в ML Drift Monitor
+            if hasattr(self, 'drift_monitor') and self.drift_monitor is not None:
+                drift_event = self.drift_monitor.record_score(result.score)
+                if drift_event:
+                    self.event_bus.publish('ml.drift', drift_event)
 
             # 6. SHAP объяснения
             if result.is_attack and self.ml_config.explain_with_shap:

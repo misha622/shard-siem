@@ -237,6 +237,7 @@ class RLDefenseAgent:
         self.recent_actions: deque = deque(maxlen=100)
         self.blocked_ips: Set[str] = set()
 
+        self.num_actions = self.config.action_size  # For tf.gather compatibility
         self.stats = {
             'total_steps': 0,
             'total_episodes': 0,
@@ -387,6 +388,8 @@ class RLDefenseAgent:
 
         with tf.GradientTape() as tape:
             current_q = self.policy_net(states_t, training=True)
+            # Clip actions to valid range [0, num_actions)
+            actions_t = tf.clip_by_value(actions_t, 0, self.num_actions - 1)
             current_q = tf.gather(current_q, actions_t, batch_dims=1)
 
             if self.config.use_double_dqn:

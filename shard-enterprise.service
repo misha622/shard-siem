@@ -1,0 +1,27 @@
+[Unit]
+Description=SHARD Enterprise SIEM
+After=network.target
+
+[Service]
+Type=simple
+User=user
+WorkingDirectory=/mnt/c/Users/user/PycharmProjects/Shard
+EnvironmentFile=/mnt/c/Users/user/PycharmProjects/Shard/.env
+ExecStart=/home/user/.venv-linux/bin/python3 /mnt/c/Users/user/PycharmProjects/Shard/run_shard.py --config /mnt/c/Users/user/PycharmProjects/Shard/config.yaml
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/mnt/c/Users/user/PycharmProjects/Shard
+ReadWritePaths=/tmp
+
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target
