@@ -1919,15 +1919,14 @@ class BaselineProfiler:
                         std = max(mean * 0.1, math.sqrt(variance))
                     else:
                         std = mean * 0.5 if mean > 0 else 1
-                    # Кэшируем Welford статистику
-                    # Welford кэш (потокобезопасно — записываем только при первом вычислении)
-                    # Кэшируем Welford статистику
+                    # Кэшируем Welford статистику (атомарно под локом)
                     with self._profile_lock:
-                        cached['_welford_sizes'] = {
-                        'count': len(packet_sizes),
-                        'mean': mean,
-                        'm2': variance * len(packet_sizes) if len(packet_sizes) > 1 else 0
-                    }
+                        if device in self._cached_stats:
+                            self._cached_stats[cache_key]['_welford_sizes'] = {
+                                'count': len(packet_sizes),
+                                'mean': mean,
+                                'm2': variance * len(packet_sizes) if len(packet_sizes) > 1 else 0
+                            }
 
                 if mean > 0:
                     z_score = abs(size - mean) / std

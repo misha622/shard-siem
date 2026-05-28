@@ -1166,13 +1166,14 @@ class EnhancedShardEnterprise:
                 self.logger.error(f"Непредвиденная ошибка проверки CVE: {e}")
                 return None
 
-    def run_red_team_scan(self, target: str, scope: List[str] = None) -> Dict:
+    def run_red_team_scan(self, target: str, scope: List[str] = None, allow_private: bool = False) -> Dict:
         """
         Запуск Red Team сканирования с валидацией цели
 
         Args:
             target: Цель сканирования
             scope: Область сканирования
+            allow_private: Разрешить сканирование приватных сетей
 
         Returns:
             Dict: Результаты сканирования
@@ -1181,7 +1182,7 @@ class EnhancedShardEnterprise:
             try:
                 # Валидация цели (IP или домен)
                 try:
-                    SecurityValidator.validate_ip_address(target)
+                    SecurityValidator.validate_ip_address(target, allow_private=allow_private)
                 except SecurityValidationError:
                     # Если не IP, проверяем что это не опасный путь
                     if any(char in target for char in ['/', '\\', '..']):
@@ -1475,27 +1476,25 @@ def run_health_check(args):
 
         import threading
         
-        # Используем основной метод start(), который обновляет статусы модулей
-        # Но ShardEnterprise.start() вызывает capture_loop() — блокирующий вызов
-        # Поэтому патчим capture на время health-check
-        if hasattr(enterprise, 'shard') and enterprise.shard is not None:
-            # Подменяем capture на заглушку чтобы start() не заблокировался
-            enterprise.shard._health_check_mode = True
-            original_start = enterprise.shard.start
-            
-            def patched_start():
-                """Запуск без блокирующего capture_loop"""
-                enterprise.shard.logger.info("🚀 Health-check: запуск модулей...")
-                for module in enterprise.shard.modules:
-                    if module is not None and not isinstance(module, str):
-                        try:
-                            module.start()
-                            enterprise.shard.logger.debug(f"  ✅ {module.name} запущен")
-                        except Exception as e:
-                            enterprise.shard.logger.error(f"  ❌ Ошибка {module.name}: {e}")
-                enterprise.shard._running = True
-            
-            enterprise.shard.start = patched_start
+        # Патчим ShardEnterprise.start() чтобы не вызывал блокирующий capture_loop
+        # Делаем это ДО вызова enterprise.start(), а не после
+        original_shard_start = None
+        
+        def patched_shard_start(self_shard):
+            """Запуск без блокирующего capture_loop для health-check"""
+            self_shard.logger.info("🚀 Health-check: запуск модулей...")
+            for module in self_shard.modules:
+                if module is not None and not isinstance(module, str):
+                    try:
+                        module.start()
+                    except Exception as e:
+                        self_shard.logger.error(f"  ❌ Ошибка {getattr(module, 'name', 'unknown')}: {e}")
+            self_shard._running = True
+        
+        # Патчим ShardEnterprise.start на уровне класса (до создания экземпляра)
+        import shard_enterprise_complete as sec
+        original_shard_start = sec.ShardEnterprise.start
+        sec.ShardEnterprise.start = patched_shard_start
         
         # Запускаем в потоке с таймаутом
         init_complete = threading.Event()
@@ -1666,7 +1665,7 @@ def run_cli_tools(args):
             from shard_red_team import ShardRedTeamIntegration
             red_team = ShardRedTeamIntegration()
             red_team.setup(event_bus, logger)
-            result = red_team.scan_target(args.redteam)
+            result = red_team.scan_target(args.redteam, allow_private=args.allow_private)
             print(f"\n📊 Red Team сканирование завершено")
             print(f"   Цель: {args.redteam}")
             print(f"   Найдено уязвимостей: {len(result.get('vulnerabilities', []))}")
