@@ -188,7 +188,7 @@ class SecurityValidator:
             raise SecurityValidationError(f"Ошибка валидации пути: {e}")
 
     @staticmethod
-    def validate_ip_address(ip: str) -> str:
+    def validate_ip_address(ip: str, allow_private: bool = False) -> str:
         """
         Валидация IP-адреса
 
