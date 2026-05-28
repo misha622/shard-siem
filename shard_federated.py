@@ -1108,13 +1108,14 @@ class SecureFederatedServer:
             self._save_checkpoint()
 
     def _load_checkpoint(self) -> bool:
-        """Restore global model from checkpoint"""
+        """Restore global model from checkpoint (numpy, без pickle)"""
         try:
-            checkpoint_path = Path(self.config.checkpoint_dir) / 'model.pkl'
+            checkpoint_path = Path(self.config.checkpoint_dir) / 'model.npz'
             if checkpoint_path.exists():
-                with open(checkpoint_path, 'rb') as f:
-                    weights_data = pickle.load(f)
-                self.global_weights = [np.array(w) for w in weights_data]
+                data = np.load(checkpoint_path, allow_pickle=False)
+                self.global_weights = [data[f'arr_{i}'] for i in range(len(data.files))]
+                if self.global_model is not None and TF_AVAILABLE:
+                    self.global_model.set_weights(self.global_weights)
                 if self.global_model is not None and TF_AVAILABLE:
                     self.global_model.set_weights(self.global_weights)
                 state_path = Path(self.config.checkpoint_dir) / 'state.json'
@@ -1131,12 +1132,15 @@ class SecureFederatedServer:
         return False
 
     def _save_checkpoint(self):
-        """Сохранение чекпоинта"""
+        """Сохранение чекпоинта (numpy, без pickle)"""
         checkpoint_path = Path(self.config.checkpoint_dir)
         checkpoint_path.mkdir(parents=True, exist_ok=True)
 
-        with open(checkpoint_path / 'model.pkl', 'wb') as f:
-            pickle.dump([w.tolist() for w in (self.global_weights or [])], f)
+        if self.global_weights:
+            np.savez(
+                checkpoint_path / 'model.npz',
+                *[w for w in self.global_weights]
+            )
 
         with open(checkpoint_path / 'state.json', 'w') as f:
             json.dump({
