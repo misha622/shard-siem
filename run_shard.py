@@ -209,7 +209,7 @@ class SecurityValidator:
                 raise SecurityValidationError("Loopback адреса запрещены для сканирования")
             if addr.is_multicast:
                 raise SecurityValidationError("Multicast адреса запрещены")
-            if addr.is_private:
+            if addr.is_private and not allow_private:
                 raise SecurityValidationError("Приватные адреса разрешены только с --allow-private")
             return str(addr)
         except ValueError:
