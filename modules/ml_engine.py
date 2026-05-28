@@ -1393,3 +1393,78 @@ class MachineLearningEngine(BaseModule):
         _, _ = self.buffer.get_and_clear()
         self.buffer.commit_clear()
         self.logger.info("Training buffers cleared")
+
+class MLDriftMonitor:
+    """Мониторинг дрейфа ML-моделей (data drift + concept drift)"""
+
+    def __init__(self, window_size: int = 1000, alert_threshold: float = 0.15):
+        self.window_size = window_size
+        self.alert_threshold = alert_threshold
+        self.score_history: deque = deque(maxlen=window_size)
+        self.baseline_mean: float = 0.0
+        self.baseline_std: float = 0.0
+        self.is_calibrated: bool = False
+        self._lock = threading.RLock()
+        self.drift_events: List[Dict] = []
+        self.last_alert_time: float = 0
+        self.alert_cooldown: int = 300
+
+    def record_score(self, score: float) -> Optional[Dict]:
+        """Записать score и проверить на дрейф"""
+        with self._lock:
+            self.score_history.append(score)
+
+            if len(self.score_history) >= self.window_size and not self.is_calibrated:
+                self._calibrate()
+
+            if not self.is_calibrated:
+                return None
+
+            if len(self.score_history) >= 100:
+                recent = list(self.score_history)[-100:]
+                current_mean = sum(recent) / len(recent)
+
+                deviation = abs(current_mean - self.baseline_mean)
+                if deviation > self.alert_threshold and time.time() - self.last_alert_time > self.alert_cooldown:
+                    self.last_alert_time = time.time()
+                    direction = "up" if current_mean > self.baseline_mean else "down"
+                    event = {
+                        'timestamp': time.time(),
+                        'type': 'ml_drift',
+                        'direction': direction,
+                        'current_mean': round(current_mean, 3),
+                        'baseline_mean': round(self.baseline_mean, 3),
+                        'deviation': round(deviation, 3),
+                        'severity': 'HIGH' if deviation > 0.25 else 'MEDIUM'
+                    }
+                    self.drift_events.append(event)
+                    return event
+        return None
+
+    def _calibrate(self) -> None:
+        """Калибровка baseline на последних window_size сэмплах"""
+        if len(self.score_history) < self.window_size:
+            return
+        values = list(self.score_history)
+        self.baseline_mean = sum(values) / len(values)
+        self.baseline_std = (sum((v - self.baseline_mean) ** 2 for v in values) / len(values)) ** 0.5
+        self.is_calibrated = True
+
+    def get_stats(self) -> Dict:
+        """Статистика дрейфа"""
+        with self._lock:
+            return {
+                'calibrated': self.is_calibrated,
+                'baseline_mean': round(self.baseline_mean, 3),
+                'baseline_std': round(self.baseline_std, 3),
+                'samples': len(self.score_history),
+                'drift_events': len(self.drift_events),
+                'last_drift': self.drift_events[-1] if self.drift_events else None
+            }
+
+    def reset(self) -> None:
+        """Сброс монитора"""
+        with self._lock:
+            self.score_history.clear()
+            self.is_calibrated = False
+            self.drift_events.clear()
