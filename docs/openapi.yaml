@@ -1,0 +1,34 @@
+openapi: 3.0.3
+info:
+  title: SHARD Enterprise SIEM API
+  version: 5.2.0
+  description: Autonomous AI-driven SIEM platform API
+servers:
+  - url: http://localhost:8081/api
+paths:
+  /health:
+    get:
+      summary: System health check
+      responses:
+        "200":
+          description: OK
+  /stats:
+    get:
+      summary: Alert statistics
+      responses:
+        "200":
+          description: OK
+  /alerts:
+    get:
+      summary: Recent alerts
+      responses:
+        "200":
+          description: OK
+  /block:
+    post:
+      summary: Block IP
+      responses:
+        "200":
+          description: Blocked
+        "403":
+          description: Forbidden
