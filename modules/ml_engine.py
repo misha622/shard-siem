@@ -530,9 +530,13 @@ class DataBuffer:
     def get_and_clear(self) -> Tuple[List, List]:
         """Атомарно получить и очистить буферы (с бэкапом)"""
         with self._lock:
+            # Запоминаем сколько элементов забираем
             normal = list(self._normal_buffer)
             attacks = list(self._attack_buffer)
-
+            
+            self._snapshot_normal_count = len(normal)
+            self._snapshot_attack_count = len(attacks)
+            
             # Создаем бэкап перед очисткой
             self._backup_normal = normal.copy()
             self._backup_attack = attacks.copy()
@@ -542,8 +546,18 @@ class DataBuffer:
     def commit_clear(self):
         """Подтвердить очистку после успешного обучения"""
         with self._lock:
-            self._normal_buffer.clear()
-            self._attack_buffer.clear()
+            # Очищаем только те элементы, которые были в снапшоте
+            n_count = getattr(self, '_snapshot_normal_count', len(self._normal_buffer))
+            a_count = getattr(self, '_snapshot_attack_count', len(self._attack_buffer))
+            
+            # Удаляем первые N элементов (те, что были заснапшочены)
+            for _ in range(min(n_count, len(self._normal_buffer))):
+                self._normal_buffer.popleft()
+            for _ in range(min(a_count, len(self._attack_buffer))):
+                self._attack_buffer.popleft()
+            
+            self._snapshot_normal_count = 0
+            self._snapshot_attack_count = 0
             self._backup_normal.clear()
             self._backup_attack.clear()
 
