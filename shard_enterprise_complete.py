@@ -2982,6 +2982,10 @@ class ThreatGNN:
         return self._pagerank_fallback(node_features, edge_index)
 
 
+
+class SelfSupervisedEncoder:
+    """Самообучающийся энкодер для обнаружения аномалий (исправлен - Welford, проверки None)"""
+
     def __init__(self, input_dim: int = 156, hidden_dim: int = 128, latent_dim: int = 64):
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
