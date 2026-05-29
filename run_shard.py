@@ -1497,8 +1497,7 @@ def run_health_check(args):
         original_shard_start = sec.ShardEnterprise.start
         sec.ShardEnterprise.start = patched_shard_start
         
-        try:
-            # Запускаем в потоке с таймаутом
+        # Запускаем в потоке с таймаутом (try removed)
             init_complete = threading.Event()
             start_error = []
             
@@ -1532,15 +1531,29 @@ def run_health_check(args):
             return 1
 
         print("\n" + enterprise.get_health_report())
-
-        enterprise.stop()
         return 0
+
+    except Exception as e:
+        print(f"❌ Ошибка проверки здоровья: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
 
     finally:
         # Восстанавливаем оригинальный метод при ЛЮБОМ исходе
-        sec.ShardEnterprise.start = original_shard_start
+        if original_shard_start is not None:
+            import shard_enterprise_complete as sec
+            sec.ShardEnterprise.start = original_shard_start
+        if enterprise is not None:
+            try:
+                enterprise.stop()
+            except:
+                pass
 
-    except Exception as e:  # This line was misplaced
+    # This return is unreachable but keeps Python parser happy
+    return 0
+
+  # This line was misplaced
         print(f"❌ Ошибка проверки здоровья: {e}")
         import traceback
         traceback.print_exc()

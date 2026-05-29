@@ -806,10 +806,11 @@ class SecureFederatedClient:
             self.global_weights = self._deserialize_weights(global_data['weights'])
             self.model.set_weights(self.global_weights)
 
-        updates = self._local_training()
+        result = self._local_training()
 
-        if updates is None:
+        if result is None:
             return
+        updates, sample_count = result
 
         if self.dp_engine:
             updates = self.dp_engine.clip_gradients(updates)
@@ -841,6 +842,9 @@ class SecureFederatedClient:
         if response.status_code == 200:
             self.stats['rounds_participated'] += 1
             self.stats['last_sync'] = time.time()
+            # Очищаем данные после успешной отправки
+            self.local_data.clear()
+            self.local_labels.clear()
 
     def _local_training(self) -> Optional[List[np.ndarray]]:
         """Локальное обучение на приватных данных"""
