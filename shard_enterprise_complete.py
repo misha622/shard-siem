@@ -3642,21 +3642,18 @@ class HoneypotService(BaseModule):
         try:
             import joblib
             import os
-            if not hasattr(self, '_ai_model') or self._ai_model is None:
-                    with self._ai_model_lock:
-                        if not hasattr(self, '_ai_model'):
-                            model_path = os.path.join(os.path.dirname(__file__), 'models', 'shard_real_alert_model.pkl')
+            with self._ai_model_lock:
+                if not hasattr(self, '_ai_model') or self._ai_model is None:
+                    model_path = os.path.join(os.path.dirname(__file__), 'models', 'shard_real_alert_model.pkl')
                     if os.path.exists(model_path):
-                        # Верификация хеша модели перед загрузкой (production)
                         import hashlib
-                    with open(model_path, 'rb') as mf:
-                        model_hash = hashlib.sha256(mf.read()).hexdigest()
-                    # В production: сверить с подписанным хешем
-                    self._ai_model = joblib.load(model_path)
-                    self.logger.info(f"✅ AI модель загружена (SHA256: {model_hash[:16]}...)")
-                else:
-                    self._ai_model = None
-                    self.logger.debug("AI модель не найдена — хук отключён")
+                        with open(model_path, 'rb') as mf:
+                            model_hash = hashlib.sha256(mf.read()).hexdigest()
+                        self._ai_model = joblib.load(model_path)
+                        self.logger.info(f"✅ AI модель загружена (SHA256: {model_hash[:16]}...)")
+                    else:
+                        self._ai_model = None
+                        self.logger.debug("AI модель не найдена — хук отключён")
             if hasattr(self, '_ai_model') and self._ai_model:
                 # Игнорируем соединения от localhost
                 if src_ip == "127.0.0.1" or src_ip == "::1":

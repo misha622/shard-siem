@@ -1510,7 +1510,7 @@ def run_health_check(args):
                 init_complete.set()
         
         t = threading.Thread(target=run_start, daemon=True, name="HealthCheck-Run")
-            t.start()
+        t.start()
         
         # Ждём с прогресс-индикатором
         print("⏳ Инициализация модулей...")
@@ -1553,16 +1553,7 @@ def run_health_check(args):
     # This return is unreachable but keeps Python parser happy
     return 0
 
-  # This line was misplaced
-        print(f"❌ Ошибка проверки здоровья: {e}")
-        import traceback
-        traceback.print_exc()
-        if enterprise is not None:
-            try:
-                enterprise.stop()
-            except:
-                pass
-        return 1
+
 
 
 def run_cli_tools(args):
