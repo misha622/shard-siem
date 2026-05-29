@@ -528,44 +528,35 @@ class DataBuffer:
             self._attack_buffer.append((features, attack_type))
 
     def get_and_clear(self) -> Tuple[List, List]:
-        """Атомарно получить и очистить буферы (с бэкапом)"""
+        """Атомарно получить и очистить буферы (double-buffer swap)"""
         with self._lock:
-            # Запоминаем сколько элементов забираем
+            # Атомарный swap: новые буферы для продолжения сбора, старые — на обучение
             normal = list(self._normal_buffer)
             attacks = list(self._attack_buffer)
             
-            self._snapshot_normal_count = len(normal)
-            self._snapshot_attack_count = len(attacks)
-            
-            # Создаем бэкап перед очисткой
+            # Сохраняем как бэкап (для rollback при ошибке обучения)
             self._backup_normal = normal.copy()
             self._backup_attack = attacks.copy()
+            
+            # Очищаем буферы — новые данные будут собираться с чистого листа
+            self._normal_buffer.clear()
+            self._attack_buffer.clear()
 
             return normal, attacks
 
     def commit_clear(self):
         """Подтвердить очистку после успешного обучения"""
         with self._lock:
-            # Очищаем только те элементы, которые были в снапшоте
-            n_count = getattr(self, '_snapshot_normal_count', len(self._normal_buffer))
-            a_count = getattr(self, '_snapshot_attack_count', len(self._attack_buffer))
-            
-            # Удаляем первые N элементов (те, что были заснапшочены)
-            for _ in range(min(n_count, len(self._normal_buffer))):
-                self._normal_buffer.popleft()
-            for _ in range(min(a_count, len(self._attack_buffer))):
-                self._attack_buffer.popleft()
-            
-            self._snapshot_normal_count = 0
-            self._snapshot_attack_count = 0
+            # Данные уже очищены в get_and_clear, просто сбрасываем бэкап
             self._backup_normal.clear()
             self._backup_attack.clear()
 
     def rollback(self):
         """Восстановить данные при ошибке обучения"""
         with self._lock:
-            self._normal_buffer.extend(self._backup_normal)
-            self._attack_buffer.extend(self._backup_attack)
+            # Восстанавливаем данные из бэкапа
+            self._normal_buffer.extendleft(reversed(self._backup_normal))
+            self._attack_buffer.extendleft(reversed(self._backup_attack))
             self._backup_normal.clear()
             self._backup_attack.clear()
 
