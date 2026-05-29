@@ -3605,6 +3605,8 @@ class HoneypotService(BaseModule):
         self.ports = config.get('protection.honeypot.ports', [22, 80, 443, 3389, 8080])
         self.services: List[_HoneypotServer] = []
         self.connections: Dict[str, List[Dict]] = defaultdict(list)
+        self._ai_model = None
+        self._ai_model_lock = threading.RLock()
 
     def start(self) -> None:
         if not self.enabled:
