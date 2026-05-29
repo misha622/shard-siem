@@ -1885,7 +1885,7 @@ class BaselineProfiler:
         if cached is not None and cached:  # Проверяем что кэш не пустой
             last_update = self._last_cache_update.get(device, 0)
             if time.time() - last_update < self._cache_ttl:
-                return self._calculate_score_fast(device, size, port, entropy, dst_ip, cached)
+                return self._calculate_score_fast(device, size, port, entropy, dst_ip, cached, cache_key)
 
         # Полное вычисление
         with self._profile_lock:
@@ -1920,7 +1920,8 @@ class BaselineProfiler:
         return score
 
     def _calculate_score_fast(self, device: str, size: int, port: int,
-                              entropy: float, dst_ip: str, cached: Dict) -> float:
+                              entropy: float, dst_ip: str, cached: Dict,
+                              cache_key: str = '') -> float:
         """Быстрое вычисление с использованием кэшированных данных (Welford O(1))"""
         scores = []
         weights = []

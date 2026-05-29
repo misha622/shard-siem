@@ -1497,20 +1497,21 @@ def run_health_check(args):
         original_shard_start = sec.ShardEnterprise.start
         sec.ShardEnterprise.start = patched_shard_start
         
-        # Запускаем в потоке с таймаутом
-        init_complete = threading.Event()
-        start_error = []
-        
-        def run_start():
-            try:
-                enterprise.start()
-            except Exception as e:
-                start_error.append(str(e))
-            finally:
-                init_complete.set()
-        
-        t = threading.Thread(target=run_start, daemon=True, name="HealthCheck-Run")
-        t.start()
+        try:
+            # Запускаем в потоке с таймаутом
+            init_complete = threading.Event()
+            start_error = []
+            
+            def run_start():
+                try:
+                    enterprise.start()
+                except Exception as e:
+                    start_error.append(str(e))
+                finally:
+                    init_complete.set()
+            
+            t = threading.Thread(target=run_start, daemon=True, name="HealthCheck-Run")
+            t.start()
         
         # Ждём с прогресс-индикатором
         print("⏳ Инициализация модулей...")
@@ -1534,6 +1535,10 @@ def run_health_check(args):
 
         enterprise.stop()
         return 0
+
+    finally:
+        # Восстанавливаем оригинальный метод при ЛЮБОМ исходе
+        sec.ShardEnterprise.start = original_shard_start
 
     except Exception as e:
         print(f"❌ Ошибка проверки здоровья: {e}")
