@@ -1498,18 +1498,18 @@ def run_health_check(args):
         sec.ShardEnterprise.start = patched_shard_start
         
         # Запускаем в потоке с таймаутом (try removed)
-            init_complete = threading.Event()
-            start_error = []
-            
-            def run_start():
-                try:
-                    enterprise.start()
-                except Exception as e:
-                    start_error.append(str(e))
-                finally:
-                    init_complete.set()
-            
-            t = threading.Thread(target=run_start, daemon=True, name="HealthCheck-Run")
+        init_complete = threading.Event()
+        start_error = []
+        
+        def run_start():
+            try:
+                enterprise.start()
+            except Exception as e:
+                start_error.append(str(e))
+            finally:
+                init_complete.set()
+        
+        t = threading.Thread(target=run_start, daemon=True, name="HealthCheck-Run")
             t.start()
         
         # Ждём с прогресс-индикатором
