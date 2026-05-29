@@ -3344,60 +3344,6 @@ class ThreatGraphNetwork:
 
             self.risk_scores = new_scores
 
-    def _pagerank_fallback(self, node_features: List, edge_index: List) -> Dict[str, float]:
-        """Зарезервирован для оценочного PageRank. Используется _propagate_full."""
-        """Корректный PageRank для НАПРАВЛЕННОГО графа угроз"""
-        num_nodes = len(node_features)
-        if num_nodes == 0:
-            return {}
-
-        # Построение НАПРАВЛЕННОГО графа
-        out_edges = {i: set() for i in range(num_nodes)}
-        in_edges = {i: set() for i in range(num_nodes)}
-
-        for src, dst in edge_index:
-            if src < num_nodes and dst < num_nodes:
-                out_edges[src].add(dst)
-                in_edges[dst].add(src)
-
-        # PageRank с правильной направленностью
-        scores = {i: 1.0 / num_nodes for i in range(num_nodes)}
-        damping = 0.85
-        epsilon = 1e-8
-        max_iterations = 100
-
-        for _ in range(max_iterations):
-            new_scores = {}
-            max_diff = 0.0
-            total_score = 0.0
-
-            for node in range(num_nodes):
-                # Базовая вероятность (телепортация)
-                rank = (1 - damping) / num_nodes
-
-                # Вклад от ВХОДЯЩИХ рёбер
-                for in_node in in_edges[node]:
-                    out_degree = len(out_edges[in_node])
-                    if out_degree > 0:
-                        rank += damping * scores[in_node] / out_degree
-                    else:
-                        rank += damping * scores[in_node] / num_nodes
-
-                new_scores[node] = rank
-                total_score += rank
-                max_diff = max(max_diff, abs(new_scores[node] - scores[node]))
-
-            # Нормализация
-            if total_score > 0:
-                for node in new_scores:
-                    new_scores[node] /= total_score
-
-            scores = new_scores
-
-            if max_diff < epsilon:
-                break
-
-        return {str(k): v for k, v in scores.items()}
 
     def detect_communities(self) -> Dict[str, int]:
         """Обнаружение сообществ в графе (упрощённый Louvain)"""
@@ -3761,7 +3707,7 @@ class _HoneypotServer:
         self.thread: Optional[threading.Thread] = None
 
         # Ограничение одновременных подключений
-        self._max_connections = 50
+        self._max_connections = 100  # Shared global semaphore across all honeypot ports
         self._ip_connections = {}
         self._ip_lock = threading.RLock()
         self._connection_semaphore = _GLOBAL_HONEYPOT_SEMAPHORE
