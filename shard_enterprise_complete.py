@@ -1739,13 +1739,13 @@ class BaselineProfiler:
                 old_sizes = list(profile['packet_sizes'])
                 profile['packet_sizes'] = deque(old_sizes[-1000:], maxlen=1000)
 
-        if 'entropy' in profile and len(profile['entropy']) > 10000:
+        if 'entropy' in profile and len(profile['entropy']) > 500:
             old_entropy = list(profile['entropy'])
-            profile['entropy'] = deque(old_entropy[-5000:], maxlen=10000)
+            profile['entropy'] = deque(old_entropy[-500:], maxlen=500)
 
-        if 'packet_intervals' in profile and len(profile['packet_intervals']) > 5000:
+        if 'packet_intervals' in profile and len(profile['packet_intervals']) > 100:
             old_intervals = list(profile['packet_intervals'])
-            profile['packet_intervals'] = deque(old_intervals[-2500:], maxlen=5000)
+            profile['packet_intervals'] = deque(old_intervals[-100:], maxlen=100)
 
         # Очистка set'ов уникальных адресов (оставляем последние 10000)
         if 'unique_destinations' in profile and len(profile['unique_destinations']) > 10000:
@@ -3772,6 +3772,7 @@ class _HoneypotServer:
 
     def _handle_connection(self, conn: socket.socket, addr: Tuple[str, int]) -> None:
         """Обработка одного подключения с per-IP rate limiting"""
+        acquired = False
         try:
             src_ip = addr[0]
             
@@ -3796,6 +3797,7 @@ class _HoneypotServer:
             
             with self._conn_lock:
                 self._active_connections += 1
+                acquired = True
 
             # Получаем данные с таймаутом
             conn.settimeout(2.0)
@@ -3829,7 +3831,7 @@ class _HoneypotServer:
             with self._conn_lock:
                 self._active_connections -= 1
 
-            if self._connection_semaphore:
+            if acquired and self._connection_semaphore:
                 self._connection_semaphore.release()
 
     def _get_banner(self) -> bytes:
