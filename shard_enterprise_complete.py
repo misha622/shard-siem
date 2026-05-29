@@ -850,6 +850,7 @@ class WebDashboard(BaseModule):
         }
 
         self._lock = threading.RLock()
+        DashboardHandler.dashboard_stats = self.stats  # Ensure initialized before requests
 
         # Подписки на события
         self.event_bus.subscribe('packet.processed', self.on_packet)
