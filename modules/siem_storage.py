@@ -493,7 +493,7 @@ class TimescaleStorage(StorageBackend):
         """Создание партиций по месяцам"""
         today = datetime.now().replace(day=1)
 
-        for i in range(6):
+        for i in range(-2, 6):  # 2 месяца назад + 6 вперёд
             partition_month = today + relativedelta(months=i)
             next_month = partition_month + relativedelta(months=1)
 
