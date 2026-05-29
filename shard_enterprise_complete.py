@@ -495,7 +495,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             pass
         except Exception as e:
             if self.dashboard_logger:
-                self.dashboard_logger.debug(f"Ошибка в do_POST: {type(e).__name__}")
+                self.dashboard_logger.debug(f"Ошибка в do_GET: {type(e).__name__}")
             try:
                 self.send_response(500)
                 self.end_headers()
@@ -3642,7 +3642,7 @@ class HoneypotService(BaseModule):
         try:
             import joblib
             import os
-            if not hasattr(self, '_ai_model'):
+            if not hasattr(self, '_ai_model') or self._ai_model is None:
                     with self._ai_model_lock:
                         if not hasattr(self, '_ai_model'):
                             model_path = os.path.join(os.path.dirname(__file__), 'models', 'shard_real_alert_model.pkl')

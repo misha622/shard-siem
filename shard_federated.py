@@ -1120,8 +1120,6 @@ class SecureFederatedServer:
                 self.global_weights = [data[f'arr_{i}'] for i in range(len(data.files))]
                 if self.global_model is not None and TF_AVAILABLE:
                     self.global_model.set_weights(self.global_weights)
-                if self.global_model is not None and TF_AVAILABLE:
-                    self.global_model.set_weights(self.global_weights)
                 state_path = Path(self.config.checkpoint_dir) / 'state.json'
                 if state_path.exists():
                     with open(state_path, 'r') as f:
