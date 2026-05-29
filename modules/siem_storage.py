@@ -639,7 +639,7 @@ class TimescaleStorage(StorageBackend):
                 cursor.execute(
                     '''SELECT DISTINCT src_ip 
                        FROM alerts 
-                       WHERE explanation LIKE %s 
+                       WHERE explanation LIKE %s ESCAPE '\\' 
                        AND timestamp > %s 
                        LIMIT 100''',
                     (f'%{escaped_username}%', cutoff)

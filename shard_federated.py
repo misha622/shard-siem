@@ -880,16 +880,16 @@ class SecureFederatedClient:
                     zip(grads, self.model.trainable_variables)
                 )
 
-        self.local_data.clear()
-        self.local_labels.clear()
+        # Data cleared after successful send in _sync_round
+        sample_count = len(X)
         self.stats['total_samples_trained'] += len(X)
 
         if self.global_weights:
             new_weights = self.model.get_weights()
             deltas = [nw - gw for nw, gw in zip(new_weights, self.global_weights)]
-            return deltas
+            return deltas, sample_count
 
-        return self.model.get_weights()
+        return self.model.get_weights(), sample_count
 
     def _apply_secure_aggregation(self, updates: List[np.ndarray],
                                   global_data: Dict) -> List[np.ndarray]:
