@@ -1106,8 +1106,6 @@ class WebDashboard(BaseModule):
 
     def _decay_worker(self) -> None:
         """Единый воркер для снижения счётчика активных угроз"""
-        if self._decay_queue is None:
-            return
         while self.running:
             try:
                 decay_count = self._decay_queue.get(timeout=30)
@@ -3869,7 +3867,9 @@ class HoneypotService(BaseModule):
             import joblib
             import os
             if not hasattr(self, '_ai_model'):
-                model_path = os.path.join(os.path.dirname(__file__), 'models', 'shard_real_alert_model.pkl')
+                    with self._ai_model_lock:
+                        if not hasattr(self, '_ai_model'):
+                            model_path = os.path.join(os.path.dirname(__file__), 'models', 'shard_real_alert_model.pkl')
                 if os.path.exists(model_path):
                     # Верификация хеша модели перед загрузкой (production)
                     import hashlib
