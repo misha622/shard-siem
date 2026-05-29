@@ -1540,7 +1540,7 @@ def run_health_check(args):
         # Восстанавливаем оригинальный метод при ЛЮБОМ исходе
         sec.ShardEnterprise.start = original_shard_start
 
-    except Exception as e:
+    except Exception as e:  # This line was misplaced
         print(f"❌ Ошибка проверки здоровья: {e}")
         import traceback
         traceback.print_exc()
