@@ -3646,7 +3646,7 @@ class HoneypotService(BaseModule):
                     with self._ai_model_lock:
                         if not hasattr(self, '_ai_model'):
                             model_path = os.path.join(os.path.dirname(__file__), 'models', 'shard_real_alert_model.pkl')
-                if os.path.exists(model_path):
+                    if os.path.exists(model_path):
                     # Верификация хеша модели перед загрузкой (production)
                     import hashlib
                     with open(model_path, 'rb') as mf:
