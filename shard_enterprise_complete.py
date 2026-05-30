@@ -298,10 +298,10 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             
             # Периодическая очистка старых IP (каждые 100 запросов)
             if len(cls._rate_limits) > 10000:
-                stale = [ip for ip, times in cls._rate_limits.items() 
+                stale = [k for k, times in cls._rate_limits.items() 
                         if not times or now - times[-1] > 60]
-                for ip in stale:
-                    del cls._rate_limits[ip]
+                for k in stale:
+                    del cls._rate_limits[k]
             
             if ip not in cls._rate_limits:
                 cls._rate_limits[ip] = []

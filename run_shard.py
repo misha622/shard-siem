@@ -1467,6 +1467,7 @@ def main():
 def run_health_check(args):
     """Проверка здоровья системы (исправленная версия)"""
     enterprise = None
+    original_shard_start = None
     try:
         enterprise = EnhancedShardEnterprise(
             config_path=args.config,
