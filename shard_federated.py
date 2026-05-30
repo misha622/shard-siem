@@ -1019,6 +1019,8 @@ class SecureFederatedServer:
         if TF_AVAILABLE:
             self.global_model = self.model_builder()
             self.global_weights = self.global_model.get_weights()
+            if not self._load_checkpoint():
+                self.logger.info("No checkpoint found, starting fresh")
 
     def start(self):
         self._running = True

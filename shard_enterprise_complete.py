@@ -1841,7 +1841,7 @@ class BaselineProfiler:
                         std = mean * 0.5 if mean > 0 else 1
                     # Кэшируем Welford статистику (атомарно под локом)
                     with self._profile_lock:
-                        if device in self._cached_stats:
+                        if cache_key and cache_key in self._cached_stats:
                             self._cached_stats[cache_key]['_welford_sizes'] = {
                                 'count': len(packet_sizes),
                                 'mean': mean,
@@ -3774,7 +3774,7 @@ class _HoneypotServer:
 
     def _handle_connection(self, conn: socket.socket, addr: Tuple[str, int]) -> None:
         """Обработка одного подключения с per-IP rate limiting"""
-        acquired = False
+        semaphore_acquired = True  # Семафор захвачен в _listen до вызова
         try:
             src_ip = addr[0]
             
@@ -3793,13 +3793,12 @@ class _HoneypotServer:
                 if len(self._ip_connections[src_ip]) >= 30:  # Max 30 conn/min per IP
                     conn.close()
                     self.logger.debug(f"Honeypot port {self.port}: rate limit exceeded for {src_ip}")
-                    return
+                    return  # finally освободит семафор
                 
                 self._ip_connections[src_ip].append(now)
             
             with self._conn_lock:
                 self._active_connections += 1
-                acquired = True
 
             # Получаем данные с таймаутом
             conn.settimeout(2.0)
@@ -3831,9 +3830,10 @@ class _HoneypotServer:
                 pass
 
             with self._conn_lock:
-                self._active_connections -= 1
+                if self._active_connections > 0:
+                    self._active_connections -= 1
 
-            if acquired and self._connection_semaphore:
+            if semaphore_acquired and self._connection_semaphore:
                 self._connection_semaphore.release()
 
     def _get_banner(self) -> bytes:
