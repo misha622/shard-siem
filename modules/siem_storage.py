@@ -49,6 +49,22 @@ class StorageBackend(ABC):
         pass
 
     @abstractmethod
+    def _get_sqlite_connection(self) -> sqlite3.Connection:
+        """Получить соединение из пула (caller отвечает за возврат)"""
+        try:
+            return self._pool.get(timeout=5)
+        except queue.Empty:
+            return self._create_connection()
+
+    def _return_sqlite_connection(self, conn: sqlite3.Connection) -> None:
+        """Вернуть соединение в пул"""
+        if conn is None:
+            return
+        try:
+            self._pool.put_nowait(conn)
+        except queue.Full:
+            conn.close()
+
     def close(self) -> None:
         """Закрытие соединений"""
         pass
@@ -364,6 +380,22 @@ class SQLiteStorage(StorageBackend):
             except Exception as e:
                 self.logger.debug(f"Ошибка checkpoint: {e}")
 
+    def _get_sqlite_connection(self) -> sqlite3.Connection:
+        """Получить соединение из пула (caller отвечает за возврат)"""
+        try:
+            return self._pool.get(timeout=5)
+        except queue.Empty:
+            return self._create_connection()
+
+    def _return_sqlite_connection(self, conn: sqlite3.Connection) -> None:
+        """Вернуть соединение в пул"""
+        if conn is None:
+            return
+        try:
+            self._pool.put_nowait(conn)
+        except queue.Full:
+            conn.close()
+
     def close(self) -> None:
         """Закрытие всех соединений"""
         self._running = False
@@ -650,6 +682,22 @@ class TimescaleStorage(StorageBackend):
         except Exception as e:
             self.logger.error(f"Ошибка поиска IP в TimescaleDB: {e}")
             return []
+
+    def _get_sqlite_connection(self) -> sqlite3.Connection:
+        """Получить соединение из пула (caller отвечает за возврат)"""
+        try:
+            return self._pool.get(timeout=5)
+        except queue.Empty:
+            return self._create_connection()
+
+    def _return_sqlite_connection(self, conn: sqlite3.Connection) -> None:
+        """Вернуть соединение в пул"""
+        if conn is None:
+            return
+        try:
+            self._pool.put_nowait(conn)
+        except queue.Full:
+            conn.close()
 
     def close(self) -> None:
         """Закрытие пула соединений"""

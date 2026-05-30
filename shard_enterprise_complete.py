@@ -1825,7 +1825,7 @@ class BaselineProfiler:
         cache_key = f"{device}_score"
         # Проверка кэша с безопасным доступом
         with self._profile_lock:
-            cached = self._cached_stats.get(cache_key, {})  # Возвращаем ссылку для сохранения Welford  # ← ИСПОЛЬЗУЕМ .get()
+            cached = dict(self._cached_stats.get(cache_key, {}))  # Shallow copy  # ← ИСПОЛЬЗУЕМ .get()
 
         if cached is not None and cached:  # Проверяем что кэш не пустой
             last_update = self._last_cache_update.get(device, 0)
@@ -3033,6 +3033,21 @@ class ThreatGNN:
                 pass
 
         return self._pagerank_fallback(node_features, edge_index)
+
+    def _pagerank_fallback(self, node_features: List, edge_index: List) -> Dict[str, float]:
+        """Простой PageRank без PyTorch"""
+        n = len(node_features)
+        if n == 0:
+            return {}
+        scores = {str(i): 1.0 / n for i in range(n)}
+        for _ in range(10):
+            new_scores = {str(i): 0.15 / n for i in range(n)}
+            for src, dst in edge_index:
+                out_deg = sum(1 for s, _ in edge_index if s == src)
+                if out_deg > 0:
+                    new_scores[str(dst)] += 0.85 * scores[str(src)] / out_deg
+            scores = new_scores
+        return scores
 
 
 
