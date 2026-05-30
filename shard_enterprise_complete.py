@@ -1923,11 +1923,11 @@ class BaselineProfiler:
                     else:
                         std_e = 0.5
                     with self._profile_lock:
-                    if cache_key and cache_key in self._cached_stats:
-                        self._cached_stats[cache_key]['_welford_entropy'] = {
-                            'count': len(entropies),
-                            'mean': mean_e,
-                            'm2': variance_e * len(entropies) if len(entropies) > 1 else 0
+                        if cache_key and cache_key in self._cached_stats:
+                            self._cached_stats[cache_key]['_welford_entropy'] = {
+                                'count': len(entropies),
+                                'mean': mean_e,
+                                'm2': variance_e * len(entropies) if len(entropies) > 1 else 0
                         }
 
                 if mean_e > 0:
