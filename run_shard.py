@@ -333,6 +333,7 @@ class EnhancedShardEnterprise:
 
         self._running = False
         self._stop_requested = False
+        self._start_time = time.time()
 
         # Инициализация контекста безопасности
         self.security_context = SecurityContext(

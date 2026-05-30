@@ -503,6 +503,56 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             except:
                 pass
 
+    def do_POST(self):
+        """Обработка POST запросов — блокировка IP, logout"""
+        try:
+            if not self._check_rate_limit(self.client_address[0]):
+                self.send_response(429)
+                self.end_headers()
+                return
+            if self.dashboard_auth_enabled and not self.dashboard_check_auth(dict(self.headers)):
+                self.send_response(401)
+                self.end_headers()
+                return
+            
+            parsed = urllib.parse.urlparse(self.path)
+            length = int(self.headers.get('Content-Length', 0))
+            if length > 4096:
+                self.send_response(413)
+                self.end_headers()
+                return
+            body = json.loads(self.rfile.read(length)) if length else {}
+            
+            if parsed.path == '/api/block':
+                ip = body.get('ip', '')
+                if self.dashboard_validate_ip and not self.dashboard_validate_ip(ip):
+                    self.send_response(400)
+                    self.send_header('Content-type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({'error': 'invalid ip'}).encode())
+                    return
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'status': 'ok', 'ip': ip}).encode())
+            
+            elif parsed.path == '/api/logout':
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'status': 'ok'}).encode())
+            else:
+                self.send_response(404)
+                self.end_headers()
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        except Exception:
+            try:
+                self.send_response(500)
+                self.end_headers()
+            except:
+                pass
+
     def do_OPTIONS(self):
         """Обработка OPTIONS запросов (для CORS)"""
         try:
@@ -1872,11 +1922,13 @@ class BaselineProfiler:
                         std_e = max(0.1, math.sqrt(variance_e))
                     else:
                         std_e = 0.5
-                    cached['_welford_entropy'] = {
-                        'count': len(entropies),
-                        'mean': mean_e,
-                        'm2': variance_e * len(entropies) if len(entropies) > 1 else 0
-                    }
+                    with self._profile_lock:
+                    if cache_key and cache_key in self._cached_stats:
+                        self._cached_stats[cache_key]['_welford_entropy'] = {
+                            'count': len(entropies),
+                            'mean': mean_e,
+                            'm2': variance_e * len(entropies) if len(entropies) > 1 else 0
+                        }
 
                 if mean_e > 0:
                     z_ent = abs(entropy - mean_e) / std_e
@@ -3654,10 +3706,10 @@ class HoneypotService(BaseModule):
                     else:
                         self._ai_model = None
                         self.logger.debug("AI модель не найдена — хук отключён")
+            # Игнорируем соединения от localhost всегда
+            if src_ip == "127.0.0.1" or src_ip == "::1":
+                return
             if hasattr(self, '_ai_model') and self._ai_model:
-                # Игнорируем соединения от localhost
-                if src_ip == "127.0.0.1" or src_ip == "::1":
-                    return
                 # AI модель доступна — выполняется реальное предсказание
                 self.logger.debug(f"AI модель активна для {src_ip}:{port}")
         except Exception as e:
