@@ -467,11 +467,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                         'total_alerts': self.dashboard_stats.get('total_alerts', 0),
                         'uptime_seconds': time.time() - getattr(self, '_start_time', time.time())
                     }
-                    modules_status = {
-                        'dashboard': True,
-                        'total_alerts': self.dashboard_stats.get('total_alerts', 0),
-                        'uptime_seconds': time.time() - getattr(self, '_start_time', time.time())
-                    }
                 
                 import psutil
                 health = {
@@ -3759,7 +3754,6 @@ class HoneypotService(BaseModule):
         # ========== УБЕДИТЕСЬ ЧТО ЭТИ СТРОКИ ЕСТЬ ==========
         self.event_bus.publish('honeypot.connection', alert)
         self.event_bus.publish('alert.detected', alert)
-        self.logger.warning(f"🍯 Honeypot: подключение от {src_ip} на порт {port}")
         # ==================================================
 
 

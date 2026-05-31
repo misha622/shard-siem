@@ -846,7 +846,7 @@ class SecureFederatedClient:
             self.local_data.clear()
             self.local_labels.clear()
 
-    def _local_training(self) -> Optional[List[np.ndarray]]:
+    def _local_training(self) -> Optional[Tuple[List[np.ndarray], int]]:
         """Локальное обучение на приватных данных"""
         if len(self.local_data) < self.config.min_local_samples:
             return None
