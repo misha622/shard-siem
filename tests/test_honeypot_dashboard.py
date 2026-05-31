@@ -34,7 +34,7 @@ class TestDashboardRateLimit:
         DashboardHandler._rate_limits = {}
         for _ in range(10):
             DashboardHandler._check_rate_limit('10.0.0.3')
-        time.sleep(1.1)
+        time.sleep(1.5)  # Больше 1.0 секунды для гарантии сброса
         assert DashboardHandler._check_rate_limit('10.0.0.3') is True
 
 
