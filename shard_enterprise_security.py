@@ -308,8 +308,10 @@ class AuditLogger:
             for line in f:
                 event = json.loads(line.strip())
                 
+                # Удаляем chain_hash перед верификацией
+                event_for_verify = {k: v for k, v in event.items() if k != 'chain_hash'}
                 expected = hashlib.sha256(
-                    f"{previous_hash}{json.dumps(event, sort_keys=True)[:event.rfind('chain_hash')]}".encode()
+                    f"{previous_hash}{json.dumps(event_for_verify, sort_keys=True)}".encode()
                 ).hexdigest()
                 
                 if event.get('previous_hash') != previous_hash:
