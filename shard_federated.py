@@ -848,6 +848,8 @@ class SecureFederatedClient:
 
     def _local_training(self) -> Optional[Tuple[List[np.ndarray], int]]:
         """Локальное обучение на приватных данных"""
+        if not TF_AVAILABLE or self.model is None:
+            return None
         if len(self.local_data) < self.config.min_local_samples:
             return None
 

@@ -797,6 +797,32 @@ class SIEMStorage(BaseModule):
 
         # Настройка graceful shutdown
 
+    def _get_sqlite_connection(self):
+        """Получить SQLite соединение из первого доступного бэкенда"""
+        for backend in self.backends:
+            if hasattr(backend, '_pool'):
+                try:
+                    return backend._pool.get(timeout=5)
+                except:
+                    continue
+        return None
+
+    def _return_sqlite_connection(self, conn) -> None:
+        """Вернуть соединение в пул бэкенда"""
+        if conn is None:
+            return
+        for backend in self.backends:
+            if hasattr(backend, '_pool'):
+                try:
+                    backend._pool.put_nowait(conn)
+                    return
+                except:
+                    continue
+        try:
+            conn.close()
+        except:
+            pass
+
     def _init_backends(self) -> None:
         """Инициализация бэкендов хранилища"""
         # SQLite (всегда как fallback)
