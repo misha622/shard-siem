@@ -1093,6 +1093,10 @@ class SecureFederatedServer:
         self.global_weights = aggregated
         self.current_round += 1
 
+        # Синхронизируем TF модель с весами
+        if self.global_model is not None and TF_AVAILABLE:
+            self.global_model.set_weights(aggregated)
+
         for client_id in client_ids:
             contribution_score = 0.5  # TODO: вычислить реальный score из качества градиентов
             self.reputation.update_reputation(client_id, contribution_score, 0.8)

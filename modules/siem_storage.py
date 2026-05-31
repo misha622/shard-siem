@@ -49,21 +49,16 @@ class StorageBackend(ABC):
         pass
 
     @abstractmethod
-    def _get_sqlite_connection(self) -> sqlite3.Connection:
-        """Получить соединение из пула (caller отвечает за возврат)"""
-        try:
-            return self._pool.get(timeout=5)
-        except queue.Empty:
-            return self._create_connection()
+    def _get_sqlite_connection(self):
+        """Получить соединение из psycopg2 пула"""
+        if self.pool is None:
+            return None
+        return self.pool.getconn()
 
-    def _return_sqlite_connection(self, conn: sqlite3.Connection) -> None:
-        """Вернуть соединение в пул"""
-        if conn is None:
-            return
-        try:
-            self._pool.put_nowait(conn)
-        except queue.Full:
-            conn.close()
+    def _return_sqlite_connection(self, conn) -> None:
+        """Вернуть соединение в psycopg2 пул"""
+        if conn is not None and self.pool is not None:
+            self.pool.putconn(conn)
 
     def close(self) -> None:
         """Закрытие соединений"""
@@ -380,21 +375,16 @@ class SQLiteStorage(StorageBackend):
             except Exception as e:
                 self.logger.debug(f"Ошибка checkpoint: {e}")
 
-    def _get_sqlite_connection(self) -> sqlite3.Connection:
-        """Получить соединение из пула (caller отвечает за возврат)"""
-        try:
-            return self._pool.get(timeout=5)
-        except queue.Empty:
-            return self._create_connection()
+    def _get_sqlite_connection(self):
+        """Получить соединение из psycopg2 пула"""
+        if self.pool is None:
+            return None
+        return self.pool.getconn()
 
-    def _return_sqlite_connection(self, conn: sqlite3.Connection) -> None:
-        """Вернуть соединение в пул"""
-        if conn is None:
-            return
-        try:
-            self._pool.put_nowait(conn)
-        except queue.Full:
-            conn.close()
+    def _return_sqlite_connection(self, conn) -> None:
+        """Вернуть соединение в psycopg2 пул"""
+        if conn is not None and self.pool is not None:
+            self.pool.putconn(conn)
 
     def close(self) -> None:
         """Закрытие всех соединений"""
@@ -683,21 +673,16 @@ class TimescaleStorage(StorageBackend):
             self.logger.error(f"Ошибка поиска IP в TimescaleDB: {e}")
             return []
 
-    def _get_sqlite_connection(self) -> sqlite3.Connection:
-        """Получить соединение из пула (caller отвечает за возврат)"""
-        try:
-            return self._pool.get(timeout=5)
-        except queue.Empty:
-            return self._create_connection()
+    def _get_sqlite_connection(self):
+        """Получить соединение из psycopg2 пула"""
+        if self.pool is None:
+            return None
+        return self.pool.getconn()
 
-    def _return_sqlite_connection(self, conn: sqlite3.Connection) -> None:
-        """Вернуть соединение в пул"""
-        if conn is None:
-            return
-        try:
-            self._pool.put_nowait(conn)
-        except queue.Full:
-            conn.close()
+    def _return_sqlite_connection(self, conn) -> None:
+        """Вернуть соединение в psycopg2 пул"""
+        if conn is not None and self.pool is not None:
+            self.pool.putconn(conn)
 
     def close(self) -> None:
         """Закрытие пула соединений"""

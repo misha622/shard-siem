@@ -313,7 +313,10 @@ class AuditLogger:
                 ).hexdigest()
                 
                 if event.get('previous_hash') != previous_hash:
-                    logger.critical(f"Audit log tampering detected at {event.get('timestamp')}!")
+                    logger.critical(f"Audit log chain broken at {event.get('timestamp')}!")
+                    return False
+                if event.get('chain_hash') != expected:
+                    logger.critical(f"Audit log hash mismatch at {event.get('timestamp')}!")
                     return False
                 
                 previous_hash = event.get('chain_hash', '')
