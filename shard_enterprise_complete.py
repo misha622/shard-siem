@@ -1034,6 +1034,8 @@ class WebDashboard(BaseModule):
         self.running = False
         if hasattr(self, '_stop_event'):
             self._stop_event.set()
+        if hasattr(self, '_decay_queue') and self._decay_queue is not None:
+            self._decay_queue.put(None)  # Sentinel to wake up worker
 
         if self.httpd:
             try:
@@ -1192,6 +1194,8 @@ class EmailThreatAnalyzer(BaseModule):
         self.running = False
         if hasattr(self, '_stop_event'):
             self._stop_event.set()
+        if hasattr(self, '_decay_queue') and self._decay_queue is not None:
+            self._decay_queue.put(None)  # Sentinel to wake up worker
 
     def on_email(self, data: Dict) -> None:
         """Анализ email сообщения"""
@@ -1487,6 +1491,8 @@ class PrometheusMetrics(BaseModule):
         self.running = False
         if hasattr(self, '_stop_event'):
             self._stop_event.set()
+        if hasattr(self, '_decay_queue') and self._decay_queue is not None:
+            self._decay_queue.put(None)  # Sentinel to wake up worker
 
     def _on_packet(self, data: Dict) -> None:
         if self.packets_counter:
@@ -1540,6 +1546,8 @@ class TelegramNotifier(BaseModule):
         self.running = False
         if hasattr(self, '_stop_event'):
             self._stop_event.set()
+        if hasattr(self, '_decay_queue') and self._decay_queue is not None:
+            self._decay_queue.put(None)  # Sentinel to wake up worker
         if self._session:
             self._session.close()
 
@@ -2660,6 +2668,8 @@ class JA3Fingerprinter(BaseModule):
         self.running = False
         if hasattr(self, '_stop_event'):
             self._stop_event.set()
+        if hasattr(self, '_decay_queue') and self._decay_queue is not None:
+            self._decay_queue.put(None)  # Sentinel to wake up worker
 
     def on_packet(self, data: Dict) -> None:
         """Обработка пакета"""
@@ -2874,6 +2884,8 @@ class OTIoTSecurity(BaseModule):
         self.running = False
         if hasattr(self, '_stop_event'):
             self._stop_event.set()
+        if hasattr(self, '_decay_queue') and self._decay_queue is not None:
+            self._decay_queue.put(None)  # Sentinel to wake up worker
 
     def on_packet(self, data: Dict) -> None:
         """Анализ OT/IoT трафика"""
@@ -3546,6 +3558,8 @@ class AdvancedLearner(BaseModule):
         self.running = False
         if hasattr(self, '_stop_event'):
             self._stop_event.set()
+        if hasattr(self, '_decay_queue') and self._decay_queue is not None:
+            self._decay_queue.put(None)  # Sentinel to wake up worker
 
     def on_packet(self, data: Dict) -> None:
         """Обработка пакета (с сэмплированием для производительности)"""
@@ -3692,6 +3706,8 @@ class HoneypotService(BaseModule):
         self.running = False
         if hasattr(self, '_stop_event'):
             self._stop_event.set()
+        if hasattr(self, '_decay_queue') and self._decay_queue is not None:
+            self._decay_queue.put(None)  # Sentinel to wake up worker
         for srv in self.services:
             srv.stop()
 
@@ -3788,6 +3804,8 @@ class _HoneypotServer:
         self.running = False
         if hasattr(self, '_stop_event'):
             self._stop_event.set()
+        if hasattr(self, '_decay_queue') and self._decay_queue is not None:
+            self._decay_queue.put(None)  # Sentinel to wake up worker
         if self.socket:
             try:
                 self.socket.close()
@@ -3831,7 +3849,11 @@ class _HoneypotServer:
             if self.running:
                 self.logger.error(f"Honeypot ошибка на порту {self.port}: {e}")
         finally:
-            pass  # FIXED: don't null semaphore
+            if self.socket:
+                try:
+                    self.socket.close()
+                except:
+                    pass
 
     def _handle_connection(self, conn: socket.socket, addr: Tuple[str, int]) -> None:
         """Обработка одного подключения с per-IP rate limiting"""
@@ -3960,6 +3982,8 @@ class AttackSimulator(BaseModule):
         self.running = False
         if hasattr(self, '_stop_event'):
             self._stop_event.set()
+        if hasattr(self, '_decay_queue') and self._decay_queue is not None:
+            self._decay_queue.put(None)  # Sentinel to wake up worker
 
     def _loop(self) -> None:
         """Основной цикл симуляции"""
