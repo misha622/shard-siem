@@ -752,6 +752,25 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
 
 
 # ============================================================
+from core.base import BaseModule  # Added for systemd compatibility
+from core.base import ConfigManager, EventBus, LoggingService
+from core.constants import AttackType, AlertSeverity, DNSThresholds, ExfilThresholds, WAFThresholds  # Added for systemd compatibility
+from modules.firewall import SmartFirewall  # Added for systemd compatibility
+from modules.waf import WebApplicationFirewall  # Added for systemd compatibility
+from modules.dns_analyzer import DNSAnalyzer  # Added for systemd compatibility
+from modules.exfil_detector import DataExfiltrationDetector  # Added for systemd compatibility
+from modules.threat_intel import ThreatIntelligence  # Added for systemd compatibility
+from modules.uba import UserBehaviorAnalytics  # Added for systemd compatibility
+from modules.report_generator import IncidentReportGenerator  # Added for systemd compatibility
+from modules.ldap import LDAPContextProvider  # Added for systemd compatibility
+from modules.edr import EDRIntegration  # Added for systemd compatibility
+from modules.ml_engine import MachineLearningEngine  # Added for systemd compatibility
+from modules.siem_storage import SIEMStorage  # Added for systemd compatibility
+from modules.agentic_ai import AgenticAIAnalyst  # Added for systemd compatibility
+from modules.traffic_capture import TrafficCapture  # Added for systemd compatibility
+from modules.encrypted_traffic import EncryptedTrafficAnalyzer  # Added for systemd compatibility
+from modules.dpi import DeepPacketInspector  # Added for systemd compatibility
+
 # WEB DASHBOARD (исправлен - пункты 24, 29, 30, 44, 77)
 # ============================================================
 
@@ -1765,7 +1784,6 @@ class BaselineProfiler:
         # Кэширование снапшота
         with self._profile_lock:
             self._cached_stats[cache_key] = profile_snapshot
-        with self._profile_lock:
             self._last_cache_update[device] = time.time()
 
         return score
@@ -3761,6 +3779,7 @@ class _HoneypotServer:
     def _handle_connection(self, conn: socket.socket, addr: Tuple[str, int]) -> None:
         """Обработка одного подключения с per-IP rate limiting"""
         semaphore_acquired = True  # Семафор захвачен в _listen до вызова
+        conn_incremented = False   # Локальная переменная — без гонки
         try:
             src_ip = addr[0]
             
@@ -3785,7 +3804,7 @@ class _HoneypotServer:
             
             with self._conn_lock:
                 self._active_connections += 1
-                self._conn_incremented = True
+                conn_incremented = True
 
             # Получаем данные с таймаутом
             conn.settimeout(2.0)
@@ -3817,7 +3836,7 @@ class _HoneypotServer:
                 pass
 
             with self._conn_lock:
-                if hasattr(self, '_conn_incremented') and self._conn_incremented:
+                if conn_incremented:
                     self._active_connections -= 1
                     self._conn_incremented = False
 

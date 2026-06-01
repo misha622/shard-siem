@@ -65,7 +65,7 @@ dashboard:
   auth:
     api_keys:
     - ${SHARD_API_KEY:-}
-    enabled: true
+    enabled: false
     password: ${SHARD_DASHBOARD_PASSWORD:-}
     username: ${SHARD_DASHBOARD_USERNAME:-admin}
   enabled: true
