@@ -59,9 +59,15 @@ class StorageBackend(ABC):
             return None
 
     def _return_sqlite_connection(self, conn) -> None:
-        """Вернуть соединение в psycopg2 пул"""
-        if conn is not None and self.pool is not None:
-            self.pool.putconn(conn)
+        """Вернуть соединение в пул (queue.Queue)"""
+        if conn is not None and hasattr(self, '_pool') and self._pool is not None:
+            try:
+                self._pool.put_nowait(conn)
+            except:
+                try:
+                    conn.close()
+                except:
+                    pass
 
     def close(self) -> None:
         """Закрытие соединений"""
@@ -388,9 +394,15 @@ class SQLiteStorage(StorageBackend):
             return None
 
     def _return_sqlite_connection(self, conn) -> None:
-        """Вернуть соединение в psycopg2 пул"""
-        if conn is not None and self.pool is not None:
-            self.pool.putconn(conn)
+        """Вернуть соединение в пул (queue.Queue)"""
+        if conn is not None and hasattr(self, '_pool') and self._pool is not None:
+            try:
+                self._pool.put_nowait(conn)
+            except:
+                try:
+                    conn.close()
+                except:
+                    pass
 
     def close(self) -> None:
         """Закрытие всех соединений"""
@@ -689,9 +701,15 @@ class TimescaleStorage(StorageBackend):
             return None
 
     def _return_sqlite_connection(self, conn) -> None:
-        """Вернуть соединение в psycopg2 пул"""
-        if conn is not None and self.pool is not None:
-            self.pool.putconn(conn)
+        """Вернуть соединение в пул (queue.Queue)"""
+        if conn is not None and hasattr(self, '_pool') and self._pool is not None:
+            try:
+                self._pool.put_nowait(conn)
+            except:
+                try:
+                    conn.close()
+                except:
+                    pass
 
     def close(self) -> None:
         """Закрытие пула соединений"""
