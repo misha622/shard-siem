@@ -804,7 +804,8 @@ class SecureFederatedClient:
         global_data = response.json()
         if global_data.get('weights'):
             self.global_weights = self._deserialize_weights(global_data['weights'])
-            self.model.set_weights(self.global_weights)
+            if self.model is not None:
+                    self.model.set_weights(self.global_weights)
 
         result = self._local_training()
 
@@ -859,7 +860,8 @@ class SecureFederatedClient:
         # Data backed up in X, y — clear after successful training
 
         if self.global_weights:
-            self.model.set_weights(self.global_weights)
+            if self.model is not None:
+                    self.model.set_weights(self.global_weights)
 
         for epoch in range(self.config.local_epochs):
             indices = np.random.permutation(len(X))

@@ -177,103 +177,6 @@ def safe_import_scapy():
 
 # class AttackType moved to core/constants.py
 # class AlertSeverity moved to core/constants.py
-class DNSThresholds:
-    """Пороговые значения для DNS анализа"""
-    LONG_QUERY = 52
-    VERY_LONG_QUERY = 100
-    HIGH_ENTROPY = 3.5
-    VERY_HIGH_ENTROPY = 4.0
-    FREQUENT_QUERIES_PER_MIN = 30
-    VERY_FREQUENT_QUERIES_PER_MIN = 60
-    MANY_SUBDOMAINS = 50
-    MANY_DOTS = 5
-    CONSTANT_LENGTH_VARIANCE = 10
-    LARGE_DNS_PACKET = 512
-    VERY_LARGE_DNS_PACKET = 1000
-    EXTREMELY_LARGE_DNS_PACKET = 2000
-
-
-class ExfilThresholds:
-    """Пороги для обнаружения утечки данных"""
-    SINGLE_DST_CRITICAL = 50_000_000   # 50 MB
-    SINGLE_DST_HIGH = 20_000_000       # 20 MB
-    SINGLE_DST_MEDIUM = 5_000_000      # 5 MB
-    TOTAL_CRITICAL = 200_000_000       # 200 MB
-    TOTAL_HIGH = 100_000_000           # 100 MB
-    CONNECTIONS_FLOOD = 100
-    CONNECTIONS_HIGH = 50
-    ASYMMETRIC_RATIO = 10
-    LARGE_PACKET = 10000
-    MANY_DESTINATIONS = 10
-    TIME_WINDOW_5MIN = 300
-    TIME_WINDOW_1MIN = 60
-
-
-class WAFThresholds:
-    """Пороги для WAF"""
-    RATE_LIMIT_REQUESTS = 100
-    RATE_LIMIT_WINDOW = 60
-    MAX_BUFFER_SIZE = 200
-    CLEANUP_INTERVAL = 5
-
-
-class BeaconingThresholds:
-    """Пороги для обнаружения beaconing"""
-    BEACON_SCORE_THRESHOLD = 0.7
-    MIN_SAMPLES = 5
-    CV_THRESHOLD = 0.1
-    MIN_INTERVAL = 10
-    MAX_INTERVAL = 3600
-
-
-class MLThresholds:
-    """Пороги для ML моделей"""
-    CONFIDENCE_THRESHOLD = 0.7
-    ANOMALY_SCORE_THRESHOLD = -0.2
-    RETRAIN_MIN_SAMPLES = 100
-    NORMAL_BUFFER_SIZE = 5000
-    ATTACK_BUFFER_SIZE = 5000
-
-
-class CacheTTL:
-    """TTL для различных кэшей"""
-    THREAT_INTEL = 3600       # 1 час
-    GEO_LOCATION = 86400      # 24 часа
-    LDAP_USER = 3600          # 1 час
-    LDAP_GROUP = 3600         # 1 час
-    TLS_SESSION = 3600        # 1 час
-    BASELINE_STATS = 60       # 1 минута
-    TOKEN = 3600              # 1 час
-
-
-class CleanupIntervals:
-    """Интервалы очистки"""
-    ATTACK_CHAIN = 300        # 5 минут
-    TLS_SESSIONS = 300        # 5 минут
-    THREAT_CACHE = 300        # 5 минут
-    FLOWS = 600               # 10 минут
-    REPORTS = 3600            # 1 час
-    ACTION_LEVEL_DECAY = 1800 # 30 минут
-
-
-# Вынесено в core/base.py
-from core.base import ConfigManager, LoggingService, EventBus, BaseModule
-from core.constants import AttackType, AlertSeverity, DNSThresholds, ExfilThresholds, WAFThresholds
-from modules.dns_analyzer import DNSAnalyzer
-from modules.exfil_detector import DataExfiltrationDetector
-from modules.threat_intel import ThreatIntelligence
-from modules.uba import UserBehaviorAnalytics
-from modules.report_generator import IncidentReportGenerator
-from modules.ldap import LDAPContextProvider
-from modules.edr import EDRIntegration
-from modules.ml_engine import MachineLearningEngine
-from modules.siem_storage import SIEMStorage
-from modules.agentic_ai import AgenticAIAnalyst
-from modules.traffic_capture import TrafficCapture
-from modules.encrypted_traffic import EncryptedTrafficAnalyzer
-from modules.dpi import DeepPacketInspector
-from modules.firewall import SmartFirewall
-from modules.waf import WebApplicationFirewall
 class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     """Обработчик HTTP запросов для дашборда (исправлен - path traversal защита, безопасное сравнение)"""
 
@@ -3882,6 +3785,7 @@ class _HoneypotServer:
             
             with self._conn_lock:
                 self._active_connections += 1
+                self._conn_incremented = True
 
             # Получаем данные с таймаутом
             conn.settimeout(2.0)
@@ -3913,8 +3817,9 @@ class _HoneypotServer:
                 pass
 
             with self._conn_lock:
-                if self._active_connections > 0:
+                if hasattr(self, '_conn_incremented') and self._conn_incremented:
                     self._active_connections -= 1
+                    self._conn_incremented = False
 
             if semaphore_acquired and self._connection_semaphore:
                 self._connection_semaphore.release()

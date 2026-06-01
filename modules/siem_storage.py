@@ -51,9 +51,12 @@ class StorageBackend(ABC):
     @abstractmethod
     def _get_sqlite_connection(self):
         """Получить соединение из psycopg2 пула"""
-        if self.pool is None:
+        if not hasattr(self, '_pool') or self._pool is None:
             return None
-        return self.pool.getconn()
+        try:
+            return self._pool.get(timeout=5)
+        except:
+            return None
 
     def _return_sqlite_connection(self, conn) -> None:
         """Вернуть соединение в psycopg2 пул"""
@@ -377,9 +380,12 @@ class SQLiteStorage(StorageBackend):
 
     def _get_sqlite_connection(self):
         """Получить соединение из psycopg2 пула"""
-        if self.pool is None:
+        if not hasattr(self, '_pool') or self._pool is None:
             return None
-        return self.pool.getconn()
+        try:
+            return self._pool.get(timeout=5)
+        except:
+            return None
 
     def _return_sqlite_connection(self, conn) -> None:
         """Вернуть соединение в psycopg2 пул"""
@@ -675,9 +681,12 @@ class TimescaleStorage(StorageBackend):
 
     def _get_sqlite_connection(self):
         """Получить соединение из psycopg2 пула"""
-        if self.pool is None:
+        if not hasattr(self, '_pool') or self._pool is None:
             return None
-        return self.pool.getconn()
+        try:
+            return self._pool.get(timeout=5)
+        except:
+            return None
 
     def _return_sqlite_connection(self, conn) -> None:
         """Вернуть соединение в psycopg2 пул"""
