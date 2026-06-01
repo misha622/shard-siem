@@ -3838,7 +3838,6 @@ class _HoneypotServer:
             with self._conn_lock:
                 if conn_incremented:
                     self._active_connections -= 1
-                    self._conn_incremented = False
 
             if semaphore_acquired and self._connection_semaphore:
                 self._connection_semaphore.release()
