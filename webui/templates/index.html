@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHARD Enterprise SIEM</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+    <style>
+        :root { --bg: #0a0e17; --card: #131a2b; --accent: #00d4ff; --danger: #ff4757; --warn: #ffa502; }
+        body { background: var(--bg); color: #e0e0e0; font-family: 'Segoe UI', system-ui, sans-serif; }
+        .navbar { background: var(--card); border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .navbar-brand { color: var(--accent) !important; font-weight: 700; font-size: 1.5rem; }
+        .stat-card { background: var(--card); border-radius: 12px; padding: 1.25rem; border: 1px solid rgba(255,255,255,0.08); transition: transform 0.2s; }
+        .stat-card:hover { transform: translateY(-2px); }
+        .stat-value { font-size: 2rem; font-weight: 700; }
+        .stat-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; }
+        .accent { color: var(--accent); } .danger { color: var(--danger); } .warn { color: var(--warn); }
+        .alert-row { font-size: 0.85rem; }
+        .severity-CRITICAL { color: var(--danger); font-weight: 700; }
+        .severity-HIGH { color: #ff6348; }
+        .severity-MEDIUM { color: var(--warn); }
+        .severity-LOW { color: #2ed573; }
+        .panel { background: var(--card); border-radius: 12px; padding: 1.25rem; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 1.5rem; }
+        .panel h5 { color: var(--accent); margin-bottom: 1rem; }
+        .chart-container { height: 300px; }
+        .pulse { animation: pulse 2s infinite; } @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container-fluid">
+            <span class="navbar-brand">🛡️ SHARD Enterprise SIEM</span>
+            <span class="text-muted">v5.2.0</span>
+        </div>
+    </nav>
+
+    <div class="container-fluid p-4">
+        <!-- Stats Row -->
+        <div class="row g-3 mb-4" id="stats-row">
+            <div class="col-md-3"><div class="stat-card"><div class="stat-value accent" id="val-packets">0</div><div class="stat-label">📦 Пакетов</div></div></div>
+            <div class="col-md-3"><div class="stat-card"><div class="stat-value danger" id="val-alerts">0</div><div class="stat-label">🚨 Алертов</div></div></div>
+            <div class="col-md-3"><div class="stat-card"><div class="stat-value warn" id="val-blocks">0</div><div class="stat-label">🚫 Заблокировано</div></div></div>
+            <div class="col-md-3"><div class="stat-card"><div class="stat-value text-info" id="val-threats">0</div><div class="stat-label">⚠️ Активных угроз</div></div></div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-6"><div class="panel"><h5>📊 Типы атак</h5><div class="chart-container" id="chart-types"></div></div></div>
+            <div class="col-md-6"><div class="panel"><h5>🌍 Топ атакующих</h5><div class="chart-container" id="chart-attackers"></div></div></div>
+        </div>
+
+        <!-- Alerts Table -->
+        <div class="row g-3 mb-4">
+            <div class="col-12"><div class="panel"><h5>🚨 Последние алерты <span class="badge bg-info pulse ms-2" id="live-badge">LIVE</span></h5>
+                <div style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-dark table-sm table-hover">
+                        <thead><tr><th>Время</th><th>Тип</th><th>Источник</th><th>Цель</th><th>Score</th><th>Severity</th></tr></thead>
+                        <tbody id="alerts-table"></tbody>
+                    </table>
+                </div>
+            </div></div>
+        </div>
+
+        <!-- System Info -->
+        <div class="row g-3">
+            <div class="col-md-4"><div class="panel"><h5>🖥️ Система</h5>
+                <div class="mb-2">CPU: <span id="sys-cpu">0</span>%</div>
+                <div class="mb-2">RAM: <span id="sys-ram">0</span>%</div>
+                <div>Disk: <span id="sys-disk">0</span>%</div>
+            </div></div>
+            <div class="col-md-4"><div class="panel"><h5>⏱️ Uptime</h5>
+                <div class="stat-value text-info" id="uptime">00:00:00</div>
+            </div></div>
+            <div class="col-md-4"><div class="panel"><h5>🔍 Быстрые действия</h5>
+                <button class="btn btn-outline-danger btn-sm me-2" onclick="blockIP()">🚫 Блокировать IP</button>
+                <button class="btn btn-outline-info btn-sm" onclick="location.reload()">🔄 Обновить</button>
+            </div></div>
+        </div>
+    </div>
+
+    <script>
+        let alertHistory = [];
+        let attackTypeHistory = {};
+
+        async function fetchStats() {
+            try {
+                const r = await fetch('/api/stats');
+                const d = await r.json();
+                
+                document.getElementById('val-packets').textContent = d.total_packets.toLocaleString();
+                document.getElementById('val-alerts').textContent = d.total_alerts.toLocaleString();
+                document.getElementById('val-blocks').textContent = d.blocked_ips.toLocaleString();
+                document.getElementById('val-threats').textContent = d.active_threats.toLocaleString();
+                document.getElementById('sys-cpu').textContent = d.system.cpu;
+                document.getElementById('sys-ram').textContent = d.system.memory;
+                document.getElementById('sys-disk').textContent = d.system.disk;
+                document.getElementById('uptime').textContent = d.uptime;
+
+                // Alerts table
+                const tbody = document.getElementById('alerts-table');
+                tbody.innerHTML = d.recent_alerts.map(a => 
+                    `<tr class="alert-row">
+                        <td>${a.time}</td>
+                        <td>${a.type}</td>
+                        <td>${a.src}</td>
+                        <td>${a.dst}</td>
+                        <td>${a.score?.toFixed(2) || '0'}</td>
+                        <td class="severity-${a.severity}">${a.severity}</td>
+                    </tr>`
+                ).join('');
+
+                // Attack types chart
+                const types = d.attack_types;
+                Plotly.newPlot('chart-types', [{
+                    values: Object.values(types), labels: Object.keys(types), type: 'pie',
+                    hole: 0.4, marker: {colors: ['#ff4757','#ffa502','#00d4ff','#2ed573','#a855f7','#ff6348']}
+                }], {margin: {t:10,b:10,l:10,r:10}, paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+                    font: {color: '#e0e0e0'}, showlegend: true, legend: {orientation: 'h', y: -0.1}});
+
+                // Top attackers chart
+                const attackers = d.top_attackers;
+                Plotly.newPlot('chart-attackers', [{
+                    x: Object.values(attackers), y: Object.keys(attackers), type: 'bar', orientation: 'h',
+                    marker: {color: '#ff4757'}
+                }], {margin: {t:10,b:10,l:80,r:10}, paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+                    font: {color: '#e0e0e0'}, xaxis: {title: 'Атак'}});
+
+            } catch (e) { console.error('Fetch error:', e); }
+        }
+
+        function blockIP() {
+            const ip = prompt('IP адрес для блокировки:');
+            if (ip) {
+                fetch('/api/block', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ip})})
+                    .then(r => r.json()).then(d => alert(d.status === 'ok' ? `IP ${ip} заблокирован` : 'Ошибка'));
+            }
+        }
+
+        fetchStats();
+        setInterval(fetchStats, 5000);
+    </script>
+</body>
+</html>
