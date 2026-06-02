@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  shard-webui:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: shard-webui
+    ports:
+      - "8000:8000"
+    environment:
+      - SHARD_SECRET_KEY=${SHARD_SECRET_KEY:-change-this-to-a-random-secret-key}
+      - SHARD_ADMIN_USERNAME=${SHARD_ADMIN_USERNAME:-admin}
+      - SHARD_ADMIN_PASSWORD=${SHARD_ADMIN_PASSWORD:-admin123}
+      - SHARD_EVENTBUS_HOST=${SHARD_EVENTBUS_HOST:-shard-eventbus}
+      - SHARD_EVENTBUS_PORT=${SHARD_EVENTBUS_PORT:-9090}
+      - GUNICORN_WORKERS=4
+    volumes:
+      - ./backend/app:/app/app:ro
+      - shard_data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - shard-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nginx:
+    image: nginx:alpine
+    container_name: shard-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./frontend:/usr/share/nginx/html:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - shard-webui
+    networks:
+      - shard-network
+    restart: unless-stopped
+
+networks:
+  shard-network:
+    driver: bridge
+
+volumes:
+  shard_data:
+    driver: local

@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHARD Enterprise SIEM - Alerts</title>
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <svg class="nav-logo" viewBox="0 0 40 40" width="40" height="40">
+                <polygon points="20,2 38,12 38,28 20,38 2,28 2,12" fill="none" stroke="#00d4ff" stroke-width="2"/>
+                <text x="20" y="24" text-anchor="middle" fill="#00d4ff" font-size="16" font-weight="bold">S</text>
+            </svg>
+            <div>
+                <div class="nav-title">SHARD Enterprise</div>
+                <div class="nav-subtitle">SIEM v5.2.0</div>
+            </div>
+        </div>
+
+        <div class="nav-links">
+            <a href="index.html" class="nav-link">Dashboard</a>
+            <a href="alerts.html" class="nav-link active">Alerts</a>
+            <a href="blocked.html" class="nav-link">Blocked IPs</a>
+            <a href="settings.html" class="nav-link" id="settingsLink" style="display:none;">Settings</a>
+        </div>
+
+        <div class="nav-actions">
+            <span id="usernameDisplay" class="username"></span>
+            <button onclick="logout()" class="logout-btn">Sign Out</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="page-header">
+            <h1>Security Alerts</h1>
+            <div class="page-actions">
+                <button onclick="exportCSV()" class="export-btn">📊 Export CSV</button>
+                <button onclick="exportExcel()" class="export-btn">📈 Export Excel</button>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="card filter-card">
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label>Search</label>
+                    <input type="text" id="searchInput" placeholder="Search by IP or description..." class="filter-input">
+                </div>
+
+                <div class="filter-group">
+                    <label>Alert Type</label>
+                    <select id="alertTypeFilter" class="filter-select">
+                        <option value="">All Types</option>
+                        <option value="DDoS">DDoS</option>
+                        <option value="SQL Injection">SQL Injection</option>
+                        <option value="XSS">XSS</option>
+                        <option value="Brute Force">Brute Force</option>
+                        <option value="Port Scan">Port Scan</option>
+                        <option value="Malware">Malware</option>
+                        <option value="Phishing">Phishing</option>
+                        <option value="Ransomware">Ransomware</option>
+                        <option value="Data Exfiltration">Data Exfiltration</option>
+                        <option value="Unauthorized Access">Unauthorized Access</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label>Severity</label>
+                    <select id="severityFilter" class="filter-select">
+                        <option value="">All Severities</option>
+                        <option value="CRITICAL">Critical</option>
+                        <option value="HIGH">High</option>
+                        <option value="MEDIUM">Medium</option>
+                        <option value="LOW">Low</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label>Source IP</label>
+                    <input type="text" id="sourceIPFilter" placeholder="Filter by source IP..." class="filter-input">
+                </div>
+
+                <div class="filter-group">
+                    <label>Target IP</label>
+                    <input type="text" id="targetIPFilter" placeholder="Filter by target IP..." class="filter-input">
+                </div>
+
+                <div class="filter-group">
+                    <label>Time Range</label>
+                    <select id="timeRangeFilter" class="filter-select">
+                        <option value="">All Time</option>
+                        <option value="1h">Last Hour</option>
+                        <option value="6h">Last 6 Hours</option>
+                        <option value="24h">Last 24 Hours</option>
+                        <option value="7d">Last 7 Days</option>
+                        <option value="30d">Last 30 Days</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="filter-actions">
+                <button onclick="applyFilters()" class="apply-filters-btn">Apply Filters</button>
+                <button onclick="resetFilters()" class="reset-filters-btn">Reset</button>
+            </div>
+        </div>
+
+        <!-- Alerts Table -->
+        <div class="card">
+            <div class="table-header">
+                <div class="table-info">
+                    Showing <span id="showingCount">0</span> of <span id="totalCount">0</span> alerts
+                </div>
+                <div class="sort-controls">
+                    <label>Sort by:</label>
+                    <select id="sortBy" class="sort-select" onchange="applyFilters()">
+                        <option value="timestamp">Time</option>
+                        <option value="severity">Severity</option>
+                        <option value="threat_score">Threat Score</option>
+                        <option value="source_ip">Source IP</option>
+                    </select>
+                    <select id="sortOrder" class="sort-select" onchange="applyFilters()">
+                        <option value="desc">Descending</option>
+                        <option value="asc">Ascending</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="alerts-table">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Type</th>
+                            <th>Severity</th>
+                            <th>Source IP</th>
+                            <th>Target IP</th>
+                            <th>Port</th>
+                            <th>Protocol</th>
+                            <th>Description</th>
+                            <th>Score</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="alertsTableBody">
+                        <tr>
+                            <td colspan="11" class="loading-text">Loading alerts...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination" id="pagination">
+                <button id="prevPage" class="page-btn" disabled>← Previous</button>
+                <span class="page-info">Page <span id="currentPage">1</span> of <span id="totalPages">1</span></span>
+                <button id="nextPage" class="page-btn" disabled>Next →</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        // Check authentication
+        if (!localStorage.getItem('access_token')) {
+            window.location.href = '/login.html';
+        }
+
+        // Initialize
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        document.getElementById('usernameDisplay').textContent = user.username || 'User';
+
+        if (user.role === 'admin') {
+            document.getElementById('settingsLink').style.display = 'inline-block';
+        }
+
+        let currentPage = 1;
+        let totalPages = 1;
+
+        // Debounce search
+        let searchTimeout;
+        document.getElementById('searchInput').addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                currentPage = 1;
+                loadAlerts();
+            }, 300);
+        });
+
+        // Load alerts
+        async function loadAlerts() {
+            try {
+                const filters = getFilters();
+                const response = await api.getAlerts(filters);
+
+                renderAlerts(response.alerts);
+                updatePagination(response.page, response.total_pages, response.total_count);
+                updateTableInfo(response.alerts.length, response.total_count);
+
+            } catch (error) {
+                console.error('Error loading alerts:', error);
+                showToast('error', 'Failed to load alerts');
+            }
+        }
+
+        // Get current filters
+        function getFilters() {
+            const filters = {
+                page: currentPage,
+                page_size: 50,
+                sort_by: document.getElementById('sortBy').value,
+                sort_order: document.getElementById('sortOrder').value
+            };
+
+            const search = document.getElementById('searchInput').value.trim();
+            if (search) filters.search = search;
+
+            const alertType = document.getElementById('alertTypeFilter').value;
+            if (alertType) filters.alert_type = alertType;
+
+            const severity = document.getElementById('severityFilter').value;
+            if (severity) filters.severity = severity;
+
+            const sourceIP = document.getElementById('sourceIPFilter').value.trim();
+            if (sourceIP) filters.source_ip = sourceIP;
+
+            const targetIP = document.getElementById('targetIPFilter').value.trim();
+            if (targetIP) filters.destination_ip = targetIP;
+
+            const timeRange = document.getElementById('timeRangeFilter').value;
+            if (timeRange) {
+                const now = new Date();
+                switch(timeRange) {
+                    case '1h':
+                        filters.start_time = new Date(now - 3600000).toISOString();
+                        break;
+                    case '6h':
+                        filters.start_time = new Date(now - 21600000).toISOString();
+                        break;
+                    case '24h':
+                        filters.start_time = new Date(now - 86400000).toISOString();
+                        break;
+                    case '7d':
+                        filters.start_time = new Date(now - 604800000).toISOString();
+                        break;
+                    case '30d':
+                        filters.start_time = new Date(now - 2592000000).toISOString();
+                        break;
+                }
+            }
+
+            return filters;
+        }
+
+        // Render alerts table
+        function renderAlerts(alerts) {
+            const tbody = document.getElementById('alertsTableBody');
+
+            if (!alerts || alerts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="11" class="no-data">No alerts found matching your filters</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = alerts.map(alert => {
+                const severityClass = `severity-${alert.severity.toLowerCase()}`;
+                const time = new Date(alert.timestamp).toLocaleString('ru-RU');
+                const isCritical = alert.severity === 'CRITICAL';
+
+                return `
+                    <tr class="${severityClass} ${isCritical ? 'critical-row' : ''}">
+                        <td class="time-cell">${time}</td>
+                        <td><span class="alert-type-badge">${escapeHtml(alert.alert_type)}</span></td>
+                        <td><span class="severity-badge ${severityClass}">${escapeHtml(alert.severity)}</span></td>
+                        <td class="ip-cell">${escapeHtml(alert.source_ip)}</td>
+                        <td class="ip-cell">${escapeHtml(alert.destination_ip)}</td>
+                        <td>${alert.destination_port || '-'}</td>
+                        <td>${alert.protocol || '-'}</td>
+                        <td class="description-cell" title="${escapeHtml(alert.description)}">${escapeHtml(truncateText(alert.description, 80))}</td>
+                        <td>
+                            <span class="score-badge ${getScoreClass(alert.threat_score)}">${alert.threat_score.toFixed(0)}</span>
+                        </td>
+                        <td>
+                            ${alert.is_blocked ?
+                                '<span class="blocked-badge">🚫 Blocked</span>' :
+                                '<span class="active-badge">⚠ Active</span>'
+                            }
+                        </td>
+                        <td>
+                            ${!alert.is_blocked ?
+                                `<button onclick="blockAlert('${alert.id}', '${alert.source_ip}')" class="block-btn">
+                                    🚫 Block
+                                </button>` :
+                                '<span class="text-muted">-</span>'
+                            }
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Get score class based on threat score
+        function getScoreClass(score) {
+            if (score >= 80) return 'score-critical';
+            if (score >= 60) return 'score-high';
+            if (score >= 40) return 'score-medium';
+            return 'score-low';
+        }
+
+        // Update pagination
+        function updatePagination(page, total, totalCount) {
+            currentPage = page;
+            totalPages = total;
+
+            document.getElementById('currentPage').textContent = page;
+            document.getElementById('totalPages').textContent = total;
+            document.getElementById('totalCount').textContent = totalCount;
+
+            document.getElementById('prevPage').disabled = page <= 1;
+            document.getElementById('nextPage').disabled = page >= total;
+        }
+
+        // Update table info
+        function updateTableInfo(showing, total) {
+            document.getElementById('showingCount').textContent = showing;
+        }
+
+        // Pagination handlers
+        document.getElementById('prevPage').addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                loadAlerts();
+            }
+        });
+
+        document.getElementById('nextPage').addEventListener('click', () => {
+            if (currentPage < totalPages) {
+                currentPage++;
+                loadAlerts();
+            }
+        });
+
+        // Apply filters
+        function applyFilters() {
+            currentPage = 1;
+            loadAlerts();
+        }
+
+        // Reset filters
+        function resetFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('alertTypeFilter').value = '';
+            document.getElementById('severityFilter').value = '';
+            document.getElementById('sourceIPFilter').value = '';
+            document.getElementById('targetIPFilter').value = '';
+            document.getElementById('timeRangeFilter').value = '';
+            document.getElementById('sortBy').value = 'timestamp';
+            document.getElementById('sortOrder').value = 'desc';
+
+            currentPage = 1;
+            loadAlerts();
+        }
+
+        // Block alert source IP
+        async function blockAlert(alertId, ip) {
+            if (!confirm(`Block IP ${ip}? This will block all traffic from this address.`)) {
+                return;
+            }
+
+            try {
+                await api.blockAlertSource(alertId);
+                showToast('success', `IP ${ip} blocked successfully`);
+                loadAlerts();
+            } catch (error) {
+                showToast('error', `Failed to block IP: ${error.message}`);
+            }
+        }
+
+        // Export functions
+        async function exportCSV() {
+            try {
+                const filters = getFilters();
+                delete filters.page;
+                delete filters.page_size;
+
+                const blob = await api.exportAlertsCSV(filters);
+                downloadBlob(blob, `alerts_${new Date().toISOString().split('T')[0]}.csv`);
+                showToast('success', 'Alerts exported to CSV');
+            } catch (error) {
+                showToast('error', 'Failed to export CSV');
+            }
+        }
+
+        async function exportExcel() {
+            try {
+                const filters = getFilters();
+                delete filters.page;
+                delete filters.page_size;
+
+                const blob = await api.exportAlertsExcel(filters);
+                downloadBlob(blob, `alerts_${new Date().toISOString().split('T')[0]}.xlsx`);
+                showToast('success', 'Alerts exported to Excel');
+            } catch (error) {
+                showToast('error', 'Failed to export Excel');
+            }
+        }
+
+        // Toast notification
+        function showToast(type, message) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `
+                <span class="toast-icon">${type === 'success' ? '✓' : '✕'}</span>
+                <span>${message}</span>
+            `;
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+
+        // Initial load
+        loadAlerts();
+
+        // Auto-refresh every 10 seconds
+        setInterval(loadAlerts, 10000);
+    </script>
+</body>
+</html>

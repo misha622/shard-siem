@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHARD Enterprise SIEM - Settings</title>
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <svg class="nav-logo" viewBox="0 0 40 40" width="40" height="40">
+                <polygon points="20,2 38,12 38,28 20,38 2,28 2,12" fill="none" stroke="#00d4ff" stroke-width="2"/>
+                <text x="20" y="24" text-anchor="middle" fill="#00d4ff" font-size="16" font-weight="bold">S</text>
+            </svg>
+            <div>
+                <div class="nav-title">SHARD Enterprise</div>
+                <div class="nav-subtitle">SIEM v5.2.0</div>
+            </div>
+        </div>
+
+        <div class="nav-links">
+            <a href="index.html" class="nav-link">Dashboard</a>
+            <a href="alerts.html" class="nav-link">Alerts</a>
+            <a href="blocked.html" class="nav-link">Blocked IPs</a>
+            <a href="settings.html" class="nav-link active">Settings</a>
+        </div>
+
+        <div class="nav-actions">
+            <span id="usernameDisplay" class="username"></span>
+            <button onclick="logout()" class="logout-btn">Sign Out</button>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <h1>System Settings</h1>
+
+        <div class="settings-grid">
+            <!-- Change Password -->
+            <div class="card">
+                <h3 class="card-title">Change Password</h3>
+                <form id="passwordForm" onsubmit="changePassword(event)">
+                    <div class="form-group">
+                        <label for="oldPassword">Current Password</label>
+                        <input type="password" id="oldPassword" required class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="newPassword">New Password</label>
+                        <input type="password" id="newPassword" required
+                               minlength="8" class="form-input"
+                               pattern="^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$"
+                               title="Must contain uppercase, lowercase, number and special character">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirm New Password</label>
+                        <input type="password" id="confirmPassword" required class="form-input">
+                    </div>
+                    <button type="submit" class="submit-btn">Update Password</button>
+                </form>
+            </div>
+
+            <!-- User Info -->
+            <div class="card">
+                <h3 class="card-title">Account Information</h3>
+                <div class="info-grid" id="userInfo">
+                    <div class="info-item">
+                        <div class="info-label">Username</div>
+                        <div class="info-value" id="infoUsername">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Role</div>
+                        <div class="info-value" id="infoRole">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Last Login</div>
+                        <div class="info-value" id="infoLastLogin">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Account Created</div>
+                        <div class="info-value" id="infoCreated">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Info -->
+            <div class="card">
+                <h3 class="card-title">System Information</h3>
+                <div class="info-grid" id="systemInfo">
+                    <div class="info-item">
+                        <div class="info-label">Status</div>
+                        <div class="info-value">
+                            <span class="status-badge status-active">
+                                <span class="status-dot online pulse"></span>
+                                Online
+                            </span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Version</div>
+                        <div class="info-value">5.2.0</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">API Endpoint</div>
+                        <div class="info-value" id="apiEndpoint">-</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">WebSocket</div>
+                        <div class="info-value" id="wsStatus">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Logs (Admin only) -->
+            <div class="card" id="logsCard" style="display: none;">
+                <h3 class="card-title">System Logs</h3>
+                <div class="logs-container" id="logsContainer">
+                    <div class="log-entry">
+                        <span class="log-time">Loading logs...</span>
+                    </div>
+                </div>
+                <button onclick="loadLogs()" class="refresh-btn">🔄 Refresh Logs</button>
+            </div>
+        </div>
+    </main>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        // Check authentication and admin role
+        if (!localStorage.getItem('access_token')) {
+            window.location.href = '/login.html';
+        }
+
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        document.getElementById('usernameDisplay').textContent = user.username || 'User';
+
+        // Check if admin
+        if (user.role !== 'admin') {
+            window.location.href = '/index.html';
+        }
+
+        // Show admin features
+        document.getElementById('logsCard').style.display = 'block';
+
+        // Load user info
+        async function loadUserInfo() {
+            try {
+                const userInfo = await api.getCurrentUser();
+                document.getElementById('infoUsername').textContent = userInfo.username;
+                document.getElementById('infoRole').textContent = userInfo.role;
+                document.getElementById('infoLastLogin').textContent = userInfo.last_login ?
+                    new Date(userInfo.last_login).toLocaleString('ru-RU') : 'First login';
+                document.getElementById('infoCreated').textContent = new Date(userInfo.created_at).toLocaleString('ru-RU');
+            } catch (error) {
+                console.error('Error loading user info:', error);
+            }
+        }
+
+        // Load system info
+        async function loadSystemInfo() {
+            try {
+                const sysInfo = await api.getSystemInfo();
+                document.getElementById('apiEndpoint').textContent = window.location.origin + '/api';
+                document.getElementById('wsStatus').textContent = 'Connected';
+            } catch (error) {
+                console.error('Error loading system info:', error);
+            }
+        }
+
+        // Change password
+        async function changePassword(event) {
+            event.preventDefault();
+
+            const oldPassword = document.getElementById('oldPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            if (newPassword !== confirmPassword) {
+                showToast('error', 'Passwords do not match');
+                return;
+            }
+
+            if (newPassword.length < 8) {
+                showToast('error', 'Password must be at least 8 characters');
+                return;
+            }
+
+            try {
+                await api.changePassword(oldPassword, newPassword);
+                showToast('success', 'Password changed successfully');
+                document.getElementById('passwordForm').reset();
+            } catch (error) {
+                showToast('error', `Failed to change password: ${error.message}`);
+            }
+        }
+
+        // Load system logs
+        async function loadLogs() {
+            try {
+                const data = await api.getSystemLogs(50);
+                const logsContainer = document.getElementById('logsContainer');
+
+                logsContainer.innerHTML = data.logs.map(log => {
+                    const time = new Date(log.timestamp).toLocaleString('ru-RU');
+                    const levelClass = `log-${log.level.toLowerCase()}`;
+
+                    return `
+                        <div class="log-entry ${levelClass}">
+                            <span class="log-time">${time}</span>
+                            <span class="log-level">[${log.level}]</span>
+                            <span class="log-message">${escapeHtml(log.message)}</span>
+                            <span class="log-correlation">ID: ${log.correlation_id}</span>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Error loading logs:', error);
+                showToast('error', 'Failed to load system logs');
+            }
+        }
+
+        // Toast notification
+        function showToast(type, message) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `
+                <span class="toast-icon">${type === 'success' ? '✓' : '✕'}</span>
+                <span>${message}</span>
+            `;
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+
+        // Initial load
+        loadUserInfo();
+        loadSystemInfo();
+        loadLogs();
+    </script>
+</body>
+</html>

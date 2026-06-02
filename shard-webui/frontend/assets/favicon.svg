@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00d4ff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0099cc;stop-opacity:1" />
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <polygon points="20,2 38,12 38,28 20,38 2,28 2,12"
+           fill="none" stroke="url(#grad)" stroke-width="2" filter="url(#glow)"/>
+  <text x="20" y="24" text-anchor="middle" fill="url(#grad)"
+        font-size="16" font-weight="bold" font-family="Arial, sans-serif">S</text>
+</svg>

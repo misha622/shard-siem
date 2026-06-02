@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHARD Enterprise SIEM - Dashboard</title>
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <svg class="nav-logo" viewBox="0 0 40 40" width="40" height="40">
+                <polygon points="20,2 38,12 38,28 20,38 2,28 2,12" fill="none" stroke="#00d4ff" stroke-width="2"/>
+                <text x="20" y="24" text-anchor="middle" fill="#00d4ff" font-size="16" font-weight="bold">S</text>
+            </svg>
+            <div>
+                <div class="nav-title">SHARD Enterprise</div>
+                <div class="nav-subtitle">SIEM Dashboard v5.2.0</div>
+            </div>
+        </div>
+
+        <div class="nav-links">
+            <a href="index.html" class="nav-link active">Dashboard</a>
+            <a href="alerts.html" class="nav-link">Alerts</a>
+            <a href="blocked.html" class="nav-link">Blocked IPs</a>
+            <a href="settings.html" class="nav-link" id="settingsLink" style="display:none;">Settings</a>
+        </div>
+
+        <div class="nav-actions">
+            <div class="status-indicator" id="wsStatus" title="WebSocket Status">
+                <div class="status-dot offline"></div>
+            </div>
+            <div class="user-menu">
+                <span id="usernameDisplay" class="username"></span>
+                <button onclick="logout()" class="logout-btn">Sign Out</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- KPI Cards Row -->
+        <div class="kpi-grid">
+            <div class="card kpi-card">
+                <div class="kpi-icon" style="background: rgba(0, 212, 255, 0.1);">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                    </svg>
+                </div>
+                <div class="kpi-info">
+                    <div class="kpi-label">Total Packets</div>
+                    <div class="kpi-value" id="kpiPackets">0</div>
+                    <div class="kpi-change positive" id="kpiPacketsChange">+0%</div>
+                </div>
+            </div>
+
+            <div class="card kpi-card">
+                <div class="kpi-icon" style="background: rgba(255, 71, 87, 0.1);">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ff4757" stroke-width="2">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                </div>
+                <div class="kpi-info">
+                    <div class="kpi-label">Active Alerts</div>
+                    <div class="kpi-value" id="kpiAlerts">0</div>
+                    <div class="kpi-change negative" id="kpiAlertsChange">+0%</div>
+                </div>
+            </div>
+
+            <div class="card kpi-card">
+                <div class="kpi-icon" style="background: rgba(255, 165, 2, 0.1);">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffa502" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                    </svg>
+                </div>
+                <div class="kpi-info">
+                    <div class="kpi-label">Blocked IPs</div>
+                    <div class="kpi-value" id="kpiBlocked">0</div>
+                    <div class="kpi-change positive" id="kpiBlockedChange">+0%</div>
+                </div>
+            </div>
+
+            <div class="card kpi-card">
+                <div class="kpi-icon" style="background: rgba(46, 213, 115, 0.1);">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2ed573" stroke-width="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                </div>
+                <div class="kpi-info">
+                    <div class="kpi-label">Active Threats</div>
+                    <div class="kpi-value" id="kpiThreats">0</div>
+                    <div class="kpi-change negative" id="kpiThreatsChange">-0%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="charts-grid">
+            <div class="card chart-card">
+                <h3 class="card-title">Attack Types Distribution</h3>
+                <div id="attackTypesChart" class="chart-container"></div>
+            </div>
+
+            <div class="card chart-card">
+                <h3 class="card-title">Alerts Timeline (24h)</h3>
+                <div id="alertsTimelineChart" class="chart-container"></div>
+            </div>
+        </div>
+
+        <!-- Top Attackers & Targets -->
+        <div class="charts-grid">
+            <div class="card chart-card">
+                <h3 class="card-title">Top 10 Attacking IPs</h3>
+                <div id="topAttackersChart" class="chart-container"></div>
+            </div>
+
+            <div class="card chart-card">
+                <h3 class="card-title">Top 10 Target IPs</h3>
+                <div id="topTargetsChart" class="chart-container"></div>
+            </div>
+        </div>
+
+        <!-- System Metrics & Alerts Table -->
+        <div class="charts-grid">
+            <div class="card system-card">
+                <h3 class="card-title">System Health</h3>
+                <div class="system-metrics">
+                    <div class="metric-item">
+                        <div class="metric-header">
+                            <span>CPU</span>
+                            <span id="cpuValue">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill cpu-fill" id="cpuBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div class="metric-item">
+                        <div class="metric-header">
+                            <span>RAM</span>
+                            <span id="ramValue">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill ram-fill" id="ramBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div class="metric-item">
+                        <div class="metric-header">
+                            <span>Disk</span>
+                            <span id="diskValue">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill disk-fill" id="diskBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div class="metric-item">
+                        <div class="metric-header">
+                            <span>Network In</span>
+                            <span id="netInValue">0 MB</span>
+                        </div>
+                    </div>
+
+                    <div class="metric-item">
+                        <div class="metric-header">
+                            <span>Network Out</span>
+                            <span id="netOutValue">0 MB</span>
+                        </div>
+                    </div>
+
+                    <div class="metric-item">
+                        <div class="metric-header">
+                            <span>Uptime</span>
+                            <span id="uptimeValue">0h 0m</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card alerts-table-card">
+                <div class="card-header">
+                    <h3 class="card-title">Recent Alerts</h3>
+                    <div class="card-actions">
+                        <input type="text" id="alertSearch" placeholder="Search alerts..." class="search-input">
+                        <button onclick="exportCSV()" class="export-btn" title="Export CSV">📊 CSV</button>
+                        <button onclick="exportExcel()" class="export-btn" title="Export Excel">📈 Excel</button>
+                    </div>
+                </div>
+                <div class="table-container" id="alertsTableContainer">
+                    <table class="alerts-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Type</th>
+                                <th>Severity</th>
+                                <th>Source IP</th>
+                                <th>Target IP</th>
+                                <th>Description</th>
+                                <th>Score</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="alertsTableBody">
+                            <tr>
+                                <td colspan="8" class="loading-text">Loading alerts...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/websocket.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        // Check authentication
+        if (!localStorage.getItem('access_token')) {
+            window.location.href = '/login.html';
+        }
+
+        // Initialize user info
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        document.getElementById('usernameDisplay').textContent = user.username || 'User';
+
+        // Show settings link for admin
+        if (user.role === 'admin') {
+            document.getElementById('settingsLink').style.display = 'inline-block';
+        }
+
+        // Charts instance
+        let charts = null;
+
+        // Previous KPI values for animation
+        let prevKPI = {
+            packets: 0,
+            alerts: 0,
+            blocked: 0,
+            threats: 0
+        };
+
+        // Initialize dashboard
+        async function initDashboard() {
+            charts = new SHARDCharts();
+
+            // Connect WebSocket
+            connectWebSocket();
+
+            // Load initial data
+            await loadDashboardData();
+            await loadSystemMetrics();
+
+            // Set up auto-refresh
+            setInterval(loadDashboardData, 3000);
+            setInterval(loadSystemMetrics, 5000);
+            setInterval(loadAlertsTable, 10000);
+        }
+
+        // Load dashboard data
+        async function loadDashboardData() {
+            try {
+                const stats = await api.getDashboardStats();
+                updateKPIs(stats);
+
+                if (charts) {
+                    charts.updateAttackTypesChart(stats.alerts_by_type);
+                    charts.updateAlertsTimeline(stats.alerts_by_hour);
+                    charts.updateTopAttackers(stats.top_attackers);
+                    charts.updateTopTargets(stats.top_targets);
+                }
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+                if (error.message.includes('401')) {
+                    refreshToken();
+                }
+            }
+        }
+
+        // Update KPI cards with animation
+        function updateKPIs(stats) {
+            updateKPICard('kpiPackets', 'kpiPacketsChange', stats.total_packets, prevKPI.packets);
+            updateKPICard('kpiAlerts', 'kpiAlertsChange', stats.total_alerts, prevKPI.alerts);
+            updateKPICard('kpiBlocked', 'kpiBlockedChange', stats.total_blocked, prevKPI.blocked);
+            updateKPICard('kpiThreats', 'kpiThreatsChange', stats.active_threats, prevKPI.threats);
+
+            prevKPI = {
+                packets: stats.total_packets,
+                alerts: stats.total_alerts,
+                blocked: stats.total_blocked,
+                threats: stats.active_threats
+            };
+        }
+
+        // Update single KPI card
+        function updateKPICard(elementId, changeId, newValue, oldValue) {
+            const element = document.getElementById(elementId);
+            const changeElement = document.getElementById(changeId);
+
+            // Animate number change
+            animateValue(element, oldValue, newValue, 1000);
+
+            // Calculate change percentage
+            if (oldValue > 0) {
+                const change = ((newValue - oldValue) / oldValue * 100).toFixed(1);
+                const isPositive = change >= 0;
+                changeElement.textContent = `${isPositive ? '+' : ''}${change}%`;
+                changeElement.className = `kpi-change ${isPositive ? 'positive' : 'negative'}`;
+            }
+        }
+
+        // Animate number change
+        function animateValue(element, start, end, duration) {
+            const startTime = performance.now();
+
+            function update(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const current = Math.floor(start + (end - start) * progress);
+                element.textContent = formatNumber(current);
+
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                }
+            }
+
+            requestAnimationFrame(update);
+        }
+
+        // Format large numbers
+        function formatNumber(num) {
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+            return num.toString();
+        }
+
+        // Load system metrics
+        async function loadSystemMetrics() {
+            try {
+                const metrics = await api.getSystemMetrics();
+
+                document.getElementById('cpuValue').textContent = `${metrics.cpu_percent.toFixed(1)}%`;
+                document.getElementById('cpuBar').style.width = `${metrics.cpu_percent}%`;
+
+                document.getElementById('ramValue').textContent = `${metrics.memory_percent.toFixed(1)}%`;
+                document.getElementById('ramBar').style.width = `${metrics.memory_percent}%`;
+
+                document.getElementById('diskValue').textContent = `${metrics.disk_percent.toFixed(1)}%`;
+                document.getElementById('diskBar').style.width = `${metrics.disk_percent}%`;
+
+                document.getElementById('netInValue').textContent = `${metrics.network_recv_mb.toFixed(1)} MB`;
+                document.getElementById('netOutValue').textContent = `${metrics.network_sent_mb.toFixed(1)} MB`;
+
+                const hours = Math.floor(metrics.uptime_hours);
+                const minutes = Math.floor((metrics.uptime_hours - hours) * 60);
+                document.getElementById('uptimeValue').textContent = `${hours}h ${minutes}m`;
+
+                // Color CPU bar based on usage
+                const cpuBar = document.getElementById('cpuBar');
+                if (metrics.cpu_percent > 80) {
+                    cpuBar.style.background = '#ff4757';
+                } else if (metrics.cpu_percent > 60) {
+                    cpuBar.style.background = '#ffa502';
+                } else {
+                    cpuBar.style.background = '#00d4ff';
+                }
+
+            } catch (error) {
+                console.error('Error loading system metrics:', error);
+            }
+        }
+
+        // Load recent alerts table
+        async function loadAlertsTable() {
+            try {
+                const searchQuery = document.getElementById('alertSearch').value;
+                const response = await api.getAlerts({ search: searchQuery, page_size: 50 });
+                renderAlertsTable(response.alerts);
+            } catch (error) {
+                console.error('Error loading alerts:', error);
+            }
+        }
+
+        // Render alerts table
+        function renderAlertsTable(alerts) {
+            const tbody = document.getElementById('alertsTableBody');
+
+            if (!alerts || alerts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="no-data">No alerts found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = alerts.map(alert => {
+                const severityClass = `severity-${alert.severity.toLowerCase()}`;
+                const time = new Date(alert.timestamp).toLocaleString('ru-RU');
+                const isCritical = alert.severity === 'CRITICAL';
+
+                return `
+                    <tr class="${severityClass} ${isCritical ? 'critical-row' : ''}">
+                        <td class="time-cell">${time}</td>
+                        <td><span class="alert-type-badge">${escapeHtml(alert.alert_type)}</span></td>
+                        <td><span class="severity-badge ${severityClass}">${escapeHtml(alert.severity)}</span></td>
+                        <td class="ip-cell">${escapeHtml(alert.source_ip)}</td>
+                        <td class="ip-cell">${escapeHtml(alert.destination_ip)}</td>
+                        <td class="description-cell" title="${escapeHtml(alert.description)}">${escapeHtml(truncateText(alert.description, 60))}</td>
+                        <td>${alert.threat_score.toFixed(0)}</td>
+                        <td>
+                            ${!alert.is_blocked ?
+                                `<button onclick="blockIP('${alert.id}', '${alert.source_ip}')" class="block-btn" title="Block IP">
+                                    🚫 Block
+                                </button>` :
+                                '<span class="blocked-badge">✓ Blocked</span>'
+                            }
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Block IP
+        async function blockIP(alertId, ip) {
+            if (!confirm(`Are you sure you want to block IP ${ip}?`)) {
+                return;
+            }
+
+            try {
+                await api.blockAlertSource(alertId);
+                showToast('success', `IP ${ip} has been blocked successfully`);
+                await loadAlertsTable();
+                await loadDashboardData();
+            } catch (error) {
+                console.error('Error blocking IP:', error);
+                showToast('error', `Failed to block IP: ${error.message}`);
+            }
+        }
+
+        // Export CSV
+        async function exportCSV() {
+            try {
+                const blob = await api.exportAlertsCSV();
+                downloadBlob(blob, `alerts_${new Date().toISOString().split('T')[0]}.csv`);
+                showToast('success', 'Alerts exported to CSV');
+            } catch (error) {
+                showToast('error', 'Failed to export CSV');
+            }
+        }
+
+        // Export Excel
+        async function exportExcel() {
+            try {
+                const blob = await api.exportAlertsExcel();
+                downloadBlob(blob, `alerts_${new Date().toISOString().split('T')[0]}.xlsx`);
+                showToast('success', 'Alerts exported to Excel');
+            } catch (error) {
+                showToast('error', 'Failed to export Excel');
+            }
+        }
+
+        // Download blob
+        function downloadBlob(blob, filename) {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+        }
+
+        // Search with debounce
+        let searchTimeout;
+        document.getElementById('alertSearch').addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                loadAlertsTable();
+            }, 300);
+        });
+
+        // Show toast notification
+        function showToast(type, message) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `
+                <span class="toast-icon">${type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ'}</span>
+                <span class="toast-message">${message}</span>
+            `;
+
+            container.appendChild(toast);
+
+            // Trigger animation
+            setTimeout(() => toast.classList.add('show'), 10);
+
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+
+        // Helper functions
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function truncateText(text, maxLength) {
+            return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+        }
+
+        // Handle WebSocket messages
+        function handleAlertEvent(data) {
+            showToast('info', `New ${data.severity} alert from ${data.source_ip}`);
+            loadAlertsTable();
+            loadDashboardData();
+        }
+
+        function handleBlockEvent(data) {
+            showToast('success', `IP ${data.ip} blocked`);
+            loadDashboardData();
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', initDashboard);
+    </script>
+</body>
+</html>
