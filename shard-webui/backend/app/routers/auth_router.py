@@ -1,148 +1,71 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from slowapi import Limiter
-from slowapi.util import get_remote_address
-from app.schemas import LoginRequest, TokenRefresh, ChangePasswordRequest, TokenResponse
-from app.database import db
-from app.auth import create_access_token, create_refresh_token, decode_token, get_current_user
-from datetime import datetime, timedelta
+from pydantic import BaseModel, Field
+from typing import Optional
 import logging
+from database import (get_user_by_username, get_user_by_id, create_user, update_last_login,
+                      change_password, verify_password, add_refresh_token, get_user_by_refresh_token,
+                      revoke_refresh_token)
+from auth import create_access_token, create_refresh_token, decode_token, get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
-limiter = Limiter(key_func=get_remote_address)
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
 
-@router.post("/login", response_model=TokenResponse)
-@limiter.limit("5/minute")
+class TokenRefresh(BaseModel):
+    refresh_token: str
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str = Field(..., min_length=8)
+
+@router.post("/login")
 async def login(request: LoginRequest):
-    """
-    Authenticate user and return JWT tokens
-    """
-    user = db.get_user_by_username(request.username)
-
-    if not user or not db.verify_password(request.password, user.hashed_password):
-        logger.warning(f"Failed login attempt for user: {request.username}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid username or password"
-        )
-
-    # Create tokens
-    access_token = create_access_token(data={"sub": user.id, "role": user.role})
-    refresh_token = create_refresh_token(data={"sub": user.id, "role": user.role})
-
-    # Store refresh token
-    db.add_refresh_token(refresh_token, user.id)
-
-    # Update last login
-    user.last_login = datetime.utcnow()
-
-    logger.info(f"User {user.username} logged in successfully")
-
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        expires_in=86400,  # 24 hours in seconds
-        user={
-            "id": user.id,
-            "username": user.username,
-            "role": user.role,
-            "last_login": user.last_login.isoformat() if user.last_login else None
-        }
-    )
-
-
-@router.post("/refresh")
-async def refresh_token(request: TokenRefresh):
-    """
-    Refresh access token using refresh token
-    """
-    payload = decode_token(request.refresh_token)
-
-    if not payload or payload.get("type") != "refresh":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token"
-        )
-
-    user_id = payload.get("sub")
-    user = db.get_user_by_id(user_id)
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found"
-        )
-
-    # Verify refresh token exists in database
-    stored_user_id = db.get_user_by_refresh_token(request.refresh_token)
-    if stored_user_id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh token revoked"
-        )
-
-    # Revoke old refresh token and create new ones
-    db.revoke_refresh_token(request.refresh_token)
-
-    new_access_token = create_access_token(data={"sub": user.id, "role": user.role})
-    new_refresh_token = create_refresh_token(data={"sub": user.id, "role": user.role})
-    db.add_refresh_token(new_refresh_token, user.id)
-
-    return TokenResponse(
-        access_token=new_access_token,
-        refresh_token=new_refresh_token,
-        expires_in=86400,
-        user={
-            "id": user.id,
-            "username": user.username,
-            "role": user.role
-        }
-    )
-
-
-@router.post("/logout")
-async def logout(current_user: dict = Depends(get_current_user)):
-    """
-    Logout and revoke tokens
-    """
-    # In a real implementation, add token to blacklist
-    logger.info(f"User {current_user['username']} logged out")
-    return {"message": "Successfully logged out"}
-
-
-@router.get("/me")
-async def get_current_user_info(current_user: dict = Depends(get_current_user)):
-    """
-    Get current user information
-    """
-    user = db.get_user_by_id(current_user["id"])
+    user = get_user_by_username(request.username)
+    if not user or not verify_password(request.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    update_last_login(user.id)
+    token_data = {"sub": user.id, "role": user.role}
+    if user.company_id: token_data["company_id"] = user.company_id
+    access_token = create_access_token(data=token_data)
+    refresh_token = create_refresh_token(data=token_data)
+    add_refresh_token(refresh_token, user.id)
     return {
-        "id": user.id,
-        "username": user.username,
-        "role": user.role,
-        "created_at": user.created_at.isoformat(),
-        "last_login": user.last_login.isoformat() if user.last_login else None
+        "access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer",
+        "user": {"id": user.id, "username": user.username, "role": user.role,
+                 "company_id": user.company_id, "company_name": user.company.name if user.company else None}
     }
 
+@router.post("/refresh")
+async def refresh(request: TokenRefresh):
+    payload = decode_token(request.refresh_token)
+    if not payload or payload.get("type") != "refresh":
+        raise HTTPException(status_code=401, detail="Invalid token")
+    user_id = payload.get("sub")
+    stored = get_user_by_refresh_token(request.refresh_token)
+    if stored != user_id: raise HTTPException(status_code=401, detail="Token revoked")
+    user = get_user_by_id(user_id)
+    if not user: raise HTTPException(status_code=401, detail="User not found")
+    revoke_refresh_token(request.refresh_token)
+    token_data = {"sub": user.id, "role": user.role}
+    if user.company_id: token_data["company_id"] = user.company_id
+    new_access = create_access_token(data=token_data)
+    new_refresh = create_refresh_token(data=token_data)
+    add_refresh_token(new_refresh, user.id)
+    return {"access_token": new_access, "refresh_token": new_refresh, "token_type": "bearer"}
+
+@router.get("/me")
+async def me(current_user: dict = Depends(get_current_user)):
+    user = get_user_by_id(current_user["id"])
+    return {"id": user.id, "username": user.username, "role": user.role,
+            "company_id": user.company_id, "company_name": user.company.name if user.company else None}
 
 @router.post("/change-password")
-async def change_password(
-        request: ChangePasswordRequest,
-        current_user: dict = Depends(get_current_user)
-):
-    """
-    Change user password
-    """
-    user = db.get_user_by_id(current_user["id"])
-
-    if not db.verify_password(request.old_password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Current password is incorrect"
-        )
-
-    db.change_password(current_user["id"], request.new_password)
-    logger.info(f"Password changed for user {current_user['username']}")
-
-    return {"message": "Password changed successfully"}
+async def change_pwd(request: ChangePasswordRequest, current_user: dict = Depends(get_current_user)):
+    user = get_user_by_id(current_user["id"])
+    if not verify_password(request.old_password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    change_password(user.id, request.new_password)
+    return {"message": "Password changed"}
