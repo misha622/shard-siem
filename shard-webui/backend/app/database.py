@@ -153,3 +153,74 @@ def get_user_by_id(user_id: int) -> Optional[User]:
     db = SessionLocal()
     try: return db.query(User).filter(User.id == user_id).first()
     finally: db.close()
+
+def change_password(user_id: int, new_password: str):
+    db = SessionLocal()
+    try:
+        db.query(User).filter(User.id == user_id).update({"hashed_password": hash_password(new_password)})
+        db.commit()
+    finally: db.close()
+
+def get_alert_by_id(alert_id: int) -> Optional[Alert]:
+    db = SessionLocal()
+    try: return db.query(Alert).filter(Alert.id == alert_id).first()
+    finally: db.close()
+
+def get_alerts_for_map() -> List[Alert]:
+    db = SessionLocal()
+    try: return db.query(Alert).filter(Alert.source_lat.isnot(None)).order_by(Alert.timestamp.desc()).limit(100).all()
+    finally: db.close()
+
+def unblock_ip(block_id: int) -> Optional[str]:
+    db = SessionLocal()
+    try:
+        blocked = db.query(BlockedIP).filter(BlockedIP.id == block_id).first()
+        if blocked:
+            ip = blocked.ip_address
+            db.delete(blocked)
+            db.query(Alert).filter(Alert.source_ip == ip).update({"is_blocked": False, "blocked_at": None})
+            db.commit()
+            return ip
+        return None
+    finally: db.close()
+
+def add_refresh_token(token: str, user_id: int):
+    db = SessionLocal()
+    try: db.add(RefreshToken(token=token, user_id=user_id)); db.commit()
+    finally: db.close()
+
+def get_user_by_refresh_token(token: str) -> Optional[int]:
+    db = SessionLocal()
+    try:
+        rt = db.query(RefreshToken).filter(RefreshToken.token == token).first()
+        return rt.user_id if rt else None
+    finally: db.close()
+
+def revoke_refresh_token(token: str):
+    db = SessionLocal()
+    try: db.query(RefreshToken).filter(RefreshToken.token == token).delete(); db.commit()
+    finally: db.close()
+
+def get_email_settings(user_id: int) -> dict:
+    db = SessionLocal()
+    try:
+        es = db.query(EmailSettings).filter(EmailSettings.user_id == user_id).first()
+        if not es: es = EmailSettings(user_id=user_id); db.add(es); db.commit()
+        return {"alert.critical": es.alert_critical, "alert.high": es.alert_high, "alert.medium": es.alert_medium, "ip.blocked": es.ip_blocked, "system.health": es.system_health, "report.weekly": es.report_weekly}
+    finally: db.close()
+
+def update_email_settings(user_id: int, settings: dict):
+    db = SessionLocal()
+    try:
+        es = db.query(EmailSettings).filter(EmailSettings.user_id == user_id).first()
+        if not es: es = EmailSettings(user_id=user_id); db.add(es)
+        for k, v in settings.items():
+            col = k.replace(".", "_")
+            if hasattr(es, col): setattr(es, col, v)
+        db.commit()
+    finally: db.close()
+
+def get_company_by_id(company_id: int) -> Optional[Company]:
+    db = SessionLocal()
+    try: return db.query(Company).filter(Company.id == company_id).first()
+    finally: db.close()
