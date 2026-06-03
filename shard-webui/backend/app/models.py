@@ -32,26 +32,33 @@ class User(Base):
     company = relationship("Company", back_populates="users")
 
 class Alert(Base):
-    """Совместимо с SHARD: src_ip, dst_ip, dst_port"""
+    """Поля синхронизированы с фронтендом: alert_type, source_ip, destination_ip, threat_score"""
     __tablename__ = "alerts"
     id = Column(Integer, primary_key=True)
-    timestamp = Column(DateTime, default=datetime.utcnow)
-    attack_type = Column(String(50), nullable=False)
-    severity = Column(String(20), nullable=False)
-    src_ip = Column(String(45), nullable=False)
-    dst_ip = Column(String(45))
-    dst_port = Column(Integer)
-    score = Column(Float, default=0.0)
-    confidence = Column(Float, default=0.0)
-    explanation = Column(Text)
-    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+    alert_type = Column(String(50), nullable=False, index=True)
+    severity = Column(String(20), nullable=False, index=True)
+    source_ip = Column(String(45), nullable=False, index=True)
+    source_lat = Column(Float)
+    source_lon = Column(Float)
+    source_country = Column(String(100))
+    source_city = Column(String(100))
+    destination_ip = Column(String(45), index=True)
+    destination_port = Column(Integer)
+    protocol = Column(String(20))
+    description = Column(Text)
+    threat_score = Column(Float, default=0.0)
+    is_blocked = Column(Boolean, default=False)
+    blocked_at = Column(DateTime)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True, index=True)
     company = relationship("Company", back_populates="alerts")
 
 class BlockedIP(Base):
     __tablename__ = "blocked_ips"
     id = Column(Integer, primary_key=True)
-    ip_address = Column(String(45), nullable=False)
+    ip_address = Column(String(45), nullable=False, index=True)
     reason = Column(Text)
+    blocked_by = Column(String(50))
     blocked_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime)
     is_permanent = Column(Boolean, default=False)
@@ -63,7 +70,27 @@ class RefreshToken(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+class EmailSettings(Base):
+    __tablename__ = "email_settings"
+    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
+    alert_critical = Column(Boolean, default=True)
+    alert_high = Column(Boolean, default=True)
+    alert_medium = Column(Boolean, default=False)
+    ip_blocked = Column(Boolean, default=True)
+    system_health = Column(Boolean, default=True)
+    report_weekly = Column(Boolean, default=False)
+
+class GeoCache(Base):
+    __tablename__ = "geo_cache"
+    ip = Column(String(45), primary_key=True)
+    latitude = Column(Float)
+    longitude = Column(Float)
+    country = Column(String(100))
+    city = Column(String(100))
+    isp = Column(String(255))
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
 # Engine
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "shard_webui.db")
+DB_PATH = os.path.join(os.path.dirname(__file__), "..", "shard.db")
 engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
