@@ -1,114 +1,69 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, JSON, ForeignKey, Text, create_engine
+from sqlalchemy.orm import relationship, declarative_base, sessionmaker
 from datetime import datetime
-from enum import Enum
+import secrets, os
 
+Base = declarative_base()
 
-class SeverityLevel(str, Enum):
-    CRITICAL = "CRITICAL"
-    HIGH = "HIGH"
-    MEDIUM = "MEDIUM"
-    LOW = "LOW"
+class Company(Base):
+    __tablename__ = "companies"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), unique=True, nullable=False)
+    ip_ranges = Column(JSON, default=list)
+    api_key = Column(String(64), unique=True, default=lambda: secrets.token_hex(32))
+    is_active = Column(Boolean, default=True)
+    max_alerts_per_day = Column(Integer, default=10000)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    users = relationship("User", back_populates="company")
+    alerts = relationship("Alert", back_populates="company")
 
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True)
+    username = Column(String(50), unique=True, nullable=False)
+    email = Column(String(255))
+    first_name = Column(String(100))
+    last_name = Column(String(100))
+    hashed_password = Column(String(255), nullable=False)
+    role = Column(String(20), default="viewer")
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_login = Column(DateTime)
+    company = relationship("Company", back_populates="users")
 
-class AlertType(str, Enum):
-    DDOS = "DDoS"
-    SQL_INJECTION = "SQL Injection"
-    XSS = "XSS"
-    BRUTE_FORCE = "Brute Force"
-    PORT_SCAN = "Port Scan"
-    MALWARE = "Malware"
-    PHISHING = "Phishing"
-    RANSOMWARE = "Ransomware"
-    DATA_EXFILTRATION = "Data Exfiltration"
-    UNAUTHORIZED_ACCESS = "Unauthorized Access"
+class Alert(Base):
+    """Совместимо с SHARD: src_ip, dst_ip, dst_port"""
+    __tablename__ = "alerts"
+    id = Column(Integer, primary_key=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    attack_type = Column(String(50), nullable=False)
+    severity = Column(String(20), nullable=False)
+    src_ip = Column(String(45), nullable=False)
+    dst_ip = Column(String(45))
+    dst_port = Column(Integer)
+    score = Column(Float, default=0.0)
+    confidence = Column(Float, default=0.0)
+    explanation = Column(Text)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
+    company = relationship("Company", back_populates="alerts")
 
+class BlockedIP(Base):
+    __tablename__ = "blocked_ips"
+    id = Column(Integer, primary_key=True)
+    ip_address = Column(String(45), nullable=False)
+    reason = Column(Text)
+    blocked_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime)
+    is_permanent = Column(Boolean, default=False)
 
-class UserRole(str, Enum):
-    ADMIN = "admin"
-    VIEWER = "viewer"
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+    id = Column(Integer, primary_key=True)
+    token = Column(String(500), unique=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
-
-class User(BaseModel):
-    id: str
-    username: str
-    role: UserRole
-    hashed_password: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    last_login: Optional[datetime] = None
-
-
-class Alert(BaseModel):
-    id: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
-    alert_type: AlertType
-    severity: SeverityLevel
-    source_ip: str
-    destination_ip: str
-    destination_port: Optional[int] = None
-    protocol: Optional[str] = None
-    description: str
-    raw_payload: Optional[str] = None
-    packet_count: Optional[int] = None
-    bytes_transferred: Optional[int] = None
-    duration: Optional[float] = None
-    is_blocked: bool = False
-    blocked_at: Optional[datetime] = None
-    threat_score: float = Field(ge=0, le=100)
-
-
-class BlockedIP(BaseModel):
-    id: str
-    ip_address: str
-    reason: str
-    blocked_at: datetime = Field(default_factory=datetime.utcnow)
-    blocked_by: str
-    alert_ids: List[str] = []
-    expires_at: Optional[datetime] = None
-    is_permanent: bool = False
-
-
-class SystemMetrics(BaseModel):
-    cpu_percent: float
-    memory_percent: float
-    disk_percent: float
-    network_bytes_sent: int
-    network_bytes_recv: int
-    uptime_seconds: int
-    process_count: int
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
-
-
-class SearchQuery(BaseModel):
-    query: Optional[str] = None
-    alert_type: Optional[AlertType] = None
-    severity: Optional[SeverityLevel] = None
-    source_ip: Optional[str] = None
-    destination_ip: Optional[str] = None
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
-    page: int = Field(default=1, ge=1)
-    page_size: int = Field(default=50, ge=1, le=100)
-    sort_by: str = "timestamp"
-    sort_order: str = "desc"
-
-
-class TokenResponse(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
-    expires_in: int
-    user: Dict[str, Any]
-
-
-class StatsResponse(BaseModel):
-    total_packets: int
-    total_alerts: int
-    total_blocked: int
-    active_threats: int
-    alerts_by_type: Dict[str, int]
-    alerts_by_hour: Dict[str, int]
-    alerts_by_day: Dict[str, int]
-    top_attackers: List[Dict[str, Any]]
-    top_targets: List[Dict[str, Any]]
-    severity_distribution: Dict[str, int]
+# Engine
+DB_PATH = os.path.join(os.path.dirname(__file__), "..", "shard_webui.db")
+engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

@@ -1,0 +1,131 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHARD - Attack Map</title>
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        #map { height: calc(100vh - 140px); border-radius: 12px; border: 1px solid var(--border); }
+        .map-container { position: relative; }
+        .map-legend { position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.9); border: 1px solid var(--border); border-radius: 10px; padding: 14px; z-index: 1000; font-size: 12px; }
+        .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+        .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+        .attack-popup { color: #000; font-size: 12px; }
+        .attack-popup h4 { margin: 0 0 6px; }
+        .attack-popup p { margin: 2px 0; }
+        .stats-bar { display: flex; gap: 12px; margin-bottom: 16px; }
+        .stat-chip { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; display: flex; align-items: center; gap: 8px; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <svg class="nav-logo" viewBox="0 0 40 40" width="40" height="40"><polygon points="20,2 38,12 38,28 20,38 2,28 2,12" fill="none" stroke="#00d4ff" stroke-width="2"/><text x="20" y="24" text-anchor="middle" fill="#00d4ff" font-size="16" font-weight="bold">S</text></svg>
+            <div><div class="nav-title">SHARD Enterprise</div><div class="nav-subtitle">SIEM v5.2.0</div></div>
+        </div>
+        <div class="nav-links">
+            <a href="/" class="nav-link">Dashboard</a>
+            <a href="/alerts.html" class="nav-link">Alerts</a>
+            <a href="/blocked.html" class="nav-link">Blocked IPs</a>
+            <a href="/map.html" class="nav-link active">Attack Map</a>
+            <a href="/profile.html" class="nav-link">Profile</a>
+            <a href="/settings.html" class="nav-link" id="settingsLink" style="display:none">Settings</a>
+        </div>
+        <div class="nav-actions"><span id="usernameDisplay" class="username"></span><button onclick="logout()" class="logout-btn">Sign Out</button></div>
+    </nav>
+    <main class="main-content">
+        <div class="page-header">
+            <h1>🌍 Global Attack Map</h1>
+            <div class="stats-bar">
+                <div class="stat-chip">🔴 <strong>CRITICAL</strong> <span id="countCritical">0</span></div>
+                <div class="stat-chip">🟠 <strong>HIGH</strong> <span id="countHigh">0</span></div>
+                <div class="stat-chip">🟡 <strong>MEDIUM</strong> <span id="countMedium">0</span></div>
+                <div class="stat-chip">🟢 <strong>LOW</strong> <span id="countLow">0</span></div>
+            </div>
+        </div>
+        <div class="map-container">
+            <div id="map"></div>
+            <div class="map-legend">
+                <div class="legend-item"><div class="legend-dot" style="background:#ff4757;box-shadow:0 0 10px #ff4757"></div> CRITICAL</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#ffa502"></div> HIGH</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#ffd700"></div> MEDIUM</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#2ed573"></div> LOW</div>
+            </div>
+        </div>
+    </main>
+    <div id="toastContainer" class="toast-container"></div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const token = localStorage.getItem('access_token');
+        if(!token) location.href='/login.html';
+        const user = JSON.parse(localStorage.getItem('user')||'{}');
+        document.getElementById('usernameDisplay').textContent = user.username;
+        if(user.role==='admin') document.getElementById('settingsLink').style.display='inline-block';
+
+        const H = () => ({'Authorization':'Bearer '+token});
+
+        const map = L.map('map').setView([20, 0], 2);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap &copy; CartoDB',
+            subdomains: 'abcd',
+            maxZoom: 19
+        }).addTo(map);
+
+        const severityColors = {
+            'CRITICAL': '#ff4757',
+            'HIGH': '#ffa502',
+            'MEDIUM': '#ffd700',
+            'LOW': '#2ed573'
+        };
+
+        async function loadAttacks() {
+            const r = await fetch('/api/map/attacks', {headers: H()});
+            const data = await r.json();
+            
+            map.eachLayer(layer => {
+                if(layer instanceof L.CircleMarker) map.removeLayer(layer);
+            });
+
+            const counts = {CRITICAL:0, HIGH:0, MEDIUM:0, LOW:0};
+            
+            data.attacks.forEach(a => {
+                counts[a.severity] = (counts[a.severity]||0) + 1;
+                const color = severityColors[a.severity] || '#00d4ff';
+                const size = a.severity === 'CRITICAL' ? 8 : a.severity === 'HIGH' ? 6 : 4;
+                
+                L.circleMarker([a.lat, a.lon], {
+                    radius: size,
+                    fillColor: color,
+                    color: '#fff',
+                    weight: 1,
+                    fillOpacity: 0.8
+                })
+                .bindPopup(`
+                    <div class="attack-popup">
+                        <h4>${a.severity}: ${a.alert_type}</h4>
+                        <p><strong>IP:</strong> ${a.ip}</p>
+                        <p><strong>Location:</strong> ${a.city}, ${a.country}</p>
+                        <p><strong>Score:</strong> ${a.threat_score.toFixed(0)}/100</p>
+                        <p><strong>Time:</strong> ${new Date(a.timestamp).toLocaleString()}</p>
+                    </div>
+                `)
+                .addTo(map);
+            });
+
+            document.getElementById('countCritical').textContent = counts.CRITICAL;
+            document.getElementById('countHigh').textContent = counts.HIGH;
+            document.getElementById('countMedium').textContent = counts.MEDIUM;
+            document.getElementById('countLow').textContent = counts.LOW;
+        }
+
+        function logout(){localStorage.clear();location.href='/login.html';}
+
+        loadAttacks();
+        setInterval(loadAttacks, 15000);
+    </script>
+</body>
+</html>
+

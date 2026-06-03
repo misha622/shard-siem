@@ -1,0 +1,78 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHARD - Alerts</title>
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <svg class="nav-logo" viewBox="0 0 40 40" width="40" height="40"><polygon points="20,2 38,12 38,28 20,38 2,28 2,12" fill="none" stroke="#00d4ff" stroke-width="2"/><text x="20" y="24" text-anchor="middle" fill="#00d4ff" font-size="16" font-weight="bold">S</text></svg>
+            <div><div class="nav-title">SHARD Enterprise</div><div class="nav-subtitle">SIEM v5.2.0</div></div>
+        </div>
+        <div class="nav-links">
+            <a href="/" class="nav-link">Dashboard</a>
+            <a href="/alerts.html" class="nav-link active">Alerts</a>
+            <a href="/blocked.html" class="nav-link">Blocked IPs</a>
+            <a href="/profile.html" class="nav-link">Profile</a><a href="/settings.html" class="nav-link" id="settingsLink" style="display:none">Settings</a>
+        </div>
+        <div class="nav-actions"><span id="usernameDisplay" class="username"></span><button onclick="logout()" class="logout-btn">Sign Out</button></div>
+    </nav>
+    <main class="main-content">
+        <div class="page-header"><h1>Security Alerts</h1><div><button onclick="exportCSV()" class="export-btn">CSV</button><button onclick="exportExcel()" class="export-btn">Excel</button></div></div>
+        <div class="card filter-card">
+            <div class="filters-grid">
+                <div class="filter-group"><label>Search</label><input type="text" id="searchInput" class="filter-input" placeholder="IP or description..."></div>
+                <div class="filter-group"><label>Type</label><select id="alertTypeFilter" class="filter-select"><option value="">All</option><option>DDoS</option><option>SQL Injection</option><option>XSS</option><option>Brute Force</option><option>Port Scan</option><option>Malware</option><option>Phishing</option><option>Ransomware</option></select></div>
+                <div class="filter-group"><label>Severity</label><select id="severityFilter" class="filter-select"><option value="">All</option><option>CRITICAL</option><option>HIGH</option><option>MEDIUM</option><option>LOW</option></select></div>
+                <div class="filter-group"><label>Source IP</label><input type="text" id="sourceIPFilter" class="filter-input"></div>
+            </div>
+            <div class="filter-actions"><button onclick="loadAlerts()" class="apply-filters-btn">Apply</button><button onclick="resetFilters()" class="reset-filters-btn">Reset</button></div>
+        </div>
+        <div class="card">
+            <div class="table-container"><table class="alerts-table"><thead><tr><th>Time</th><th>Type</th><th>Severity</th><th>Source</th><th>Target</th><th>Port</th><th>Description</th><th>Score</th><th>Status</th><th>Action</th></tr></thead><tbody id="alertsTableBody"></tbody></table></div>
+            <div class="pagination"><button id="prevPage" class="page-btn" disabled>Prev</button><span class="page-info">Page <span id="currentPage">1</span>/<span id="totalPages">1</span></span><button id="nextPage" class="page-btn" disabled>Next</button></div>
+        </div>
+    </main>
+    <div id="toastContainer" class="toast-container"></div>
+    <script src="js/utils.js"></script>
+    <script>
+        const API='/api';const token=localStorage.getItem('access_token');if(!token)location.href='/login.html';
+        const user=JSON.parse(localStorage.getItem('user')||'{}');document.getElementById('usernameDisplay').textContent=user.username||'';
+        if(user.role==='admin')document.getElementById('settingsLink').style.display='inline-block';
+        const H=()=>({'Authorization':'Bearer '+token,'Content-Type':'application/json'});
+        let page=1,totalPages=1;
+        async function loadAlerts(){
+            const p={page:page,page_size:50};
+            const s=document.getElementById('searchInput').value.trim();if(s)p.search=s;
+            const t=document.getElementById('alertTypeFilter').value;if(t)p.alert_type=t;
+            const se=document.getElementById('severityFilter').value;if(se)p.severity=se;
+            const si=document.getElementById('sourceIPFilter').value.trim();if(si)p.source_ip=si;
+            const q=new URLSearchParams(p).toString();
+            const r=await fetch(API+'/alerts/?'+q,{headers:H()});const d=await r.json();
+            totalPages=d.total_pages;
+            document.getElementById('currentPage').textContent=page;
+            document.getElementById('totalPages').textContent=totalPages;
+            document.getElementById('prevPage').disabled=page<=1;
+            document.getElementById('nextPage').disabled=page>=totalPages;
+            document.getElementById('alertsTableBody').innerHTML=d.alerts.map(a=>`<tr class="severity-${a.severity.toLowerCase()}"><td>${new Date(a.timestamp).toLocaleString()}</td><td><span class="alert-type-badge">${a.alert_type}</span></td><td><span class="severity-badge severity-${a.severity.toLowerCase()}">${a.severity}</span></td><td>${a.source_ip}</td><td>${a.destination_ip}</td><td>-</td><td>${a.description.substring(0,60)}</td><td>${a.threat_score.toFixed(0)}</td><td>${a.is_blocked?'<span class="blocked-badge">Blocked</span>':'<span class="active-badge">Active</span>'}</td><td>${a.is_blocked?'-':`<button onclick="blockIP('${a.id}')" class="block-btn">Block</button>`}</td></tr>`).join('');
+        }
+        async function blockIP(id){await fetch(API+'/alerts/'+id+'/block',{method:'POST',headers:H()});toast('Blocked','success');loadAlerts();}
+        function resetFilters(){['searchInput','alertTypeFilter','severityFilter','sourceIPFilter'].forEach(id=>document.getElementById(id).value='');page=1;loadAlerts();}
+        document.getElementById('prevPage').onclick=()=>{if(page>1){page--;loadAlerts();}};
+        document.getElementById('nextPage').onclick=()=>{if(page<totalPages){page++;loadAlerts();}};
+        async function exportCSV(){const r=await fetch(API+'/alerts/export/csv',{headers:H()});const b=await r.blob();downloadBlob(b,'alerts.csv');}
+        async function exportExcel(){const r=await fetch(API+'/alerts/export/excel',{headers:H()});const b=await r.blob();downloadBlob(b,'alerts.xlsx');}
+        function toast(m,t){const c=document.getElementById('toastContainer');const e=document.createElement('div');e.className='toast toast-'+t;e.innerHTML='<span>'+m+'</span>';c.appendChild(e);setTimeout(()=>e.classList.add('show'),10);setTimeout(()=>{e.classList.remove('show');setTimeout(()=>e.remove(),300);},5000);}
+        function logout(){localStorage.clear();location.href='/login.html';}
+        let st;document.getElementById('searchInput').oninput=()=>{clearTimeout(st);st=setTimeout(()=>{page=1;loadAlerts();},300);};
+        loadAlerts();
+    </script>
+</body>
+</html>
+
+
+
