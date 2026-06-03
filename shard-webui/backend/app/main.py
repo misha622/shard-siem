@@ -15,7 +15,7 @@ from app.config import settings
 from app.middleware import setup_middleware
 from app.logging_config import setup_logging, CorrelationIdFilter
 from app.eventbus import eventbus
-from app.routers import (
+from app.routers import company_router,  (
     auth_router,
     alerts_router,
     blocked_router,
@@ -138,3 +138,4 @@ if __name__ == "__main__":
         reload=settings.DEBUG,
         log_level="info"
     )
+app.include_router(company_router.router)
