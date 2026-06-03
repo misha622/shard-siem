@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHARD Login</title>
+    <link rel="icon" href="assets/favicon.svg">
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{background:#000;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:Segoe UI,sans-serif}
+        .card{background:#0d0d0d;border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:40px;width:400px}
+        h1{color:#00d4ff;text-align:center;margin-bottom:4px;font-size:24px}
+        .ver{color:rgba(255,255,255,.3);text-align:center;font-size:12px;margin-bottom:24px}
+        input{width:100%;padding:12px;margin-bottom:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;color:#fff;font-size:16px}
+        input:focus{outline:none;border-color:#00d4ff}
+        button{width:100%;padding:14px;background:#00d4ff;border:none;border-radius:10px;color:#000;font-size:16px;font-weight:bold;cursor:pointer}
+        .err{color:#ff4757;text-align:center;margin-bottom:12px;display:none}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>SHARD Enterprise</h1>
+        <div class="ver">SIEM v5.2.0</div>
+        <div class="err" id="err"></div>
+        <input id="u" placeholder="Username" value="admin">
+        <input id="p" type="password" placeholder="Password" value="admin123">
+        <button onclick="login()">Sign In</button>
+        <p style="text-align:center;margin-top:16px;font-size:13px;color:rgba(255,255,255,.3)">No account? <a href="/register.html" style="color:#00d4ff">Create one</a></p>
+    </div>
+<script>
+async function login(){
+    const e=document.getElementById('err');e.style.display='none';
+    try{
+        const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:document.getElementById('u').value,password:document.getElementById('p').value})});
+        const d=await r.json();
+        if(!r.ok) throw new Error(d.detail||'Login failed');
+        localStorage.setItem('access_token',d.access_token);
+        localStorage.setItem('refresh_token',d.refresh_token);
+        localStorage.setItem('user',JSON.stringify(d.user));
+        window.location.href='/dashboard.html';
+    }catch(x){e.textContent=x.message;e.style.display='block';}
+}
+</script>
+</body>
+</html>

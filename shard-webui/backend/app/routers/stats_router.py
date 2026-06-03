@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
-from database import get_stats
-from auth import get_current_user
+from app.database import get_stats
+from app.auth import get_current_user
 import psutil, logging
 from datetime import datetime
 

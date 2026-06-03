@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from typing import List, Optional
-from database import SessionLocal, get_companies, get_company_by_id
-from models import Company, User, Alert
-from auth import get_current_user
+from app.database import SessionLocal, get_companies, get_company_by_id
+from app.models import Company, User, Alert
+from app.auth import get_current_user
 from sqlalchemy import func
 import logging
 

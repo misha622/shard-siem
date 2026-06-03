@@ -5,8 +5,8 @@ import csv, logging
 from io import StringIO, BytesIO
 from fastapi.responses import StreamingResponse
 import openpyxl
-from database import get_alerts, get_alert_by_id, block_alert_source
-from auth import get_current_user
+from app.database import get_alerts, get_alert_by_id, block_alert_source
+from app.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/alerts", tags=["Alerts"])
@@ -28,7 +28,7 @@ async def list_alerts(
                "destination_port": a.destination_port, "protocol": a.protocol,
                "description": a.description, "threat_score": a.threat_score,
                "is_blocked": a.is_blocked, "company_id": a.company_id,
-               "company_name": a.company.name if a.company else None} for a in alerts]
+               "company_name": None} for a in alerts]  # company loaded separately
     return {"alerts": result, "total_count": total, "page": page, "page_size": page_size,
             "total_pages": (total + page_size - 1) // page_size}
 

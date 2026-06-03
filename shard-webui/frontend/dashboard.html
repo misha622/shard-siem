@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHARD Dashboard</title>
+    <link rel="icon" href="assets/favicon.svg">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <svg class="nav-logo" viewBox="0 0 40 40" width="40" height="40"><polygon points="20,2 38,12 38,28 20,38 2,28 2,12" fill="none" stroke="#00d4ff" stroke-width="2"/><text x="20" y="24" text-anchor="middle" fill="#00d4ff" font-size="16" font-weight="bold">S</text></svg>
+            <div><div class="nav-title">SHARD Enterprise</div><div class="nav-subtitle">SIEM v5.2.0</div></div>
+        </div>
+        <div class="nav-links">
+            <a href="/dashboard.html" class="nav-link active">Dashboard</a>
+            <a href="/alerts.html" class="nav-link">Alerts</a>
+            <a href="/blocked.html" class="nav-link">Blocked IPs</a>
+            <a href="/profile.html" class="nav-link">Profile</a>
+            <a href="/settings.html" class="nav-link" id="settingsLink" style="display:none">Settings</a>
+        </div>
+        <div class="nav-actions"><span id="usernameDisplay" class="username"></span><button onclick="logout()" class="logout-btn">Sign Out</button></div>
+    </nav>
+    <main class="main-content">
+        <div class="kpi-grid">
+            <div class="card kpi-card"><div class="kpi-icon" style="background:rgba(0,212,255,0.1)">📦</div><div class="kpi-info"><div class="kpi-label">Packets</div><div class="kpi-value" id="kpiPackets">-</div></div></div>
+            <div class="card kpi-card"><div class="kpi-icon" style="background:rgba(255,71,87,0.1)">🚨</div><div class="kpi-info"><div class="kpi-label">Alerts</div><div class="kpi-value" id="kpiAlerts">-</div></div></div>
+            <div class="card kpi-card"><div class="kpi-icon" style="background:rgba(255,165,2,0.1)">🚫</div><div class="kpi-info"><div class="kpi-label">Blocked</div><div class="kpi-value" id="kpiBlocked">-</div></div></div>
+            <div class="card kpi-card"><div class="kpi-icon" style="background:rgba(46,213,115,0.1)">⚠️</div><div class="kpi-info"><div class="kpi-label">Threats</div><div class="kpi-value" id="kpiThreats">-</div></div></div>
+        </div>
+        <div class="charts-grid">
+            <div class="card"><h3 class="card-title">Attack Types</h3><div id="attackTypesChart" style="height:350px"></div></div>
+            <div class="card"><h3 class="card-title">Alerts (24h)</h3><div id="alertsTimelineChart" style="height:350px"></div></div>
+        </div>
+        <div class="charts-grid">
+            <div class="card"><h3 class="card-title">Top Attackers</h3><div id="topAttackersChart" style="height:350px"></div></div>
+            <div class="card"><h3 class="card-title">Top Targets</h3><div id="topTargetsChart" style="height:350px"></div></div>
+        </div>
+        <div class="charts-grid">
+            <div class="card">
+                <h3 class="card-title">System</h3>
+                <div class="system-metrics">
+                    <div class="metric-item"><div class="metric-header"><span>CPU</span><span id="cpuValue">-</span></div><div class="progress-bar"><div class="progress-fill cpu-fill" id="cpuBar" style="width:0%"></div></div></div>
+                    <div class="metric-item"><div class="metric-header"><span>RAM</span><span id="ramValue">-</span></div><div class="progress-bar"><div class="progress-fill ram-fill" id="ramBar" style="width:0%"></div></div></div>
+                    <div class="metric-item"><div class="metric-header"><span>Disk</span><span id="diskValue">-</span></div><div class="progress-bar"><div class="progress-fill disk-fill" id="diskBar" style="width:0%"></div></div></div>
+                </div>
+            </div>
+            <div class="card">
+                <h3 class="card-title">Recent Alerts</h3>
+                <div class="table-container"><table class="alerts-table"><thead><tr><th>Time</th><th>Type</th><th>Severity</th><th>Source</th><th>Target</th><th>Action</th></tr></thead><tbody id="alertsTableBody"></tbody></table></div>
+            </div>
+        </div>
+    </main>
+<script>
+const T=localStorage.getItem('access_token');if(!T)location.href='/login-v2.html';
+const H={Authorization:'Bearer '+T,'Content-Type':'application/json'};
+const user=JSON.parse(localStorage.getItem('user')||'{}');
+document.getElementById('usernameDisplay').textContent=user.username||'User';
+if(user.role==='admin')document.getElementById('settingsLink').style.display='inline-block';
+
+async function get(u){const r=await fetch('/api'+u,{headers:H});if(r.status===401){localStorage.clear();location.href='/login-v2.html';}return r.json();}
+
+async function load(){
+    const s=await get('/stats/dashboard');
+    document.getElementById('kpiPackets').textContent=s.total_packets||0;
+    document.getElementById('kpiAlerts').textContent=s.total_alerts||0;
+    document.getElementById('kpiBlocked').textContent=s.total_blocked||0;
+    document.getElementById('kpiThreats').textContent=s.active_threats||0;
+    
+    const types=Object.entries(s.alerts_by_type||{});
+    Plotly.react('attackTypesChart',[{values:types.map(t=>t[1]),labels:types.map(t=>t[0]),type:'pie',hole:.4,marker:{colors:['#00d4ff','#ff4757','#ffa502','#2ed573','#a29bfe','#fd79a8']}}],{paper_bgcolor:'transparent',plot_bgcolor:'transparent',font:{color:'#fff'},margin:{t:10}});
+    
+    const hours=Array.from({length:24},(_,i)=>`${String(i).padStart(2,'0')}:00`);
+    const hData=s.alerts_by_hour||{};
+    Plotly.react('alertsTimelineChart',[{x:hours,y:hours.map(h=>hData[h]||0),type:'scatter',mode:'lines+markers',line:{color:'#00d4ff',width:2},fill:'tozeroy',fillcolor:'rgba(0,212,255,0.1)'}],{paper_bgcolor:'transparent',plot_bgcolor:'transparent',font:{color:'#fff'},margin:{t:10}});
+    
+    const ta=s.top_attackers||[];
+    Plotly.react('topAttackersChart',[{y:ta.map(a=>a.ip).reverse(),x:ta.map(a=>a.count).reverse(),type:'bar',orientation:'h',marker:{color:'#ff4757'}}],{paper_bgcolor:'transparent',plot_bgcolor:'transparent',font:{color:'#fff'},margin:{t:10,l:150}});
+    
+    const tt=s.top_targets||[];
+    Plotly.react('topTargetsChart',[{y:tt.map(a=>a.ip).reverse(),x:tt.map(a=>a.count).reverse(),type:'bar',orientation:'h',marker:{color:'#00d4ff'}}],{paper_bgcolor:'transparent',plot_bgcolor:'transparent',font:{color:'#fff'},margin:{t:10,l:150}});
+    
+    const m=await get('/stats/system');
+    document.getElementById('cpuValue').textContent=(m.cpu_percent||0).toFixed(1)+'%';
+    document.getElementById('cpuBar').style.width=(m.cpu_percent||0)+'%';
+    document.getElementById('ramValue').textContent=(m.memory_percent||0).toFixed(1)+'%';
+    document.getElementById('ramBar').style.width=(m.memory_percent||0)+'%';
+    document.getElementById('diskValue').textContent=(m.disk_percent||0).toFixed(1)+'%';
+    document.getElementById('diskBar').style.width=(m.disk_percent||0)+'%';
+    
+    const a=await get('/alerts/?page_size=10');
+    document.getElementById('alertsTableBody').innerHTML=(a.alerts||[]).map(a=>`<tr class="severity-${(a.severity||'').toLowerCase()}"><td>${new Date(a.timestamp).toLocaleTimeString()}</td><td><span class="alert-type-badge">${a.alert_type}</span></td><td><span class="severity-badge severity-${(a.severity||'').toLowerCase()}">${a.severity}</span></td><td>${a.source_ip}</td><td>${a.destination_ip}</td><td>${a.is_blocked?'<span class="blocked-badge">Blocked</span>':`<button onclick="blockIP('${a.id}')" class="block-btn">Block</button>`}</td></tr>`).join('');
+}
+
+async function blockIP(id){await fetch('/api/alerts/'+id+'/block',{method:'POST',headers:H});load();}
+
+function logout(){localStorage.clear();location.href='/login-v2.html';}
+
+load();setInterval(load,5000);
+</script>
+</body>
+</html>

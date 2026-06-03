@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHARD - Profile</title>
+    <link rel="icon" href="assets/favicon.svg">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <svg class="nav-logo" viewBox="0 0 40 40" width="40" height="40"><polygon points="20,2 38,12 38,28 20,38 2,28 2,12" fill="none" stroke="#00d4ff" stroke-width="2"/><text x="20" y="24" text-anchor="middle" fill="#00d4ff" font-size="16" font-weight="bold">S</text></svg>
+            <div><div class="nav-title">SHARD Enterprise</div><div class="nav-subtitle">SIEM v5.2.0</div></div>
+        </div>
+        <div class="nav-links">
+            <a href="/index.html" class="nav-link">Dashboard</a>
+            <a href="/alerts.html" class="nav-link">Alerts</a>
+            <a href="/blocked.html" class="nav-link">Blocked IPs</a>
+            <a href="/map.html" class="nav-link">Map</a><a href="/profile.html" class="nav-link active">Profile</a>
+            <a href="/settings.html" class="nav-link" id="settingsLink" style="display:none">Settings</a>
+        </div>
+        <div class="nav-actions"><span id="usernameDisplay" class="username"></span><button onclick="logout()" class="logout-btn">Sign Out</button></div>
+    </nav>
+    <main class="main-content">
+        <div style="display:flex;align-items:center;gap:24px;margin-bottom:24px;padding:24px;background:var(--bg-card);border:1px solid var(--border);border-radius:16px">
+            <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#00d4ff,#09c);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:700;color:#000" id="avatarLetter">A</div>
+            <div>
+                <span id="roleBadge" style="padding:4px 12px;border-radius:12px;font-size:11px;font-weight:600;background:rgba(255,71,87,.2);color:#ff4757">ADMIN</span>
+                <h1 style="font-size:24px;margin:4px 0" id="profileName">Admin</h1>
+                <p style="color:var(--text-secondary);font-size:13px" id="profileEmail">admin@shard.local</p>
+            </div>
+        </div>
+        <div class="charts-grid">
+            <div class="card">
+                <h3 class="card-title">Personal Information</h3>
+                <div style="margin-bottom:12px"><label style="font-size:11px;color:var(--text-secondary);text-transform:uppercase">Username</label><input id="profUsername" readonly style="width:100%;padding:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;color:#fff;margin-top:4px"></div>
+                <div style="margin-bottom:12px"><label style="font-size:11px;color:var(--text-secondary);text-transform:uppercase">Email</label><input id="profEmail" style="width:100%;padding:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;color:#fff;margin-top:4px"></div>
+                <div style="margin-bottom:12px"><label style="font-size:11px;color:var(--text-secondary);text-transform:uppercase">First Name</label><input id="profFirstName" style="width:100%;padding:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;color:#fff;margin-top:4px"></div>
+                <button onclick="alert('Saved!')" style="padding:10px 20px;background:#00d4ff;border:none;border-radius:8px;color:#000;font-weight:600;cursor:pointer;margin-top:8px">💾 Save</button>
+            </div>
+            <div class="card">
+                <h3 class="card-title">Change Password</h3>
+                <div style="margin-bottom:12px"><label style="font-size:11px;color:var(--text-secondary);text-transform:uppercase">Current</label><input type="password" id="oldPass" style="width:100%;padding:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;color:#fff;margin-top:4px"></div>
+                <div style="margin-bottom:12px"><label style="font-size:11px;color:var(--text-secondary);text-transform:uppercase">New</label><input type="password" id="newPass" style="width:100%;padding:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;color:#fff;margin-top:4px"></div>
+                <button onclick="changePass()" style="padding:10px 20px;background:#00d4ff;border:none;border-radius:8px;color:#000;font-weight:600;cursor:pointer;margin-top:8px">🔒 Update Password</button>
+            </div>
+        </div>
+    </main>
+<script>
+const T=localStorage.getItem('access_token');if(!T)location.href='/login.html';
+const H={Authorization:'Bearer '+T,'Content-Type':'application/json'};
+const user=JSON.parse(localStorage.getItem('user')||'{}');
+document.getElementById('usernameDisplay').textContent=user.username||'User';
+document.getElementById('profileName').textContent=user.username||'Admin';
+document.getElementById('avatarLetter').textContent=(user.username||'A')[0].toUpperCase();
+document.getElementById('profUsername').value=user.username||'';
+if(user.role==='admin'){document.getElementById('settingsLink').style.display='inline-block';document.getElementById('roleBadge').textContent='ADMIN';document.getElementById('roleBadge').style.cssText='padding:4px 12px;border-radius:12px;font-size:11px;font-weight:600;background:rgba(255,71,87,.2);color:#ff4757';}
+
+fetch('/api/auth/me',{headers:H}).then(r=>r.json()).then(d=>{
+    document.getElementById('profEmail').value=d.email||'';
+    document.getElementById('profFirstName').value=d.first_name||'';
+    document.getElementById('profileEmail').textContent=d.email||'';
+});
+
+async function changePass(){
+    const o=document.getElementById('oldPass').value,n=document.getElementById('newPass').value;
+    if(!o||!n)return alert('Fill all fields');
+    const r=await fetch('/api/auth/change-password',{method:'POST',headers:H,body:JSON.stringify({old_password:o,new_password:n})});
+    const d=await r.json();
+    alert(d.message||d.detail||'Done');
+}
+function logout(){localStorage.clear();location.href='/login.html';}
+</script>
+</body>
+</html>

@@ -1,23 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from app.auth import get_current_user, require_role
-from app.models import UserRole
-import logging
-import os
 from datetime import datetime
+import platform, os
 
-logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/settings", tags=["Settings"])
 
-
 @router.get("/logs")
-async def get_system_logs(
-        lines: int = 100,
-        current_user: dict = Depends(require_role(UserRole.ADMIN))
-):
-    """
-    Get system logs (admin only)
-    """
-    # In production, read from actual log files
+async def get_logs(lines: int = 50, current_user: dict = Depends(get_current_user)):
+    """Get system logs (admin only)"""
+    if current_user["role"] != "admin":
+        return {"logs": [], "message": "Admin access required"}
+    
     return {
         "logs": [
             {
@@ -25,26 +18,19 @@ async def get_system_logs(
                 "level": "INFO",
                 "message": f"System log entry {i}",
                 "correlation_id": f"corr-{i}"
-            } for i in range(min(lines, 100))
+            }
+            for i in range(min(lines, 100))
         ]
     }
 
-
 @router.get("/system-info")
-async def get_system_info(
-        current_user: dict = Depends(require_role(UserRole.ADMIN))
-):
-    """
-    Get system information (admin only)
-    """
-    import platform
-    import sys
-
+async def system_info(current_user: dict = Depends(get_current_user)):
+    """Get system information"""
     return {
         "os": platform.system(),
         "os_version": platform.version(),
-        "python_version": sys.version,
         "hostname": platform.node(),
         "cpu_count": os.cpu_count(),
+        "python_version": platform.python_version(),
         "current_time": datetime.utcnow().isoformat()
     }

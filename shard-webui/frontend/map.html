@@ -2,9 +2,11 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SHARD - Blocked IPs</title>
+    <title>SHARD - Attack Map</title>
     <link rel="icon" href="assets/favicon.svg">
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>#map{height:calc(100vh - 140px);border-radius:12px;border:1px solid var(--border)}</style>
 </head>
 <body>
     <nav class="navbar">
@@ -15,24 +17,15 @@
         <div class="nav-links">
             <a href="index.html" class="nav-link">Dashboard</a>
             <a href="alerts.html" class="nav-link">Alerts</a>
-            <a href="blocked.html" class="nav-link active">Blocked IPs</a>
-            <a href="map.html" class="nav-link">Map</a>
+            <a href="blocked.html" class="nav-link">Blocked IPs</a>
+            <a href="map.html" class="nav-link active">Map</a>
             <a href="profile.html" class="nav-link">Profile</a>
             <a href="settings.html" class="nav-link" id="settingsLink" style="display:none">Settings</a>
         </div>
         <div class="nav-actions"><span id="usernameDisplay" class="username"></span><button onclick="logout()" class="logout-btn">Sign Out</button></div>
     </nav>
-    <main class="main-content">
-        <div class="page-header"><h1>🚫 Blocked IPs</h1></div>
-        <div class="card">
-            <div class="table-container">
-                <table class="alerts-table">
-                    <thead><tr><th>IP Address</th><th>Reason</th><th>Blocked At</th><th>By</th><th>Expires</th><th>Action</th></tr></thead>
-                    <tbody id="blockedTableBody"><tr><td colspan="6">Loading...</td></tr></tbody>
-                </table>
-            </div>
-        </div>
-    </main>
+    <main class="main-content"><div id="map"></div></main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const T=localStorage.getItem('access_token');if(!T)location.href='/login.html';
 const H={Authorization:'Bearer '+T};
@@ -40,15 +33,23 @@ const user=JSON.parse(localStorage.getItem('user')||'{}');
 document.getElementById('usernameDisplay').textContent=user.username||'User';
 if(user.role==='admin')document.getElementById('settingsLink').style.display='inline-block';
 
+const map=L.map('map').setView([20,0],2);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map);
+const colors={CRITICAL:'#ff4757',HIGH:'#ffa502',MEDIUM:'#ffd700',LOW:'#2ed573'};
+
 async function load(){
-    const r=await fetch('/api/blocked/',{headers:H});
-    if(!r.ok)return;
-    const data=await r.json();
-    document.getElementById('blockedTableBody').innerHTML=data.map(b=>`<tr><td><span style="color:#ff4757;font-family:monospace">🚫 ${b.ip_address}</span></td><td>${b.reason}</td><td>${new Date(b.blocked_at).toLocaleString()}</td><td>${b.blocked_by}</td><td>${b.expires_at?new Date(b.expires_at).toLocaleString():'Never'}</td><td>${user.role==='admin'?`<button onclick="unblock('${b.id}')" class="unblock-btn">Unblock</button>`:'-'}</td></tr>`).join('');
+    const r=await fetch('/api/alerts/?page_size=100',{headers:H});
+    const d=await r.json();
+    map.eachLayer(l=>{if(l instanceof L.CircleMarker)map.removeLayer(l);});
+    (d.alerts||[]).forEach(a=>{
+        if(a.source_lat&&a.source_lon){
+            L.circleMarker([a.source_lat,a.source_lon],{radius:6,fillColor:colors[a.severity]||'#00d4ff',color:'#fff',weight:1,fillOpacity:.8})
+            .bindPopup(`<b>${a.severity}: ${a.alert_type}</b><br>IP: ${a.source_ip}<br>${a.source_city||''}, ${a.source_country||''}<br>Score: ${a.threat_score}`).addTo(map);
+        }
+    });
 }
-async function unblock(id){await fetch('/api/blocked/unblock/'+id,{method:'DELETE',headers:H});load();}
 function logout(){localStorage.clear();location.href='/login.html';}
-load();
+load();setInterval(load,15000);
 </script>
 </body>
 </html>

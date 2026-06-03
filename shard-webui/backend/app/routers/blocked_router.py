@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from database import get_blocked_ips, block_ip, unblock_ip
-from auth import get_current_user
+from app.database import get_blocked_ips, block_ip, unblock_ip
+from app.auth import get_current_user
 
 router = APIRouter(prefix="/api/blocked", tags=["Blocked IPs"])
 

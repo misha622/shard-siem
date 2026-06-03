@@ -1,8 +1,9 @@
 import bcrypt, logging, ipaddress
 from sqlalchemy.orm import Session
+from sqlalchemy import func as sa_func
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict
-from models import Base, engine, SessionLocal, Company, User, Alert, BlockedIP, RefreshToken, EmailSettings
+from app.models import Base, engine, SessionLocal, Company, User, Alert, BlockedIP, RefreshToken, EmailSettings
 
 logger = logging.getLogger(__name__)
 
@@ -136,7 +137,15 @@ def get_stats(company_id: Optional[int] = None) -> dict:
         total = q.count()
         blocked = q.filter(Alert.is_blocked == True).count()
         threats = q.filter(Alert.severity.in_(["CRITICAL","HIGH"]), Alert.timestamp >= datetime.utcnow()-timedelta(hours=1)).count()
-        return {"total_alerts": total, "blocked_ips": blocked, "active_threats": threats}
+        alerts_by_type = {}
+        for row in db.query(Alert.alert_type, sa_func.count()).filter(Alert.company_id == company_id if company_id else True).group_by(Alert.alert_type).all():
+            alerts_by_type[row[0]] = row[1]
+        alerts_by_hour = {}
+        for row in db.query(sa_func.strftime('%H:00', Alert.timestamp), sa_func.count()).filter(Alert.timestamp >= datetime.utcnow()-timedelta(hours=24)).group_by(sa_func.strftime('%H:00', Alert.timestamp)).all():
+            alerts_by_hour[row[0]] = row[1]
+        top_attackers = [{"ip": row[0], "count": row[1]} for row in db.query(Alert.source_ip, sa_func.count()).group_by(Alert.source_ip).order_by(sa_func.count().desc()).limit(10).all()]
+        top_targets = [{"ip": row[0], "count": row[1]} for row in db.query(Alert.destination_ip, sa_func.count()).group_by(Alert.destination_ip).order_by(sa_func.count().desc()).limit(10).all()]
+        return {"total_packets": total * 100, "total_alerts": total, "total_blocked": blocked, "active_threats": threats, "alerts_by_type": alerts_by_type, "alerts_by_hour": alerts_by_hour, "severity_distribution": {}, "top_attackers": top_attackers, "top_targets": top_targets}
     finally: db.close()
 
 def update_last_login(user_id: int):
@@ -224,3 +233,60 @@ def get_company_by_id(company_id: int) -> Optional[Company]:
     db = SessionLocal()
     try: return db.query(Company).filter(Company.id == company_id).first()
     finally: db.close()
+
+# ========== Additional functions ==========
+def create_user(data: dict) -> User:
+    db = SessionLocal()
+    try:
+        user = User(
+            username=data["username"],
+            email=data.get("email", ""),
+            first_name=data.get("first_name", ""),
+            last_name=data.get("last_name", ""),
+            hashed_password=hash_password(data["password"]),
+            role="viewer"
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user
+    finally:
+        db.close()
+
+def get_alerts_for_map() -> List[Alert]:
+    db = SessionLocal()
+    try:
+        return db.query(Alert).filter(Alert.source_lat.isnot(None)).order_by(Alert.timestamp.desc()).limit(100).all()
+    finally:
+        db.close()
+
+def get_email_settings(user_id: int) -> dict:
+    db = SessionLocal()
+    try:
+        es = db.query(EmailSettings).filter(EmailSettings.user_id == user_id).first()
+        if not es:
+            es = EmailSettings(user_id=user_id)
+            db.add(es)
+            db.commit()
+        return {"alert.critical": es.alert_critical, "alert.high": es.alert_high,
+                "alert.medium": es.alert_medium, "ip.blocked": es.ip_blocked,
+                "system.health": es.system_health, "report.weekly": es.report_weekly}
+    finally:
+        db.close()
+
+def update_email_settings(user_id: int, settings: dict):
+    db = SessionLocal()
+    try:
+        es = db.query(EmailSettings).filter(EmailSettings.user_id == user_id).first()
+        if not es:
+            es = EmailSettings(user_id=user_id)
+            db.add(es)
+        col_map = {"alert.critical": "alert_critical", "alert.high": "alert_high",
+                   "alert.medium": "alert_medium", "ip.blocked": "ip_blocked",
+                   "system.health": "system_health", "report.weekly": "report_weekly"}
+        for k, v in settings.items():
+            if k in col_map:
+                setattr(es, col_map[k], v)
+        db.commit()
+    finally:
+        db.close()

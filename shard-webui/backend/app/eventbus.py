@@ -1,6 +1,6 @@
 import asyncio, logging, random
 from datetime import datetime
-from database import add_alert, match_alert_to_company
+from app.database import add_alert, match_alert_to_company
 
 logger = logging.getLogger(__name__)
 

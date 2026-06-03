@@ -1,3 +1,9 @@
+import enum
+
+class UserRole(str, enum.Enum):
+    ADMIN = "admin"
+    VIEWER = "viewer"
+
 from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, JSON, ForeignKey, Text, create_engine
 from sqlalchemy.orm import relationship, declarative_base, sessionmaker
 from datetime import datetime

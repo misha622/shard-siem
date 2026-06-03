@@ -2,10 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from typing import Optional
 import logging
-from database import (get_user_by_username, get_user_by_id, create_user, update_last_login,
-                      change_password, verify_password, add_refresh_token, get_user_by_refresh_token,
-                      revoke_refresh_token)
-from auth import create_access_token, create_refresh_token, decode_token, get_current_user
+from sqlalchemy.orm import joinedload
+from app.database import (get_user_by_username, get_user_by_id, create_user, update_last_login,
+                          change_password, verify_password, add_refresh_token, get_user_by_refresh_token,
+                          revoke_refresh_token, SessionLocal)
+from app.models import User
+from app.auth import create_access_token, create_refresh_token, decode_token, get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
@@ -23,20 +25,31 @@ class ChangePasswordRequest(BaseModel):
 
 @router.post("/login")
 async def login(request: LoginRequest):
-    user = get_user_by_username(request.username)
-    if not user or not verify_password(request.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    update_last_login(user.id)
-    token_data = {"sub": user.id, "role": user.role}
-    if user.company_id: token_data["company_id"] = user.company_id
-    access_token = create_access_token(data=token_data)
-    refresh_token = create_refresh_token(data=token_data)
-    add_refresh_token(refresh_token, user.id)
-    return {
-        "access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer",
-        "user": {"id": user.id, "username": user.username, "role": user.role,
-                 "company_id": user.company_id, "company_name": user.company.name if user.company else None}
-    }
+    db = SessionLocal()
+    try:
+        user = db.query(User).options(joinedload(User.company)).filter(User.username == request.username).first()
+        if not user or not verify_password(request.password, user.hashed_password):
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+        
+        update_last_login(user.id)
+        token_data = {"sub": str(user.id), "role": user.role}
+        if user.company_id: token_data["company_id"] = user.company_id
+        
+        access_token = create_access_token(data=token_data)
+        refresh_token = create_refresh_token(data=token_data)
+        add_refresh_token(refresh_token, user.id)
+        
+        return {
+            "access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer",
+            "expires_in": 86400,
+            "user": {
+                "id": user.id, "username": user.username, "role": user.role,
+                "company_id": user.company_id,
+                "company_name": user.company.name if user.company else None
+            }
+        }
+    finally:
+        db.close()
 
 @router.post("/refresh")
 async def refresh(request: TokenRefresh):
@@ -46,26 +59,54 @@ async def refresh(request: TokenRefresh):
     user_id = payload.get("sub")
     stored = get_user_by_refresh_token(request.refresh_token)
     if stored != user_id: raise HTTPException(status_code=401, detail="Token revoked")
-    user = get_user_by_id(user_id)
-    if not user: raise HTTPException(status_code=401, detail="User not found")
-    revoke_refresh_token(request.refresh_token)
-    token_data = {"sub": user.id, "role": user.role}
-    if user.company_id: token_data["company_id"] = user.company_id
-    new_access = create_access_token(data=token_data)
-    new_refresh = create_refresh_token(data=token_data)
-    add_refresh_token(new_refresh, user.id)
-    return {"access_token": new_access, "refresh_token": new_refresh, "token_type": "bearer"}
+    
+    db = SessionLocal()
+    try:
+        user = db.query(User).options(joinedload(User.company)).filter(User.id == user_id).first()
+        if not user: raise HTTPException(status_code=401, detail="User not found")
+        revoke_refresh_token(request.refresh_token)
+        token_data = {"sub": str(user.id), "role": user.role}
+        if user.company_id: token_data["company_id"] = user.company_id
+        new_access = create_access_token(data=token_data)
+        new_refresh = create_refresh_token(data=token_data)
+        add_refresh_token(new_refresh, user.id)
+        return {
+            "access_token": new_access, "refresh_token": new_refresh, "token_type": "bearer",
+            "expires_in": 86400,
+            "user": {
+                "id": user.id, "username": user.username, "role": user.role,
+                "company_id": user.company_id,
+                "company_name": user.company.name if user.company else None
+            }
+        }
+    finally:
+        db.close()
 
 @router.get("/me")
 async def me(current_user: dict = Depends(get_current_user)):
-    user = get_user_by_id(current_user["id"])
-    return {"id": user.id, "username": user.username, "role": user.role,
-            "company_id": user.company_id, "company_name": user.company.name if user.company else None}
+    db = SessionLocal()
+    try:
+        user = db.query(User).options(joinedload(User.company)).filter(User.id == current_user["id"]).first()
+        return {
+            "id": user.id, "username": user.username, "role": user.role,
+            "company_id": user.company_id,
+            "company_name": user.company.name if user.company else None
+        }
+    finally:
+        db.close()
 
 @router.post("/change-password")
 async def change_pwd(request: ChangePasswordRequest, current_user: dict = Depends(get_current_user)):
-    user = get_user_by_id(current_user["id"])
-    if not verify_password(request.old_password, user.hashed_password):
-        raise HTTPException(status_code=400, detail="Current password is incorrect")
-    change_password(user.id, request.new_password)
-    return {"message": "Password changed"}
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == current_user["id"]).first()
+        if not verify_password(request.old_password, user.hashed_password):
+            raise HTTPException(status_code=400, detail="Current password is incorrect")
+        change_password(user.id, request.new_password)
+        return {"message": "Password changed"}
+    finally:
+        db.close()
+
+@router.post("/logout")
+async def logout():
+    return {"message": "Logged out"}
