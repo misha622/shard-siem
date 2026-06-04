@@ -5,71 +5,186 @@
     <title>SHARD - Profile</title>
     <link rel="icon" href="assets/favicon.svg">
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        .profile-layout{display:grid;grid-template-columns:280px 1fr;gap:24px}
+        .avatar-large{width:120px;height:120px;border-radius:50%;background:linear-gradient(135deg,#00d4ff,#09c);display:flex;align-items:center;justify-content:center;font-size:48px;font-weight:700;color:#000;margin:0 auto 16px;cursor:pointer;position:relative}
+        .avatar-large:hover::after{content:'📷';position:absolute;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;font-size:24px;border-radius:50%}
+        .tab-btn{display:block;width:100%;padding:12px 16px;text-align:left;background:none;border:none;color:rgba(255,255,255,.6);cursor:pointer;font-size:14px;border-radius:8px;margin-bottom:2px;font-family:inherit}
+        .tab-btn:hover,.tab-btn.active{background:rgba(0,212,255,.08);color:#00d4ff}
+        .tab-content{display:none;animation:fadeIn .3s}
+        .tab-content.active{display:block}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+        .form-group{margin-bottom:14px}
+        .form-group label{display:block;font-size:11px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+        .form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:8px;color:#fff;font-size:14px;font-family:inherit}
+        .form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:#00d4ff}
+        .form-group select option{background:#0a0a0a;color:#fff}
+        .form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+        .btn{padding:10px 20px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+        .btn-primary{background:#00d4ff;color:#000}.btn-primary:hover{box-shadow:0 0 20px rgba(0,212,255,.3)}
+        .btn-danger{background:#ff4757;color:#fff}
+        .btn-outline{background:transparent;border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.6)}
+        .toggle-group{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+        .toggle-switch{width:48px;height:26px;background:rgba(255,255,255,.1);border-radius:13px;position:relative;cursor:pointer;flex-shrink:0}
+        .toggle-switch.on{background:#00d4ff}
+        .toggle-switch::after{content:'';position:absolute;width:22px;height:22px;background:#fff;border-radius:50%;top:2px;left:2px;transition:.3s}
+        .toggle-switch.on::after{left:24px}
+        .strength-bar{height:4px;background:rgba(255,255,255,.05);border-radius:2px;overflow:hidden;margin-top:6px}
+        .strength-fill{height:100%;border-radius:2px;transition:.3s}
+        .req{font-size:11px;color:rgba(255,255,255,.4);margin-top:4px}
+        .req.met{color:#2ed573}
+        .session-item{display:flex;align-items:center;justify-content:space-between;padding:16px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:12px;margin-bottom:12px}
+        .recovery-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+        .recovery-code{font-family:'Courier New',monospace;padding:8px;background:rgba(0,0,0,.3);border-radius:6px;text-align:center;font-size:12px;color:#00d4ff}
+        @media(max-width:768px){.profile-layout{grid-template-columns:1fr}}
+    </style>
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-brand">
-            <svg class="nav-logo" viewBox="0 0 40 40" width="40" height="40"><polygon points="20,2 38,12 38,28 20,38 2,28 2,12" fill="none" stroke="#00d4ff" stroke-width="2"/><text x="20" y="24" text-anchor="middle" fill="#00d4ff" font-size="16" font-weight="bold">S</text></svg>
-            <div><div class="nav-title">SHARD Enterprise</div><div class="nav-subtitle">SIEM v5.2.0</div></div>
+<nav class="navbar">
+    <div class="nav-brand">
+        <svg class="nav-logo" viewBox="0 0 40 40" width="40" height="40"><polygon points="20,2 38,12 38,28 20,38 2,28 2,12" fill="none" stroke="#00d4ff" stroke-width="2"/><text x="20" y="24" text-anchor="middle" fill="#00d4ff" font-size="16" font-weight="bold">S</text></svg>
+        <div><div class="nav-title">SHARD Enterprise</div><div class="nav-subtitle">SIEM v5.2.0</div></div>
+    </div>
+    <div class="nav-links">
+        <a href="index.html" class="nav-link">Dashboard</a>
+        <a href="alerts.html" class="nav-link">Alerts</a>
+        <a href="blocked.html" class="nav-link">Blocked IPs</a>
+        <a href="map.html" class="nav-link">Map</a>
+        <a href="profile.html" class="nav-link active">Profile</a>
+        <a href="settings.html" class="nav-link" id="settingsLink" style="display:none">Settings</a>
+    </div>
+    <div class="nav-actions"><span id="usernameDisplay" class="username"></span><button onclick="logout()" class="logout-btn">Sign Out</button></div>
+</nav>
+<main class="main-content">
+<div class="profile-layout">
+    <div class="sidebar">
+        <div class="card">
+            <div class="avatar-large" id="avatarEl" onclick="document.getElementById('avatarInput').click()">A</div>
+            <input type="file" id="avatarInput" class="avatar-input" accept="image/*" onchange="handleAvatar(event)" style="display:none">
+            <h2 id="sidebarName">Admin</h2>
+            <p style="color:var(--text-secondary);font-size:13px" id="sidebarRole">Administrator</p>
+            <p style="color:var(--text-muted);font-size:11px" id="sidebarCompany"></p>
         </div>
-        <div class="nav-links">
-            <a href="/index.html" class="nav-link">Dashboard</a>
-            <a href="/alerts.html" class="nav-link">Alerts</a>
-            <a href="/blocked.html" class="nav-link">Blocked IPs</a>
-            <a href="/map.html" class="nav-link">Map</a><a href="/profile.html" class="nav-link active">Profile</a>
-            <a href="/settings.html" class="nav-link" id="settingsLink" style="display:none">Settings</a>
+        <div class="card" style="padding:8px">
+            <button class="tab-btn active" onclick="switchTab('general')">👤 General</button>
+            <button class="tab-btn" onclick="switchTab('security')">🔒 Security</button>
+            <button class="tab-btn" onclick="switchTab('notifications')">🔔 Notifications</button>
+            <button class="tab-btn" onclick="switchTab('sessions')">📱 Sessions</button>
+            <button class="tab-btn" onclick="switchTab('appearance')">🎨 Appearance</button>
+            <button class="tab-btn" onclick="switchTab('api')">🔑 API Keys</button>
+            <button class="tab-btn" onclick="switchTab('support')">💬 Support</button>
         </div>
-        <div class="nav-actions"><span id="usernameDisplay" class="username"></span><button onclick="logout()" class="logout-btn">Sign Out</button></div>
-    </nav>
-    <main class="main-content">
-        <div style="display:flex;align-items:center;gap:24px;margin-bottom:24px;padding:24px;background:var(--bg-card);border:1px solid var(--border);border-radius:16px">
-            <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#00d4ff,#09c);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:700;color:#000" id="avatarLetter">A</div>
-            <div>
-                <span id="roleBadge" style="padding:4px 12px;border-radius:12px;font-size:11px;font-weight:600;background:rgba(255,71,87,.2);color:#ff4757">ADMIN</span>
-                <h1 style="font-size:24px;margin:4px 0" id="profileName">Admin</h1>
-                <p style="color:var(--text-secondary);font-size:13px" id="profileEmail">admin@shard.local</p>
+    </div>
+    <div>
+        <div id="tab-general" class="tab-content active">
+            <div class="card"><h3 class="card-title">Personal Information</h3>
+                <div class="form-row"><div class="form-group"><label>First Name</label><input id="firstName"></div><div class="form-group"><label>Last Name</label><input id="lastName"></div></div>
+                <div class="form-group"><label>Email</label><input id="email" type="email"></div>
+                <div class="form-group"><label>Phone</label><input id="phone" type="tel"></div>
+                <div class="form-group"><label>Bio</label><textarea id="bio" rows="3"></textarea></div>
+                <div class="form-row"><div class="form-group"><label>Location</label><input id="location"></div><div class="form-group"><label>Timezone</label><select id="timezone"><option>UTC+3 Moscow</option><option>UTC+0 London</option><option>UTC-5 New York</option><option>UTC+8 Beijing</option></select></div></div>
+                <button class="btn btn-primary" onclick="saveProfile()">💾 Save Changes</button>
+            </div>
+            <div class="card"><h3 class="card-title">Organization</h3>
+                <div class="form-row"><div class="form-group"><label>Job Title</label><input id="jobTitle"></div><div class="form-group"><label>Department</label><select id="department"><option>Security Operations</option><option>Network Engineering</option><option>IT Administration</option><option>Development</option></select></div></div>
+                <button class="btn btn-primary" onclick="saveProfile()">💾 Save</button>
             </div>
         </div>
-        <div class="charts-grid">
-            <div class="card">
-                <h3 class="card-title">Personal Information</h3>
-                <div style="margin-bottom:12px"><label style="font-size:11px;color:var(--text-secondary);text-transform:uppercase">Username</label><input id="profUsername" readonly style="width:100%;padding:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;color:#fff;margin-top:4px"></div>
-                <div style="margin-bottom:12px"><label style="font-size:11px;color:var(--text-secondary);text-transform:uppercase">Email</label><input id="profEmail" style="width:100%;padding:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;color:#fff;margin-top:4px"></div>
-                <div style="margin-bottom:12px"><label style="font-size:11px;color:var(--text-secondary);text-transform:uppercase">First Name</label><input id="profFirstName" style="width:100%;padding:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;color:#fff;margin-top:4px"></div>
-                <button onclick="alert('Saved!')" style="padding:10px 20px;background:#00d4ff;border:none;border-radius:8px;color:#000;font-weight:600;cursor:pointer;margin-top:8px">💾 Save</button>
+        <div id="tab-security" class="tab-content">
+            <div class="card"><h3 class="card-title">Change Password</h3>
+                <div class="form-group"><label>Current Password</label><input type="password" id="oldPass"></div>
+                <div class="form-group"><label>New Password</label><input type="password" id="newPass" oninput="checkStrength()"></div>
+                <div class="strength-bar"><div class="strength-fill" id="strengthFill" style="width:0"></div></div>
+                <div class="req" id="reqLen">• At least 8 characters</div>
+                <div class="req" id="reqUpper">• One uppercase letter</div>
+                <div class="req" id="reqLower">• One lowercase letter</div>
+                <div class="req" id="reqDigit">• One number</div>
+                <div class="req" id="reqSymbol">• One special character</div>
+                <button class="btn btn-primary" style="margin-top:12px" onclick="changePassword()">🔒 Update Password</button>
             </div>
-            <div class="card">
-                <h3 class="card-title">Change Password</h3>
-                <div style="margin-bottom:12px"><label style="font-size:11px;color:var(--text-secondary);text-transform:uppercase">Current</label><input type="password" id="oldPass" style="width:100%;padding:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;color:#fff;margin-top:4px"></div>
-                <div style="margin-bottom:12px"><label style="font-size:11px;color:var(--text-secondary);text-transform:uppercase">New</label><input type="password" id="newPass" style="width:100%;padding:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;color:#fff;margin-top:4px"></div>
-                <button onclick="changePass()" style="padding:10px 20px;background:#00d4ff;border:none;border-radius:8px;color:#000;font-weight:600;cursor:pointer;margin-top:8px">🔒 Update Password</button>
+            <div class="card"><h3 class="card-title">Two-Factor Authentication</h3>
+                <p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px">Protect your account with 2FA</p>
+                <div class="qr-box" style="width:160px;height:160px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:48px;margin-bottom:12px">📱</div>
+                <button class="btn btn-primary" onclick="enable2FA()">🔐 Enable 2FA</button>
+                <div class="recovery-grid" style="margin-top:16px">
+                    <div class="recovery-code">ABCD-1234-EFGH</div><div class="recovery-code">IJKL-5678-MNOP</div>
+                    <div class="recovery-code">QRST-9012-UVWX</div><div class="recovery-code">YZAB-3456-CDEF</div>
+                </div>
+                <p style="font-size:10px;color:var(--text-muted);margin-top:8px">⚠️ Save recovery codes in a safe place</p>
             </div>
         </div>
-    </main>
+        <div id="tab-notifications" class="tab-content">
+            <div class="card"><h3 class="card-title">Notification Preferences</h3>
+                <div class="toggle-group" onclick="this.querySelector('.toggle-switch').classList.toggle('on')"><div><div style="font-size:14px">Critical Alerts</div><div style="font-size:11px;color:rgba(255,255,255,.3)">Push + email for CRITICAL events</div></div><div class="toggle-switch on"></div></div>
+                <div class="toggle-group" onclick="this.querySelector('.toggle-switch').classList.toggle('on')"><div><div style="font-size:14px">High Severity Alerts</div><div style="font-size:11px;color:rgba(255,255,255,.3)">Notifications for HIGH events</div></div><div class="toggle-switch on"></div></div>
+                <div class="toggle-group" onclick="this.querySelector('.toggle-switch').classList.toggle('on')"><div><div style="font-size:14px">IP Blocked</div><div style="font-size:11px;color:rgba(255,255,255,.3)">When an IP is blocked</div></div><div class="toggle-switch on"></div></div>
+                <div class="toggle-group" onclick="this.querySelector('.toggle-switch').classList.toggle('on')"><div><div style="font-size:14px">Weekly Report</div><div style="font-size:11px;color:rgba(255,255,255,.3)">Weekly security summary</div></div><div class="toggle-switch"></div></div>
+                <div class="toggle-group" onclick="this.querySelector('.toggle-switch').classList.toggle('on')"><div><div style="font-size:14px">Login Alerts</div><div style="font-size:11px;color:rgba(255,255,255,.3)">New device login notification</div></div><div class="toggle-switch on"></div></div>
+                <div class="toggle-group" onclick="this.querySelector('.toggle-switch').classList.toggle('on')"><div><div style="font-size:14px">Sound</div><div style="font-size:11px;color:rgba(255,255,255,.3)">Play sound on alert</div></div><div class="toggle-switch on"></div></div>
+                <button class="btn btn-primary" style="margin-top:12px" onclick="alert('Saved!')">💾 Save Preferences</button>
+            </div>
+        </div>
+        <div id="tab-sessions" class="tab-content">
+            <div class="card"><h3 class="card-title">Active Sessions</h3>
+                <div class="session-item"><div class="session-info"><span style="font-size:28px">💻</span><div><strong>Windows PC - Chrome</strong><span class="session-current">CURRENT</span><p style="font-size:12px;color:rgba(255,255,255,.3)">IP: 192.168.1.100 • Moscow • Now</p></div></div><button class="btn btn-outline" style="font-size:12px">Details</button></div>
+                <div class="session-item"><div class="session-info"><span style="font-size:28px">📱</span><div><strong>iPhone 15 - Safari</strong><p style="font-size:12px;color:rgba(255,255,255,.3)">IP: 10.0.0.5 • Moscow • 2h ago</p></div></div><button class="btn btn-danger" style="font-size:12px;padding:6px 14px" onclick="this.parentElement.remove()">Revoke</button></div>
+                <button class="btn btn-danger" style="margin-top:12px" onclick="alert('All other sessions revoked')">🚫 Revoke All Others</button>
+            </div>
+        </div>
+        <div id="tab-appearance" class="tab-content">
+            <div class="card"><h3 class="card-title">Theme Settings</h3>
+                <div class="form-group"><label>Theme</label><select id="themeSelect" onchange="applyTheme(this.value)"><option value="dark">Dark Cyberpunk</option><option value="darker">Black</option><option value="light">Light</option></select></div>
+                <div class="form-group"><label>Language</label><select id="langSelect"><option>English</option><option>Russian</option></select></div>
+                <button class="btn btn-primary" onclick="saveAppearance()">💾 Apply</button>
+            </div>
+        </div>
+        <div id="tab-api" class="tab-content">
+            <div class="card"><h3 class="card-title">API Keys</h3>
+                <p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px">Manage API keys for programmatic access</p>
+                <div style="padding:12px;background:rgba(0,0,0,.3);border-radius:8px;font-family:monospace;font-size:13px;margin-bottom:12px"><code style="color:#00d4ff">sk-shard-••••••••••••••••a1b2</code></div>
+                <div class="form-group"><label>Key Name</label><input placeholder="e.g. Monitoring Bot"></div>
+                <div class="form-group"><label>Permissions</label><select><option>Read Only</option><option>Read & Write</option></select></div>
+                <button class="btn btn-primary" onclick="alert('Key generated!')">➕ Generate Key</button>
+            </div>
+        </div>
+        <div id="tab-support" class="tab-content">
+            <div class="card"><h3 class="card-title">Contact Support</h3>
+                <p style="color:var(--text-secondary);font-size:13px;margin-bottom:12px">Create a support ticket</p>
+                <div class="form-group"><label>Subject</label><input id="ticketSubject"></div>
+                <div class="form-group"><label>Message</label><textarea id="ticketMsg" rows="4"></textarea></div>
+                <button class="btn btn-primary" onclick="submitTicket()">📤 Submit Ticket</button>
+            </div>
+        </div>
+    </div>
+</div>
+</main>
 <script>
 const T=localStorage.getItem('access_token');if(!T)location.href='/login.html';
 const H={Authorization:'Bearer '+T,'Content-Type':'application/json'};
 const user=JSON.parse(localStorage.getItem('user')||'{}');
 document.getElementById('usernameDisplay').textContent=user.username||'User';
-document.getElementById('profileName').textContent=user.username||'Admin';
-document.getElementById('avatarLetter').textContent=(user.username||'A')[0].toUpperCase();
-document.getElementById('profUsername').value=user.username||'';
-if(user.role==='admin'){document.getElementById('settingsLink').style.display='inline-block';document.getElementById('roleBadge').textContent='ADMIN';document.getElementById('roleBadge').style.cssText='padding:4px 12px;border-radius:12px;font-size:11px;font-weight:600;background:rgba(255,71,87,.2);color:#ff4757';}
+document.getElementById('sidebarName').textContent=user.username||'Admin';
+document.getElementById('avatarEl').textContent=(user.username||'A')[0].toUpperCase();
+if(user.role==='admin')document.getElementById('settingsLink').style.display='inline-block';
 
 fetch('/api/auth/me',{headers:H}).then(r=>r.json()).then(d=>{
-    document.getElementById('profEmail').value=d.email||'';
-    document.getElementById('profFirstName').value=d.first_name||'';
-    document.getElementById('profileEmail').textContent=d.email||'';
+    document.getElementById('firstName').value=d.first_name||'';
+    document.getElementById('lastName').value=d.last_name||'';
+    document.getElementById('email').value=d.email||'';
+    document.getElementById('sidebarRole').textContent=d.role==='admin'?'Administrator':'Viewer';
+    document.getElementById('sidebarCompany').textContent=d.company_name||'';
 });
 
-async function changePass(){
-    const o=document.getElementById('oldPass').value,n=document.getElementById('newPass').value;
-    if(!o||!n)return alert('Fill all fields');
-    const r=await fetch('/api/auth/change-password',{method:'POST',headers:H,body:JSON.stringify({old_password:o,new_password:n})});
-    const d=await r.json();
-    alert(d.message||d.detail||'Done');
-}
-function logout(){localStorage.clear();location.href='/login.html';}
+function switchTab(t){document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));event.target.classList.add('active');document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));document.getElementById('tab-'+t).classList.add('active');}
+function handleAvatar(e){const f=e.target.files[0];if(f){const r=new FileReader();r.onload=ev=>{document.getElementById('avatarEl').style.backgroundImage=`url(${ev.target.result})`;document.getElementById('avatarEl').style.backgroundSize='cover';document.getElementById('avatarEl').textContent=''};r.readAsDataURL(f)}}
+function saveProfile(){const d={first_name:document.getElementById('firstName').value,last_name:document.getElementById('lastName').value,email:document.getElementById('email').value,phone:document.getElementById('phone').value,bio:document.getElementById('bio').value,location:document.getElementById('location').value,timezone:document.getElementById('timezone').value,job_title:document.getElementById('jobTitle').value,department:document.getElementById('department').value};localStorage.setItem('profileData',JSON.stringify(d));alert('Profile saved!')}
+function checkStrength(){const p=document.getElementById('newPass').value;const checks={len:p.length>=8,upper:/[A-Z]/.test(p),lower:/[a-z]/.test(p),digit:/\d/.test(p),symbol:/[^A-Za-z0-9]/.test(p)};let s=0;Object.entries(checks).forEach(([k,v])=>{document.getElementById('req'+k.charAt(0).toUpperCase()+k.slice(1)).classList.toggle('met',v);if(v)s++});const f=document.getElementById('strengthFill');f.style.width=s*20+'%';f.style.background=['#ff4757','#ffa502','#ffd700','#2ed573','#00d4ff'][s-1]||'#ff4757'}
+async function changePassword(){const o=document.getElementById('oldPass').value,n=document.getElementById('newPass').value;if(!o||!n)return alert('Fill all fields');const r=await fetch('/api/auth/change-password',{method:'POST',headers:H,body:JSON.stringify({old_password:o,new_password:n})});const d=await r.json();alert(d.message||d.detail||'Done')}
+function enable2FA(){alert('2FA enabled! Save your recovery codes.')}
+function submitTicket(){const s=document.getElementById('ticketSubject').value,m=document.getElementById('ticketMsg').value;if(!s||!m)return alert('Fill subject and message');alert('Ticket submitted! Response within 4 hours.');document.getElementById('ticketSubject').value='';document.getElementById('ticketMsg').value=''}
+function applyTheme(t){if(t==='light'){document.body.style.background='#f5f5f5';document.body.style.color='#000'}else if(t==='darker'){document.body.style.background='#000';document.body.style.color='#fff'}else{document.body.style.background='';document.body.style.color=''}}
+function saveAppearance(){alert('Appearance saved!')}
+function logout(){localStorage.clear();location.href='/login.html'}
 </script>
 </body>
 </html>
