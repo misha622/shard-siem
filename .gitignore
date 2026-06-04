@@ -78,3 +78,5 @@ pylint_report.json
 .vscode/
 .idea/
 main
+*.zip
+*.tar.gz
