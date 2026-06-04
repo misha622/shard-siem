@@ -15,6 +15,7 @@ router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 class LoginRequest(BaseModel):
     username: str
     password: str
+    tenant_slug: str = 'default'
 
 class TokenRefresh(BaseModel):
     refresh_token: str
@@ -22,6 +23,24 @@ class TokenRefresh(BaseModel):
 class ChangePasswordRequest(BaseModel):
     old_password: str
     new_password: str = Field(..., min_length=8)
+
+
+from pydantic import BaseModel as PydanticBaseModel, Field
+
+class RegisterRequest(PydanticBaseModel):
+    username: str = Field(..., min_length=4)
+    password: str = Field(..., min_length=8)
+    email: str = ""
+    first_name: str = ""
+    last_name: str = ""
+
+@router.post("/register", status_code=201)
+async def register(request: RegisterRequest):
+    if get_user_by_username(request.username):
+        raise HTTPException(status_code=400, detail="Username already taken")
+    create_user(request.model_dump())
+    return {"message": "Account created"}
+
 
 @router.post("/login")
 async def login(request: LoginRequest):
@@ -32,7 +51,7 @@ async def login(request: LoginRequest):
             raise HTTPException(status_code=401, detail="Invalid credentials")
         
         update_last_login(user.id)
-        token_data = {"sub": str(user.id), "role": user.role}
+        token_data = {"sub": str(user.id), "role": user.role, "tenant_slug": request.tenant_slug}
         if user.company_id: token_data["company_id"] = user.company_id
         
         access_token = create_access_token(data=token_data)
@@ -65,7 +84,7 @@ async def refresh(request: TokenRefresh):
         user = db.query(User).options(joinedload(User.company)).filter(User.id == user_id).first()
         if not user: raise HTTPException(status_code=401, detail="User not found")
         revoke_refresh_token(request.refresh_token)
-        token_data = {"sub": str(user.id), "role": user.role}
+        token_data = {"sub": str(user.id), "role": user.role, "tenant_slug": request.tenant_slug}
         if user.company_id: token_data["company_id"] = user.company_id
         new_access = create_access_token(data=token_data)
         new_refresh = create_refresh_token(data=token_data)

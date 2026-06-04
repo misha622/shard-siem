@@ -1,43 +1,35 @@
 from pydantic_settings import BaseSettings
+from pydantic import field_validator
 from typing import List
-import os
-
 
 class Settings(BaseSettings):
-    # Application
     APP_NAME: str = "SHARD Enterprise SIEM"
     APP_VERSION: str = "5.2.0"
-    DEBUG: bool = False
-
-    # Security
-    SECRET_KEY: str = "your-super-secret-key-change-in-production-min-32-chars!!"
+    SECRET_KEY: str
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
-
-    # CORS
-    ALLOWED_ORIGINS: List[str] = ["*"]
-    TRUSTED_HOSTS: List[str] = ["*"]
-
-    # Rate Limiting
+    HOST: str = "0.0.0.0"
+    PORT: int = 5000
+    ALLOWED_ORIGINS: List[str] = []
     RATE_LIMIT: str = "100/minute"
     LOGIN_RATE_LIMIT: str = "5/minute"
-
-    # Database (in-memory for demo, replace with real DB)
-    DATABASE_URL: str = "sqlite:///./shard.db"
-
-    # SHARD EventBus
-    EVENTBUS_HOST: str = "localhost"
-    EVENTBUS_PORT: int = 9090
-    EVENTBUS_ENABLED: bool = True
-
-    # Admin credentials (only for initial setup, change immediately)
     ADMIN_USERNAME: str = "admin"
-    ADMIN_PASSWORD: str = "admin123"  # Will be hashed on first run
+    ADMIN_PASSWORD: str
+
+    @field_validator("ALLOWED_ORIGINS", mode="before")
+    @classmethod
+    def parse_origins(cls, v, info):
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            if not v.strip():
+                port = info.data.get("PORT", 5000) if info.data else 5000
+                return [f"http://localhost:{port}"]
+            return [o.strip() for o in v.split(",") if o.strip()]
+        return [f"http://localhost:{info.data.get('PORT', 5000) if info.data else 5000}"]
 
     class Config:
         env_file = ".env"
-        env_file_encoding = "utf-8"
-
 
 settings = Settings()

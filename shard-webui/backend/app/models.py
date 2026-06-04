@@ -23,6 +23,7 @@ class Company(Base):
     users = relationship("User", back_populates="company")
     alerts = relationship("Alert", back_populates="company")
 
+
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True)
@@ -85,6 +86,7 @@ class EmailSettings(Base):
     ip_blocked = Column(Boolean, default=True)
     system_health = Column(Boolean, default=True)
     report_weekly = Column(Boolean, default=False)
+
 
 class GeoCache(Base):
     __tablename__ = "geo_cache"

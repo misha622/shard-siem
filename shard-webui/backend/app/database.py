@@ -1,6 +1,7 @@
-import bcrypt, logging, ipaddress
+import bcrypt, logging, ipaddress, os
+from app.config import settings
 from sqlalchemy.orm import Session
-from sqlalchemy import func as sa_func
+from sqlalchemy import func as sa_func, asc, desc
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict
 from app.models import Base, engine, SessionLocal, Company, User, Alert, BlockedIP, RefreshToken, EmailSettings
@@ -30,9 +31,9 @@ def init_db():
             hq = db.query(Company).filter_by(name="Headquarters").first()
             ba = db.query(Company).filter_by(name="Branch Office A").first()
             users = [
-                User(username="admin", email="admin@shard.local", hashed_password=hash_password("admin123"), role="admin", first_name="Admin"),
-                User(username="viewer", email="viewer@shard.local", hashed_password=hash_password("viewer123"), role="viewer", company_id=hq.id, first_name="HQ Viewer"),
-                User(username="branch_user", email="branch@shard.local", hashed_password=hash_password("branch123"), role="viewer", company_id=ba.id, first_name="Branch User"),
+                User(username="admin", email="admin@shard.local", hashed_password=hash_password(settings.ADMIN_PASSWORD), role="admin", first_name="Admin"),
+                User(username="viewer", email="viewer@shard.local", hashed_password=hash_password(os.getenv("VIEWER_PASSWORD", "viewer123")), role="viewer", company_id=hq.id, first_name="HQ Viewer"),
+                User(username="branch_user", email="branch@shard.local", hashed_password=hash_password(os.getenv("BRANCH_PASSWORD", "branch123")), role="viewer", company_id=ba.id, first_name="Branch User"),
             ]
             db.add_all(users)
             db.commit()
@@ -64,20 +65,34 @@ def add_alert(data: dict) -> Alert:
         return alert
     finally: db.close()
 
-def get_alerts(filters: dict, company_id: Optional[int] = None) -> tuple:
+def get_alerts(filters: dict, company_id: Optional[int] = None, tenant_id: Optional[str] = None) -> tuple:
     db = SessionLocal()
     try:
         q = db.query(Alert)
         if company_id is not None: q = q.filter(Alert.company_id == company_id)
         if filters.get("alert_type"): q = q.filter(Alert.alert_type == filters["alert_type"])
         if filters.get("severity"): q = q.filter(Alert.severity == filters["severity"])
+        if filters.get("source_ip"):
+            q = q.filter(Alert.source_ip.contains(filters["source_ip"]))
+        if filters.get("destination_ip"):
+            q = q.filter(Alert.destination_ip.contains(filters["destination_ip"]))
         if filters.get("search"):
             s = f"%{filters['search']}%"
             q = q.filter(Alert.description.contains(s))
         total = q.count()
         page = filters.get("page", 1)
         page_size = min(filters.get("page_size", 50), 100)
-        alerts = q.order_by(Alert.timestamp.desc()).offset((page-1)*page_size).limit(page_size).all()
+        sort_col = {
+            "timestamp": Alert.timestamp,
+            "severity": Alert.severity,
+            "threat_score": Alert.threat_score,
+            "source_ip": Alert.source_ip,
+        }.get(filters.get("sort_by", "timestamp"), Alert.timestamp)
+        order_fn = desc if filters.get("sort_order", "desc") == "desc" else asc
+        q = q.order_by(order_fn(sort_col))
+        if filters.get("start_time"):
+            q = q.filter(Alert.timestamp >= filters["start_time"])
+        alerts = q.offset((page-1)*page_size).limit(page_size).all()
         return alerts, total
     finally: db.close()
 
@@ -229,6 +244,26 @@ def update_email_settings(user_id: int, settings: dict):
         db.commit()
     finally: db.close()
 
+
+def add_audit_log(data: dict):
+    """Append-only audit entry"""
+    db = SessionLocal()
+    try:
+        from models import AuditLog
+        log = AuditLog(**data)
+        db.add(log); db.commit()
+    finally: db.close()
+
+def get_audit_log(tenant_id: str = None, limit: int = 100):
+    db = SessionLocal()
+    try:
+        from models import AuditLog
+        q = db.query(AuditLog)
+        if tenant_id: q = q.filter(AuditLog.tenant_id == tenant_id)
+        return q.order_by(AuditLog.created_at.desc()).limit(limit).all()
+    finally: db.close()
+
+
 def get_company_by_id(company_id: int) -> Optional[Company]:
     db = SessionLocal()
     try: return db.query(Company).filter(Company.id == company_id).first()
@@ -250,43 +285,5 @@ def create_user(data: dict) -> User:
         db.commit()
         db.refresh(user)
         return user
-    finally:
-        db.close()
-
-def get_alerts_for_map() -> List[Alert]:
-    db = SessionLocal()
-    try:
-        return db.query(Alert).filter(Alert.source_lat.isnot(None)).order_by(Alert.timestamp.desc()).limit(100).all()
-    finally:
-        db.close()
-
-def get_email_settings(user_id: int) -> dict:
-    db = SessionLocal()
-    try:
-        es = db.query(EmailSettings).filter(EmailSettings.user_id == user_id).first()
-        if not es:
-            es = EmailSettings(user_id=user_id)
-            db.add(es)
-            db.commit()
-        return {"alert.critical": es.alert_critical, "alert.high": es.alert_high,
-                "alert.medium": es.alert_medium, "ip.blocked": es.ip_blocked,
-                "system.health": es.system_health, "report.weekly": es.report_weekly}
-    finally:
-        db.close()
-
-def update_email_settings(user_id: int, settings: dict):
-    db = SessionLocal()
-    try:
-        es = db.query(EmailSettings).filter(EmailSettings.user_id == user_id).first()
-        if not es:
-            es = EmailSettings(user_id=user_id)
-            db.add(es)
-        col_map = {"alert.critical": "alert_critical", "alert.high": "alert_high",
-                   "alert.medium": "alert_medium", "ip.blocked": "ip_blocked",
-                   "system.health": "system_health", "report.weekly": "report_weekly"}
-        for k, v in settings.items():
-            if k in col_map:
-                setattr(es, col_map[k], v)
-        db.commit()
     finally:
         db.close()

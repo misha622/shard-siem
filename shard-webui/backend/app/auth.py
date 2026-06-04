@@ -4,10 +4,19 @@ from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.config import settings
-from app.database import SessionLocal
-from app.models import User
+from functools import wraps
 
 security = HTTPBearer()
+
+# RBAC: 5 ролей с разными правами
+ROLES = {
+    'admin':             ['read', 'write', 'block', 'export', 'manage_users', 'manage_companies', 'view_logs'],
+    'soc_manager':       ['read', 'write', 'block', 'export', 'view_logs'],
+    'soc_analyst':       ['read', 'write', 'block'],
+    'incident_responder':['read', 'block'],
+    'auditor':           ['read', 'export', 'view_logs'],
+    'viewer':            ['read'],
+}
 
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()
@@ -27,31 +36,29 @@ def decode_token(token: str) -> Optional[dict]:
     except JWTError:
         return None
 
+def require_role(action: str):
+    """Декоратор для проверки прав роли"""
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, current_user: dict = Depends(get_current_user), **kwargs):
+            role = current_user.get('role', 'viewer')
+            if action not in ROLES.get(role, []):
+                raise HTTPException(status_code=403, detail=f"Role '{role}' cannot '{action}'")
+            return await func(*args, current_user=current_user, **kwargs)
+        return wrapper
+    return decorator
+
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
     payload = decode_token(credentials.credentials)
     if payload is None or payload.get("type") != "access":
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-    
+        raise HTTPException(status_code=401, detail="Invalid token")
     user_id = int(payload.get("sub"))
-    db = SessionLocal()
-    try:
-        user = db.query(User).filter(User.id == user_id).first()
-        if user is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-        
-        return {
-            "id": user.id,
-            "username": user.username,
-            "role": user.role,
-            "company_id": user.company_id,
-            "company_name": user.company.name if user.company else None
-        }
-    finally:
-        db.close()
-
-def require_role(required_role: str):
-    async def role_checker(current_user: dict = Depends(get_current_user)):
-        if current_user["role"] != required_role:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
-        return current_user
-    return role_checker
+    from app.database import get_user_by_id
+    user = get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    return {
+        "id": user.id, "username": user.username, "role": user.role,
+        "company_id": user.company_id,
+        "permissions": ROLES.get(user.role, [])
+    }
