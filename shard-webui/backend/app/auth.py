@@ -66,13 +66,14 @@ def require_role(action: str):
     """Dependency factory для проверки прав роли (с иерархией)"""
     async def role_checker(current_user: dict = Depends(get_current_user)) -> dict:
         role = current_user.get('role', 'viewer')
-        # Проверяем права: роль выше в иерархии имеет все права нижних
         user_level = ROLE_HIERARCHY.get(role, 0)
-        # Находим минимальный уровень для действия
-        min_level = 0
+        # Находим минимальный уровень для действия (float('inf') чтобы min работал правильно)
+        min_level = float('inf')
         for r, actions in ROLES.items():
             if action in actions:
-                min_level = min(min_level, ROLE_HIERARCHY.get(r, 1000))
+                r_level = ROLE_HIERARCHY.get(r, 1000)
+                if r_level < min_level:
+                    min_level = r_level
         if user_level < min_level:
             raise HTTPException(status_code=403, detail=f"Role '{role}' cannot '{action}'")
         return current_user

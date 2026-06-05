@@ -82,3 +82,5 @@ main
 *.tar.gz
 *.bak
 *.bak_*
+.env
+admin_credentials.txt
