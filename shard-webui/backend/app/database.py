@@ -37,8 +37,8 @@ def init_db():
             ba = db.query(Company).filter_by(name="Branch Office A").first()
             users = [
                 User(username="admin", email="admin@shard.local", hashed_password=hash_password(settings.ADMIN_PASSWORD), role="admin", first_name="Admin"),
-                User(username="viewer", email="viewer@shard.local", hashed_password=hash_password(os.getenv("VIEWER_PASSWORD", "viewer123")), role="viewer", company_id=hq.id, first_name="HQ Viewer"),
-                User(username="branch_user", email="branch@shard.local", hashed_password=hash_password(os.getenv("BRANCH_PASSWORD", "branch123")), role="viewer", company_id=ba.id, first_name="Branch User"),
+                User(username="viewer", email="viewer@shard.local", hashed_password=hash_password(os.getenv("VIEWER_PASSWORD") or __import__("secrets").token_urlsafe(16)), role="viewer", company_id=hq.id, first_name="HQ Viewer"),
+                User(username="branch_user", email="branch@shard.local", hashed_password=hash_password(os.getenv("BRANCH_PASSWORD") or __import__("secrets").token_urlsafe(16)), role="viewer", company_id=ba.id, first_name="Branch User"),
             ]
             db.add_all(users)
             db.commit()

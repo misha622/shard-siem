@@ -80,3 +80,5 @@ pylint_report.json
 main
 *.zip
 *.tar.gz
+*.bak
+*.bak_*
