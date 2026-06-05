@@ -33,12 +33,13 @@
             </div>
         </div>
     </main>
-<script>
-const T=localStorage.getItem('access_token');if(!T)location.href='/login.html';
+<script src="js/utils.js"></script>
+    <script>
+// auth check in nav.js
 const H={Authorization:'Bearer '+T};
 const user=JSON.parse(localStorage.getItem('user')||'{}');
-document.getElementById('usernameDisplay').textContent=user.username||'User';
-if(user.role==='admin')document.getElementById('settingsLink').style.display='inline-block';
+// username in nav.js
+// settingsLink in nav.js
 
 async function load(){
     const r=await fetch('/api/blocked/',{headers:H});
@@ -47,7 +48,7 @@ async function load(){
     document.getElementById('blockedTableBody').innerHTML=data.map(b=>`<tr><td><span style="color:#ff4757;font-family:monospace">🚫 ${b.ip_address}</span></td><td>${b.reason}</td><td>${new Date(b.blocked_at).toLocaleString()}</td><td>${b.blocked_by}</td><td>${b.expires_at?new Date(b.expires_at).toLocaleString():'Never'}</td><td>${user.role==='admin'?`<button onclick="unblock('${b.id}')" class="unblock-btn">Unblock</button>`:'-'}</td></tr>`).join('');
 }
 async function unblock(id){await fetch('/api/blocked/unblock/'+id,{method:'DELETE',headers:H});load();}
-function logout(){localStorage.clear();location.href='/login.html';}
+// logout in nav.js
 load();
 </script>
 </body>

@@ -158,14 +158,15 @@
     </div>
 </div>
 </main>
-<script>
-const T=localStorage.getItem('access_token');if(!T)location.href='/login.html';
+<script src="js/utils.js"></script>
+    <script>
+// auth check in nav.js
 const H={Authorization:'Bearer '+T,'Content-Type':'application/json'};
 const user=JSON.parse(localStorage.getItem('user')||'{}');
-document.getElementById('usernameDisplay').textContent=user.username||'User';
+// username in nav.js
 document.getElementById('sidebarName').textContent=user.username||'Admin';
 document.getElementById('avatarEl').textContent=(user.username||'A')[0].toUpperCase();
-if(user.role==='admin')document.getElementById('settingsLink').style.display='inline-block';
+// settingsLink in nav.js
 
 fetch('/api/auth/me',{headers:H}).then(r=>r.json()).then(d=>{
     document.getElementById('firstName').value=d.first_name||'';
@@ -184,7 +185,7 @@ function enable2FA(){alert('2FA enabled! Save your recovery codes.')}
 function submitTicket(){const s=document.getElementById('ticketSubject').value,m=document.getElementById('ticketMsg').value;if(!s||!m)return alert('Fill subject and message');alert('Ticket submitted! Response within 4 hours.');document.getElementById('ticketSubject').value='';document.getElementById('ticketMsg').value=''}
 function applyTheme(t){if(t==='light'){document.body.style.background='#f5f5f5';document.body.style.color='#000'}else if(t==='darker'){document.body.style.background='#000';document.body.style.color='#fff'}else{document.body.style.background='';document.body.style.color=''}}
 function saveAppearance(){alert('Appearance saved!')}
-function logout(){localStorage.clear();location.href='/login.html'}
+// logout in nav.js
 </script>
 </body>
 </html>

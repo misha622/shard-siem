@@ -36,11 +36,12 @@
             </div>
         </div>
     </main>
-<script>
-const T=localStorage.getItem('access_token');if(!T)location.href='/login.html';
+<script src="js/utils.js"></script>
+    <script>
+// auth check in nav.js
 const H={Authorization:'Bearer '+T};
 const user=JSON.parse(localStorage.getItem('user')||'{}');
-document.getElementById('usernameDisplay').textContent=user.username||'User';
+// username in nav.js
 if(user.role!=='admin')location.href='/index.html';
 
 fetch('/api/settings/system-info',{headers:H}).then(r=>r.json()).then(d=>{
@@ -52,7 +53,7 @@ async function loadLogs(){
     const d=await r.json();
     document.getElementById('logsContainer').innerHTML=(d.logs||[]).map(l=>`<div class="log-entry"><span class="log-time">${new Date(l.timestamp).toLocaleTimeString()}</span> [${l.level}] ${l.message}</div>`).join('');
 }
-function logout(){localStorage.clear();location.href='/login.html';}
+// logout in nav.js
 loadLogs();
 </script>
 </body>

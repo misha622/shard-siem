@@ -23,10 +23,10 @@ async def list_alerts(
     params = {"alert_type": alert_type, "severity": severity, "source_ip": source_ip,
               "destination_ip": destination_ip, "page": page, "page_size": page_size, "search": search}
     alerts, total = get_alerts(params, effective_company)
-    result = [{"id": a.id, "timestamp": a.timestamp.isoformat(), "alert_type": a.alert_type,
-               "severity": a.severity, "source_ip": a.source_ip, "destination_ip": a.destination_ip,
-               "destination_port": a.destination_port, "protocol": a.protocol,
-               "description": a.description, "threat_score": a.threat_score,
+    result = [{"id": a.id, "timestamp": __import__("datetime").datetime.fromtimestamp(a.timestamp).isoformat() if a.timestamp else None, "alert_type": a.attack_type,
+               "severity": a.severity, "source_ip": a.src_ip, "destination_ip": a.dst_ip,
+               "destination_port": a.dst_port, "protocol": a.protocol,
+               "description": a.explanation, "threat_score": a.score * 100,
                "is_blocked": a.is_blocked, "company_id": a.company_id,
                "company_name": None} for a in alerts]  # company loaded separately
     return {"alerts": result, "total_count": total, "page": page, "page_size": page_size,
@@ -39,8 +39,8 @@ async def export_csv(current_user: dict = Depends(get_current_user)):
     writer = csv.writer(output)
     writer.writerow(["ID","Timestamp","Type","Severity","Source IP","Dest IP","Description","Score","Company"])
     for a in alerts:
-        writer.writerow([a.id, a.timestamp.isoformat(), a.alert_type, a.severity,
-                        a.source_ip, a.destination_ip, a.description, a.threat_score,
+        writer.writerow([a.id, a.timestamp, a.attack_type, a.severity,
+                        a.src_ip, a.dst_ip, a.explanation, a.score * 100,
                         a.company.name if a.company else ""])
     output.seek(0)
     return StreamingResponse(iter([output.getvalue()]), media_type="text/csv",
@@ -52,8 +52,8 @@ async def export_excel(current_user: dict = Depends(get_current_user)):
     wb = openpyxl.Workbook(); ws = wb.active; ws.title = "Alerts"
     ws.append(["ID","Timestamp","Type","Severity","Source IP","Dest IP","Description","Score","Company"])
     for a in alerts:
-        ws.append([a.id, a.timestamp.isoformat(), a.alert_type, a.severity,
-                   a.source_ip, a.destination_ip, a.description, a.threat_score,
+        ws.append([a.id, a.timestamp, a.attack_type, a.severity,
+                   a.src_ip, a.dst_ip, a.explanation, a.score * 100,
                    a.company.name if a.company else ""])
     output = BytesIO(); wb.save(output); output.seek(0)
     return StreamingResponse(output, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     APP_VERSION: str = "5.2.0"
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     HOST: str = "0.0.0.0"
     PORT: int = 5000

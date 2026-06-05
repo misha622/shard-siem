@@ -74,7 +74,8 @@
     </form>
     <div class="link">Already have account? <a href="login.html">Sign In</a></div>
 </div>
-<script>
+<script src="js/utils.js"></script>
+    <script>
 let captcha='',step=1;
 function genCaptcha(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';captcha='';for(let i=0;i<6;i++)captcha+=c[Math.floor(Math.random()*c.length)];document.getElementById('captchaText').textContent=captcha}
 genCaptcha();

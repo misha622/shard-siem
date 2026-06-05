@@ -1,4 +1,4 @@
-import bcrypt, logging, ipaddress, os
+import bcrypt, logging, ipaddress, os, hashlib
 from app.config import settings
 from sqlalchemy.orm import Session
 from sqlalchemy import func as sa_func, asc, desc
@@ -11,6 +11,9 @@ logger = logging.getLogger(__name__)
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
+def hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
 def verify_password(plain: str, hashed: str) -> bool:
     if not hashed: return False
     try: return bcrypt.checkpw(plain.encode(), hashed.encode())
@@ -20,7 +23,9 @@ def init_db():
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
-        if not db.query(Company).first():
+        # Пропускаем создание тестовых данных если БД от SHARD Engine
+        pass
+        if False and not db.query(Company).first():
             companies = [
                 Company(name="Headquarters", ip_ranges=["192.168.1.0/24","10.0.0.0/16"], max_alerts_per_day=50000),
                 Company(name="Branch Office A", ip_ranges=["172.16.0.0/20"], max_alerts_per_day=10000),
@@ -45,7 +50,7 @@ def init_db():
                 ("91.121.87.45","10.100.0.5",22,"SSH","Brute Force","HIGH","SSH brute force",80.0,companies[2].id),
             ]
             for i, (src,dst,port,proto,atype,sev,desc,score,cid) in enumerate(alerts_data):
-                db.add(Alert(timestamp=datetime.utcnow()-timedelta(hours=i), alert_type=atype, severity=sev, source_ip=src, destination_ip=dst, destination_port=port, protocol=proto, description=desc, threat_score=score, company_id=cid))
+                db.add(Alert(timestamp=datetime.utcnow()-timedelta(hours=i), attack_type=atype, severity=sev, source_ip=src, destination_ip=dst, destination_port=port, protocol=proto, description=desc, threat_score=score, company_id=cid))
             db.commit()
             logger.info(f"DB initialized: {len(companies)} companies, {len(users)} users, {len(alerts_data)} alerts")
     finally:
@@ -70,28 +75,31 @@ def get_alerts(filters: dict, company_id: Optional[int] = None, tenant_id: Optio
     try:
         q = db.query(Alert)
         if company_id is not None: q = q.filter(Alert.company_id == company_id)
-        if filters.get("alert_type"): q = q.filter(Alert.alert_type == filters["alert_type"])
+        if filters.get("attack_type"): q = q.filter(Alert.attack_type == filters["attack_type"])
         if filters.get("severity"): q = q.filter(Alert.severity == filters["severity"])
-        if filters.get("source_ip"):
-            q = q.filter(Alert.source_ip.contains(filters["source_ip"]))
-        if filters.get("destination_ip"):
-            q = q.filter(Alert.destination_ip.contains(filters["destination_ip"]))
+        if filters.get("src_ip"):
+            q = q.filter(Alert.src_ip.contains(filters["src_ip"]))
+        if filters.get("dst_ip"):
+            q = q.filter(Alert.dst_ip.contains(filters["dst_ip"]))
         if filters.get("search"):
             s = f"%{filters['search']}%"
-            q = q.filter(Alert.description.contains(s))
+            q = q.filter(Alert.explanation.contains(s))
+        if filters.get("start_time"):
+            q = q.filter(Alert.timestamp >= filters["start_time"])
         total = q.count()
         page = filters.get("page", 1)
-        page_size = min(filters.get("page_size", 50), 100)
+        page_size = filters.get("page_size", 50)
+        # Unlimited для экспорта (page_size=0 или очень большой)
+        if page_size is None or page_size <= 0 or page_size > 10000:
+            page_size = 10000
         sort_col = {
             "timestamp": Alert.timestamp,
             "severity": Alert.severity,
-            "threat_score": Alert.threat_score,
-            "source_ip": Alert.source_ip,
+            "score": Alert.score,
+            "src_ip": Alert.src_ip,
         }.get(filters.get("sort_by", "timestamp"), Alert.timestamp)
         order_fn = desc if filters.get("sort_order", "desc") == "desc" else asc
         q = q.order_by(order_fn(sort_col))
-        if filters.get("start_time"):
-            q = q.filter(Alert.timestamp >= filters["start_time"])
         alerts = q.offset((page-1)*page_size).limit(page_size).all()
         return alerts, total
     finally: db.close()
@@ -101,9 +109,9 @@ def block_alert_source(alert_id: int, blocked_by: str) -> Optional[BlockedIP]:
     try:
         alert = db.query(Alert).filter(Alert.id == alert_id).first()
         if not alert: return None
-        blocked = BlockedIP(ip_address=alert.source_ip, reason=f"Blocked from alert: {alert.alert_type}", blocked_by=blocked_by, expires_at=datetime.utcnow()+timedelta(hours=24))
+        blocked = BlockedIP(ip_address=alert.source_ip, reason=f"Blocked from alert: {alert.attack_type}", blocked_by=blocked_by, expires_at=datetime.utcnow()+timedelta(hours=24))
         db.add(blocked)
-        db.query(Alert).filter(Alert.source_ip == alert.source_ip).update({"is_blocked": True, "blocked_at": datetime.utcnow()})
+        db.query(Alert).filter(Alert.src_ip == alert.source_ip).update({"is_blocked": True, "blocked_at": datetime.utcnow()})
         db.commit()
         return blocked
     finally: db.close()
@@ -118,7 +126,7 @@ def block_ip(ip_address: str, reason: str, blocked_by: str, is_permanent: bool =
     try:
         blocked = BlockedIP(ip_address=ip_address, reason=reason, blocked_by=blocked_by, is_permanent=is_permanent, expires_at=None if is_permanent else datetime.utcnow()+timedelta(hours=24))
         db.add(blocked)
-        db.query(Alert).filter(Alert.source_ip == ip_address).update({"is_blocked": True, "blocked_at": datetime.utcnow()})
+        db.query(Alert).filter(Alert.src_ip == ip_address).update({"is_blocked": True, "blocked_at": datetime.utcnow()})
         db.commit()
         return blocked
     finally: db.close()
@@ -136,8 +144,8 @@ def match_alert_to_company(alert_data: dict) -> Optional[int]:
             for r in company.ip_ranges:
                 try:
                     net = ipaddress.ip_network(r, strict=False)
-                    src = alert_data.get("source_ip","")
-                    dst = alert_data.get("destination_ip","")
+                    src = alert_data.get("src_ip","")
+                    dst = alert_data.get("dst_ip","")
                     if (src and ipaddress.ip_address(src) in net) or (dst and ipaddress.ip_address(dst) in net):
                         return company.id
                 except ValueError: continue
@@ -153,14 +161,18 @@ def get_stats(company_id: Optional[int] = None) -> dict:
         blocked = q.filter(Alert.is_blocked == True).count()
         threats = q.filter(Alert.severity.in_(["CRITICAL","HIGH"]), Alert.timestamp >= datetime.utcnow()-timedelta(hours=1)).count()
         alerts_by_type = {}
-        for row in db.query(Alert.alert_type, sa_func.count()).filter(Alert.company_id == company_id if company_id else True).group_by(Alert.alert_type).all():
+        for row in db.query(Alert.attack_type, sa_func.count()).group_by(Alert.attack_type).all():
             alerts_by_type[row[0]] = row[1]
         alerts_by_hour = {}
         for row in db.query(sa_func.strftime('%H:00', Alert.timestamp), sa_func.count()).filter(Alert.timestamp >= datetime.utcnow()-timedelta(hours=24)).group_by(sa_func.strftime('%H:00', Alert.timestamp)).all():
             alerts_by_hour[row[0]] = row[1]
-        top_attackers = [{"ip": row[0], "count": row[1]} for row in db.query(Alert.source_ip, sa_func.count()).group_by(Alert.source_ip).order_by(sa_func.count().desc()).limit(10).all()]
-        top_targets = [{"ip": row[0], "count": row[1]} for row in db.query(Alert.destination_ip, sa_func.count()).group_by(Alert.destination_ip).order_by(sa_func.count().desc()).limit(10).all()]
-        return {"total_packets": total * 100, "total_alerts": total, "total_blocked": blocked, "active_threats": threats, "alerts_by_type": alerts_by_type, "alerts_by_hour": alerts_by_hour, "severity_distribution": {}, "top_attackers": top_attackers, "top_targets": top_targets}
+        top_attackers = [{"ip": row[0], "count": row[1]} for row in db.query(Alert.src_ip, sa_func.count()).group_by(Alert.src_ip).order_by(sa_func.count().desc()).limit(10).all()]
+        top_targets = [{"ip": row[0], "count": row[1]} for row in db.query(Alert.dst_ip, sa_func.count()).group_by(Alert.dst_ip).order_by(sa_func.count().desc()).limit(10).all()]
+        return {"total_packets": total * 100, "total_alerts": total, "total_blocked": blocked, "active_threats": threats, "alerts_by_type": alerts_by_type, "alerts_by_hour": alerts_by_hour, "severity_distribution": dict(
+                db.query(Alert.severity, sa_func.count())
+                
+                .group_by(Alert.severity).all()
+            ), "top_attackers": top_attackers, "top_targets": top_targets}
     finally: db.close()
 
 def update_last_login(user_id: int):
@@ -202,7 +214,7 @@ def unblock_ip(block_id: int) -> Optional[str]:
         if blocked:
             ip = blocked.ip_address
             db.delete(blocked)
-            db.query(Alert).filter(Alert.source_ip == ip).update({"is_blocked": False, "blocked_at": None})
+            db.query(Alert).filter(Alert.src_ip == ip).update({"is_blocked": False, "blocked_at": None})
             db.commit()
             return ip
         return None
@@ -210,19 +222,19 @@ def unblock_ip(block_id: int) -> Optional[str]:
 
 def add_refresh_token(token: str, user_id: int):
     db = SessionLocal()
-    try: db.add(RefreshToken(token=token, user_id=user_id)); db.commit()
+    try: db.add(RefreshToken(token=hash_token(token), user_id=user_id)); db.commit()
     finally: db.close()
 
 def get_user_by_refresh_token(token: str) -> Optional[int]:
     db = SessionLocal()
     try:
-        rt = db.query(RefreshToken).filter(RefreshToken.token == token).first()
+        rt = db.query(RefreshToken).filter(RefreshToken.token == hash_token(token)).first()
         return rt.user_id if rt else None
     finally: db.close()
 
 def revoke_refresh_token(token: str):
     db = SessionLocal()
-    try: db.query(RefreshToken).filter(RefreshToken.token == token).delete(); db.commit()
+    try: db.query(RefreshToken).filter(RefreshToken.token == hash_token(token)).delete(); db.commit()
     finally: db.close()
 
 def get_email_settings(user_id: int) -> dict:
@@ -249,7 +261,7 @@ def add_audit_log(data: dict):
     """Append-only audit entry"""
     db = SessionLocal()
     try:
-        from models import AuditLog
+        from app.models import AuditLog
         log = AuditLog(**data)
         db.add(log); db.commit()
     finally: db.close()
@@ -257,7 +269,7 @@ def add_audit_log(data: dict):
 def get_audit_log(tenant_id: str = None, limit: int = 100):
     db = SessionLocal()
     try:
-        from models import AuditLog
+        from app.models import AuditLog
         q = db.query(AuditLog)
         if tenant_id: q = q.filter(AuditLog.tenant_id == tenant_id)
         return q.order_by(AuditLog.created_at.desc()).limit(limit).all()

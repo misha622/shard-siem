@@ -21,7 +21,6 @@ class Company(Base):
     max_alerts_per_day = Column(Integer, default=10000)
     created_at = Column(DateTime, default=datetime.utcnow)
     users = relationship("User", back_populates="company")
-    alerts = relationship("Alert", back_populates="company")
 
 
 class User(Base):
@@ -36,29 +35,84 @@ class User(Base):
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login = Column(DateTime)
-    company = relationship("Company", back_populates="users")
+    company = relationship("Company", back_populates="users", foreign_keys=[company_id])
 
 class Alert(Base):
-    """Поля синхронизированы с фронтендом: alert_type, source_ip, destination_ip, threat_score"""
+    """Alert model — синхронизировано с shard_siem.db"""
     __tablename__ = "alerts"
+    __table_args__ = {'extend_existing': True}
+    
     id = Column(Integer, primary_key=True)
-    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
-    alert_type = Column(String(50), nullable=False, index=True)
-    severity = Column(String(20), nullable=False, index=True)
-    source_ip = Column(String(45), nullable=False, index=True)
-    source_lat = Column(Float)
-    source_lon = Column(Float)
-    source_country = Column(String(100))
-    source_city = Column(String(100))
-    destination_ip = Column(String(45), index=True)
-    destination_port = Column(Integer)
-    protocol = Column(String(20))
-    description = Column(Text)
-    threat_score = Column(Float, default=0.0)
-    is_blocked = Column(Boolean, default=False)
-    blocked_at = Column(DateTime)
-    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True, index=True)
-    company = relationship("Company", back_populates="alerts")
+    timestamp = Column(Float, index=True)
+    src_ip = Column(String(45), index=True)
+    dst_ip = Column(String(45), index=True)
+    dst_port = Column(Integer)
+    attack_type = Column(String(50), index=True)
+    score = Column(Float)
+    confidence = Column(Float)
+    severity = Column(String(20), index=True)
+    explanation = Column(Text)
+    kill_chain_stage = Column(String(50))
+    features_json = Column(Text)
+    
+    # Совместимость со старым кодом фронтенда
+    @property
+    def alert_type(self):
+        return self.attack_type
+    
+    @property
+    def source_ip(self):
+        return self.src_ip
+    
+    @property
+    def destination_ip(self):
+        return self.dst_ip
+    
+    @property
+    def destination_port(self):
+        return self.dst_port
+    
+    @property
+    def description(self):
+        return self.explanation
+    
+    @property
+    def threat_score(self):
+        return (self.score or 0) * 100
+    
+    @property
+    def is_blocked(self):
+        return False
+    
+    @property
+    def blocked_at(self):
+        return None
+    
+    @property
+    def protocol(self):
+        return None
+    
+    @property
+    def source_lat(self):
+        return None
+    
+    @property
+    def source_lon(self):
+        return None
+    
+    @property
+    def source_country(self):
+        return None
+    
+    @property
+    def source_city(self):
+        return None
+    
+    @property
+    def company_id(self):
+        return None
+
+
 
 class BlockedIP(Base):
     __tablename__ = "blocked_ips"
@@ -98,7 +152,21 @@ class GeoCache(Base):
     isp = Column(String(255))
     updated_at = Column(DateTime, default=datetime.utcnow)
 
+
+class AuditLog(Base):
+    """Audit log for compliance"""
+    __tablename__ = "audit_logs"
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(String(50), index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    action = Column(String(100))
+    resource = Column(String(255))
+    details = Column(JSON, default=dict)
+    ip_address = Column(String(45))
+    success = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 # Engine
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "shard.db")
+DB_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "..", "shard_siem.db")
 engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

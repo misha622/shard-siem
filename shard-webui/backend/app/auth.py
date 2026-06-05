@@ -4,11 +4,9 @@ from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.config import settings
-from functools import wraps
 
 security = HTTPBearer()
 
-# RBAC: 5 ролей с разными правами
 ROLES = {
     'admin':             ['read', 'write', 'block', 'export', 'manage_users', 'manage_companies', 'view_logs'],
     'soc_manager':       ['read', 'write', 'block', 'export', 'view_logs'],
@@ -17,6 +15,19 @@ ROLES = {
     'auditor':           ['read', 'export', 'view_logs'],
     'viewer':            ['read'],
 }
+
+
+# Иерархия ролей (выше = больше прав)
+ROLE_HIERARCHY = {
+    "superadmin": 100,
+    "admin": 80,
+    "soc_manager": 60,
+    "soc_analyst": 40,
+    "incident_responder": 30,
+    "auditor": 20,
+    "viewer": 10
+}
+
 
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()
@@ -36,18 +47,6 @@ def decode_token(token: str) -> Optional[dict]:
     except JWTError:
         return None
 
-def require_role(action: str):
-    """Декоратор для проверки прав роли"""
-    def decorator(func):
-        @wraps(func)
-        async def wrapper(*args, current_user: dict = Depends(get_current_user), **kwargs):
-            role = current_user.get('role', 'viewer')
-            if action not in ROLES.get(role, []):
-                raise HTTPException(status_code=403, detail=f"Role '{role}' cannot '{action}'")
-            return await func(*args, current_user=current_user, **kwargs)
-        return wrapper
-    return decorator
-
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
     payload = decode_token(credentials.credentials)
     if payload is None or payload.get("type") != "access":
@@ -62,3 +61,26 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         "company_id": user.company_id,
         "permissions": ROLES.get(user.role, [])
     }
+
+def require_role(action: str):
+    """Dependency factory для проверки прав роли (с иерархией)"""
+    async def role_checker(current_user: dict = Depends(get_current_user)) -> dict:
+        role = current_user.get('role', 'viewer')
+        # Проверяем права: роль выше в иерархии имеет все права нижних
+        user_level = ROLE_HIERARCHY.get(role, 0)
+        # Находим минимальный уровень для действия
+        min_level = 0
+        for r, actions in ROLES.items():
+            if action in actions:
+                min_level = max(min_level, ROLE_HIERARCHY.get(r, 0))
+        if user_level < min_level:
+            raise HTTPException(status_code=403, detail=f"Role '{role}' cannot '{action}'")
+        return current_user
+    return role_checker
+
+def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
+    """Проверка что пользователь — admin"""
+    if current_user.get('role') != 'admin':
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
+

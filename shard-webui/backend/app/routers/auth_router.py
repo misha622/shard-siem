@@ -7,6 +7,8 @@ from app.database import (get_user_by_username, get_user_by_id, create_user, upd
                           change_password, verify_password, add_refresh_token, get_user_by_refresh_token,
                           revoke_refresh_token, SessionLocal)
 from app.models import User
+
+
 from app.auth import create_access_token, create_refresh_token, decode_token, get_current_user
 
 logger = logging.getLogger(__name__)
@@ -19,6 +21,7 @@ class LoginRequest(BaseModel):
 
 class TokenRefresh(BaseModel):
     refresh_token: str
+    tenant_slug: str = "default"
 
 class ChangePasswordRequest(BaseModel):
     old_password: str
@@ -60,7 +63,7 @@ async def login(request: LoginRequest):
         
         return {
             "access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer",
-            "expires_in": 86400,
+            "expires_in": 900,
             "user": {
                 "id": user.id, "username": user.username, "role": user.role,
                 "company_id": user.company_id,
@@ -77,7 +80,7 @@ async def refresh(request: TokenRefresh):
         raise HTTPException(status_code=401, detail="Invalid token")
     user_id = payload.get("sub")
     stored = get_user_by_refresh_token(request.refresh_token)
-    if stored != user_id: raise HTTPException(status_code=401, detail="Token revoked")
+    if stored != int(user_id): raise HTTPException(status_code=401, detail="Token revoked")
     
     db = SessionLocal()
     try:
@@ -91,7 +94,7 @@ async def refresh(request: TokenRefresh):
         add_refresh_token(new_refresh, user.id)
         return {
             "access_token": new_access, "refresh_token": new_refresh, "token_type": "bearer",
-            "expires_in": 86400,
+            "expires_in": 900,
             "user": {
                 "id": user.id, "username": user.username, "role": user.role,
                 "company_id": user.company_id,
@@ -127,5 +130,6 @@ async def change_pwd(request: ChangePasswordRequest, current_user: dict = Depend
         db.close()
 
 @router.post("/logout")
-async def logout():
-    return {"message": "Logged out"}
+async def logout(current_user: dict = Depends(get_current_user)):
+    """Logout — client drops tokens"""
+    return {"message": "Logged out successfully"}

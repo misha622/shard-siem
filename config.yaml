@@ -68,7 +68,7 @@ dashboard:
     enabled: false
     password: ${SHARD_DASHBOARD_PASSWORD:-}
     username: ${SHARD_DASHBOARD_USERNAME:-admin}
-  enabled: true
+  enabled: false
   port: 8080
   session_ttl: 3600
 dns:
@@ -250,6 +250,14 @@ threat_intel:
   virustotal_key: ''
 waf:
   enabled: true
+  protected_ports:
+  - 5000
+  - 8080
+  - 8443
+  rate_limit:
+    enabled: true
+    threshold: 100
+    window: 60
   rate_limit_requests: 100
   rate_limit_window: 60
   rules_path: ./data/waf_rules.json
