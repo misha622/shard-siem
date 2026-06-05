@@ -1,3 +1,4 @@
+import os
 """20 тестов для SHARD WebUI"""
 import pytest
 from httpx import AsyncClient, ASGITransport
@@ -20,14 +21,14 @@ async def client():
 @pytest.fixture
 async def auth_token(client):
     """Получить токен admin"""
-    response = await client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    response = await client.post("/api/auth/login", json={"username": "admin", "password": os.getenv("ADMIN_PASSWORD", "admin123")})
     assert response.status_code == 200
     return response.json()["access_token"]
 
 # === Auth tests ===
 @pytest.mark.asyncio
 async def test_login_success(client):
-    response = await client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    response = await client.post("/api/auth/login", json={"username": "admin", "password": os.getenv("ADMIN_PASSWORD", "admin123")})
     assert response.status_code == 200
     assert "access_token" in response.json()
 
@@ -43,7 +44,7 @@ async def test_register(client):
 
 @pytest.mark.asyncio
 async def test_refresh_token(client):
-    login_resp = await client.post("/api/auth/login", json={"username": "admin", "password": "admin123"})
+    login_resp = await client.post("/api/auth/login", json={"username": "admin", "password": os.getenv("ADMIN_PASSWORD", "admin123")})
     refresh = login_resp.json()["refresh_token"]
     response = await client.post("/api/auth/refresh", json={"refresh_token": refresh})
     assert response.status_code == 200

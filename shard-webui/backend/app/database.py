@@ -25,7 +25,7 @@ def init_db():
     try:
         # Пропускаем создание тестовых данных если БД от SHARD Engine
         pass
-        if False and not db.query(Company).first():
+        if not db.query(Company).first():
             companies = [
                 Company(name="Headquarters", ip_ranges=["192.168.1.0/24","10.0.0.0/16"], max_alerts_per_day=50000),
                 Company(name="Branch Office A", ip_ranges=["172.16.0.0/20"], max_alerts_per_day=10000),
@@ -89,9 +89,9 @@ def get_alerts(filters: dict, company_id: Optional[int] = None, tenant_id: Optio
         total = q.count()
         page = filters.get("page", 1)
         page_size = filters.get("page_size", 50)
-        # Unlimited для экспорта (page_size=0 или очень большой)
-        if page_size is None or page_size <= 0 or page_size > 10000:
-            page_size = 10000
+        # Ограничение для экспорта — максимум 50000
+        if page_size is None or page_size <= 0 or page_size > 50000:
+            page_size = 50000
         sort_col = {
             "timestamp": Alert.timestamp,
             "severity": Alert.severity,

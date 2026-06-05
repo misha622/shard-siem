@@ -31,7 +31,7 @@ class SHARDEventBus:
         if REAL_EVENTBUS:
             try:
                 self._core_bus = CoreEventBus()
-                await self._core_bus.connect()
+                # CoreEventBus is synchronous, no connect() needed
                 self._core_bus.subscribe("alert.detected", self._on_real_alert)
                 self._core_bus.subscribe("firewall.blocked", self._on_real_block)
                 self.connected = True
