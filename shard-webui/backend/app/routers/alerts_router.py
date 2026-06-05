@@ -1,3 +1,5 @@
+from slowapi import Limiter
+limiter = Limiter(key_func=lambda: "global")
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional
 from datetime import datetime
@@ -12,6 +14,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/alerts", tags=["Alerts"])
 
 @router.get("/")
+@limiter.limit("100/minute")
 async def list_alerts(
     alert_type: Optional[str] = None, severity: Optional[str] = None,
     source_ip: Optional[str] = None, destination_ip: Optional[str] = None,

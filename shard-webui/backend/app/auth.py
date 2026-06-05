@@ -72,7 +72,7 @@ def require_role(action: str):
         min_level = 0
         for r, actions in ROLES.items():
             if action in actions:
-                min_level = max(min_level, ROLE_HIERARCHY.get(r, 0))
+                min_level = min(min_level, ROLE_HIERARCHY.get(r, 1000))
         if user_level < min_level:
             raise HTTPException(status_code=403, detail=f"Role '{role}' cannot '{action}'")
         return current_user

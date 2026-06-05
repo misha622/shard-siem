@@ -101,7 +101,7 @@ After=network.target shard-engine.service
 
 [Service]
 Type=simple
-User=root
+User=shard
 WorkingDirectory=$INSTALL_DIR/shard-webui/backend
 ExecStart=$INSTALL_DIR/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 5000
 Restart=always

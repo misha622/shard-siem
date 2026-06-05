@@ -130,6 +130,10 @@ async def change_pwd(request: ChangePasswordRequest, current_user: dict = Depend
         db.close()
 
 @router.post("/logout")
-async def logout(current_user: dict = Depends(get_current_user)):
-    """Logout — client drops tokens"""
+async def logout(request: Request, current_user: dict = Depends(get_current_user)):
+    """Logout — revoke refresh token"""
+    # Отзываем refresh token если передан
+    if hasattr(request, 'refresh_token') and request.refresh_token:
+        from app.database import revoke_refresh_token
+        revoke_refresh_token(request.refresh_token)
     return {"message": "Logged out successfully"}

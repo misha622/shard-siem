@@ -108,9 +108,7 @@ class Alert(Base):
     def source_city(self):
         return None
     
-    @property
-    def company_id(self):
-        return None
+    company_id = Column(Integer, nullable=True, index=True)
 
 
 
