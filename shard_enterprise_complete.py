@@ -34,7 +34,6 @@ import hmac
 import yaml
 import math
 import struct
-import hashlib
 import socket
 import threading
 import queue

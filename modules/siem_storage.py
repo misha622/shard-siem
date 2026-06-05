@@ -48,9 +48,8 @@ class StorageBackend(ABC):
         """Поиск IP по имени пользователя"""
         pass
 
-    @abstractmethod
     def _get_sqlite_connection(self):
-        """Получить соединение из psycopg2 пула"""
+        """Получить соединение из пула"""
         if not hasattr(self, '_pool') or self._pool is None:
             return None
         try:
@@ -59,7 +58,7 @@ class StorageBackend(ABC):
             return None
 
     def _return_sqlite_connection(self, conn) -> None:
-        """Вернуть соединение в пул (queue.Queue)"""
+        """Вернуть соединение в пул"""
         if conn is not None and hasattr(self, '_pool') and self._pool is not None:
             try:
                 self._pool.put_nowait(conn)
@@ -385,7 +384,7 @@ class SQLiteStorage(StorageBackend):
                 self.logger.debug(f"Ошибка checkpoint: {e}")
 
     def _get_sqlite_connection(self):
-        """Получить соединение из psycopg2 пула"""
+        """Получить соединение из пула SQLite"""
         if not hasattr(self, '_pool') or self._pool is None:
             return None
         try:
@@ -692,7 +691,7 @@ class TimescaleStorage(StorageBackend):
             return []
 
     def _get_sqlite_connection(self):
-        """Получить соединение из psycopg2 пула"""
+        """Получить соединение из пула SQLite"""
         if not hasattr(self, '_pool') or self._pool is None:
             return None
         try:
