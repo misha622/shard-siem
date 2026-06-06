@@ -50,7 +50,7 @@ def init_db():
                 ("91.121.87.45","10.100.0.5",22,"SSH","Brute Force","HIGH","SSH brute force",80.0,companies[2].id),
             ]
             for i, (src,dst,port,proto,atype,sev,desc,score,cid) in enumerate(alerts_data):
-                db.add(Alert(timestamp=datetime.utcnow()-timedelta(hours=i), attack_type=atype, severity=sev, source_ip=src, destination_ip=dst, destination_port=port, protocol=proto, description=desc, threat_score=score, company_id=cid))
+                db.add(Alert(timestamp=datetime.utcnow()-timedelta(hours=i), attack_type=atype, severity=sev, src_ip=src, dst_ip=dst, dst_port=port, protocol=proto, explanation=desc, score=score, company_id=cid))
             db.commit()
             logger.info(f"DB initialized: {len(companies)} companies, {len(users)} users, {len(alerts_data)} alerts")
     finally:
@@ -126,7 +126,7 @@ def block_ip(ip_address: str, reason: str, blocked_by: str, is_permanent: bool =
     try:
         blocked = BlockedIP(ip_address=ip_address, reason=reason, blocked_by=blocked_by, is_permanent=is_permanent, expires_at=None if is_permanent else datetime.utcnow()+timedelta(hours=24))
         db.add(blocked)
-        db.query(Alert).filter(Alert.src_ip == ip_address).update({"is_blocked": True, "blocked_at": datetime.utcnow()})
+        # Bulk update skipped — is_blocked/blocked_at are properties
         db.commit()
         return blocked
     finally: db.close()
@@ -222,7 +222,11 @@ def unblock_ip(block_id: int) -> Optional[str]:
 
 def add_refresh_token(token: str, user_id: int):
     db = SessionLocal()
-    try: db.add(RefreshToken(token=hash_token(token), user_id=user_id)); db.commit()
+    try:
+            existing = db.query(RefreshToken).filter(RefreshToken.token == hash_token(token)).first()
+            if not existing:
+                db.add(RefreshToken(token=hash_token(token), user_id=user_id))
+                db.commit()
     finally: db.close()
 
 def get_user_by_refresh_token(token: str) -> Optional[int]:
