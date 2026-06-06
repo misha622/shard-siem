@@ -42,7 +42,7 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y libpcap-dev 2>/dev/null || true
       - name: Install Python deps
         run: |
-          pip install --upgrade pip
+          pip install --upgrade pip setuptools wheel
           pip install pytest pytest-asyncio pytest-cov pytest-timeout
           pip install python-dateutil pydantic pyyaml cryptography \
             aiofiles psutil aiohttp fastapi uvicorn \
@@ -50,8 +50,8 @@ jobs:
             sqlalchemy asyncpg psycopg2-binary \
             redis prometheus-client python-multipart httpx requests
           pip install scikit-learn numpy pandas xgboost || true
-          # Устанавливаем сам проект как пакет — это даст доступ к core/ и modules/
-          pip install -e . --no-deps
+          # Устанавливаем пакет (core/ и modules/ становятся импортируемыми)
+          pip install -e . --no-build-isolation
       - name: Run core tests
         run: |
           pytest tests/ \
@@ -157,15 +157,4 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
-      - name: Deploy via SSH
-        # uses: appleboy/ssh-action@v1
-        # with:
-        #   host: ${{ secrets.VPS_HOST }}
-        #   username: ${{ secrets.VPS_USER }}
-        #   key: ${{ secrets.VPS_SSH_KEY }}
-        #   script: |
-        #     cd /opt/shard
-        #     git pull origin main
-        #     docker compose -f docker-compose.production.yml up -d --remove-orphans
-        #     docker system prune -f
-        run: echo "Deploy ready — добавь VPS_HOST, VPS_USER, VPS_SSH_KEY в GitHub Secrets"
+      - run: echo "Deploy ready — добавь VPS_HOST, VPS_USER, VPS_SSH_KEY в GitHub Secrets"
