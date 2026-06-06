@@ -50,9 +50,10 @@ jobs:
             sqlalchemy asyncpg psycopg2-binary \
             redis prometheus-client python-multipart httpx requests
           pip install scikit-learn numpy pandas xgboost || true
+          # Устанавливаем сам проект как пакет — это даст доступ к core/ и modules/
+          pip install -e . --no-deps
       - name: Run core tests
         run: |
-          export PYTHONPATH="${GITHUB_WORKSPACE}:${PYTHONPATH}"
           pytest tests/ \
             --cov=core --cov=modules \
             --cov-report=term-missing \
@@ -90,12 +91,10 @@ jobs:
           pip install pytest pytest-asyncio pytest-timeout httpx \
             fastapi uvicorn "python-jose[cryptography]" \
             "passlib[bcrypt]" slowapi python-multipart \
-            sqlalchemy aiosqlite pydantic-settings
+            sqlalchemy aiosqlite pydantic-settings openpyxl
       - name: Run WebUI tests
         working-directory: shard-webui/backend
-        run: |
-          export PYTHONPATH="${GITHUB_WORKSPACE}/shard-webui/backend:${PYTHONPATH}"
-          pytest tests/ -v --timeout=30 -p no:warnings
+        run: pytest tests/ -v --timeout=30 -p no:warnings
         env:
           SECRET_KEY: test-secret-key-for-ci-only-32chars
           ALGORITHM: HS256
