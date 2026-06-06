@@ -66,7 +66,7 @@ jobs:
         run: |
           pip install --upgrade pip
           # Устанавливаем только то, что нужно для тестов ядра (быстро)
-          pip install pytest pytest-asyncio pytest-cov \
+          pip install pytest pytest-asyncio pytest-cov pytest-timeout \
             pydantic pyyaml cryptography aiofiles psutil
 
       - name: Run core tests
@@ -112,7 +112,7 @@ jobs:
       - name: Install WebUI dependencies
         run: |
           pip install --upgrade pip
-          pip install pytest pytest-asyncio httpx \
+          pip install pytest pytest-asyncio pytest-timeout httpx \
             fastapi uvicorn python-jose[cryptography] \
             passlib[bcrypt] slowapi python-multipart
 
