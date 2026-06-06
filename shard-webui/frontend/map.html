@@ -5,7 +5,7 @@
     <title>SHARD - Attack Map</title>
     <link rel="icon" href="assets/favicon.svg">
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet loaded locally -->
     <style>#map{height:calc(100vh - 140px);border-radius:12px;border:1px solid var(--border)}</style>
 </head>
 <body>
@@ -25,7 +25,7 @@
         <div class="nav-actions"><span id="usernameDisplay" class="username"></span><button onclick="logout()" class="logout-btn">Sign Out</button></div>
     </nav>
     <main class="main-content"><div id="map"></div></main>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Leaflet loaded locally -->
 <script src="js/utils.js"></script>
     <script>
 // auth check in nav.js
@@ -54,6 +54,6 @@ async function load(){
 // logout in nav.js
 load();setInterval(load,15000);
 </script>
-<script src="nav.js"></script>
+<!-- nav.js removed, inline auth used -->
 </body>
 </html>
