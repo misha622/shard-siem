@@ -1,0 +1,15 @@
+[run]
+omit = 
+    core/run_shard.py
+    modules/edr.py
+    modules/ldap.py
+    modules/threat_intel.py
+    modules/agentic_ai.py
+    modules/dns_analyzer.py
+    modules/exfil_detector.py
+    modules/report_generator.py
+    modules/uba.py
+    modules/waf.py
+    modules/traffic_capture.py
+    modules/encrypted_traffic.py
+    modules/dpi.py
