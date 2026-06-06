@@ -95,7 +95,6 @@ jobs:
             sqlalchemy aiosqlite pydantic-settings openpyxl
       - name: Run WebUI tests
         working-directory: shard-webui/backend
-        pip install -e .
         run: pytest tests/ -v --timeout=30 -p no:warnings
         env:
           SECRET_KEY: test-secret-key-for-ci-only-32chars
