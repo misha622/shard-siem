@@ -1,154 +1,167 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SHARD Enterprise SIEM — Live Dashboard</title>
-    <link rel="icon" href="assets/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHARD Enterprise SIEM - Dashboard</title>
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        .live-indicator{display:inline-block;width:10px;height:10px;border-radius:50%;background:#2ed573;animation:pulse 1.5s infinite;margin-right:8px}
-        @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(46,213,115,.7)}70%{box-shadow:0 0 0 8px rgba(46,213,115,0)}100%{box-shadow:0 0 0 0 rgba(46,213,115,0)}}
-        .kpi-grid{grid-template-columns:repeat(4,1fr)}
-        .kpi-value{font-size:36px;font-weight:700}
-        .kpi-trend{font-size:12px;margin-top:4px}
-        .kpi-trend.up{color:#ff4757}.kpi-trend.down{color:#2ed573}
-        .map-container{height:400px;border-radius:12px;overflow:hidden;position:relative}
-        #map{height:100%}
-        .alert-feed{max-height:300px;overflow-y:auto}
-        .alert-item{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.03);animation:slideIn .3s}
-        @keyframes slideIn{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
-        .alert-severity{width:4px;height:40px;border-radius:2px;flex-shrink:0}
-        .alert-critical{background:#ff4757}.alert-high{background:#ffa502}.alert-medium{background:#ffd700}.alert-low{background:#2ed573}
-        .alert-time{font-size:11px;color:var(--text-muted);white-space:nowrap}
-        .alert-type{font-weight:600;font-size:13px}
-        .alert-ips{font-size:12px;color:var(--text-secondary);font-family:monospace}
-        .ml-insight{background:linear-gradient(135deg,rgba(0,212,255,.05),rgba(0,212,255,.02));border:1px solid rgba(0,212,255,.1);border-radius:8px;padding:12px;margin-top:12px}
-        .ml-score{font-size:24px;font-weight:700;color:#00d4ff}
-    </style>
 </head>
 <body>
-<nav class="navbar">
-    <div class="nav-brand">
-        <svg class="nav-logo" viewBox="0 0 40 40" width="40" height="40"><polygon points="20,2 38,12 38,28 20,38 2,28 2,12" fill="none" stroke="#00d4ff" stroke-width="2"/><text x="20" y="24" text-anchor="middle" fill="#00d4ff" font-size="16" font-weight="bold">S</text></svg>
-        <div><div class="nav-title">SHARD Enterprise</div><div class="nav-subtitle">SIEM v5.2.0 · <span class="live-indicator"></span>LIVE</div></div>
-    </div>
-    <div class="nav-links">
-        <a href="dashboard.html" class="nav-link active">Dashboard</a>
-        <a href="alerts.html" class="nav-link">Alerts</a>
-        <a href="blocked.html" class="nav-link">Blocked IPs</a>
-        <a href="map.html" class="nav-link">Map</a>
-        <a href="profile.html" class="nav-link">Profile</a>
-        <a href="settings.html" class="nav-link" id="settingsLink" style="display:none">Settings</a>
-    </div>
-    <div class="nav-actions"><span id="usernameDisplay" class="username"></span><button onclick="logout()" class="logout-btn">Sign Out</button></div>
-</nav>
-<main class="main-content">
-    <div class="kpi-grid">
-        <div class="card kpi-card"><div class="kpi-icon" style="background:rgba(255,71,87,0.1)">🔴</div><div class="kpi-info"><div class="kpi-label">CRITICAL</div><div class="kpi-value" id="kpiCritical">0</div><div class="kpi-trend up" id="kpiCriticalTrend"></div></div></div>
-        <div class="card kpi-card"><div class="kpi-icon" style="background:rgba(255,165,2,0.1)">🟠</div><div class="kpi-info"><div class="kpi-label">HIGH</div><div class="kpi-value" id="kpiHigh">0</div><div class="kpi-trend" id="kpiHighTrend"></div></div></div>
-        <div class="card kpi-card"><div class="kpi-icon" style="background:rgba(255,215,0,0.1)">🟡</div><div class="kpi-info"><div class="kpi-label">MEDIUM</div><div class="kpi-value" id="kpiMedium">0</div><div class="kpi-trend" id="kpiMediumTrend"></div></div></div>
-        <div class="card kpi-card"><div class="kpi-icon" style="background:rgba(46,213,115,0.1)">🛡️</div><div class="kpi-info"><div class="kpi-label">BLOCKED</div><div class="kpi-value" id="kpiBlocked">0</div><div class="kpi-trend down" id="kpiBlockedTrend"></div></div></div>
-    </div>
-    <div class="charts-grid">
-        <div class="card"><h3 class="card-title">🌍 Real-Time Attack Map</h3><div class="map-container"><div id="map"></div></div></div>
-        <div class="card"><h3 class="card-title">📊 Attack Timeline (24h)</h3><div id="timelineChart" style="height:380px"></div></div>
-    </div>
-    <div class="charts-grid">
-        <div class="card"><h3 class="card-title">🔥 Top Attackers</h3><div id="attackersChart" style="height:350px"></div></div>
-        <div class="card"><h3 class="card-title">🎯 Attack Types</h3><div id="typesChart" style="height:350px"></div></div>
-    </div>
-    <div class="charts-grid">
-        <div class="card">
-            <h3 class="card-title">📋 Live Alert Feed</h3>
-            <div class="alert-feed" id="alertFeed"><div style="color:var(--text-muted);text-align:center;padding:20px">Waiting for alerts...</div></div>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <svg class="nav-logo" viewBox="0 0 40 40" width="40" height="40">
+                <polygon points="20,2 38,12 38,28 20,38 2,28 2,12" fill="none" stroke="#00d4ff" stroke-width="2"/>
+                <text x="20" y="24" text-anchor="middle" fill="#00d4ff" font-size="16" font-weight="bold">S</text>
+            </svg>
+            <div><div class="nav-title">SHARD Enterprise</div><div class="nav-subtitle">SIEM v5.2.0</div></div>
         </div>
-        <div class="card">
-            <h3 class="card-title">🧠 ML Insights</h3>
-            <div class="ml-insight"><div style="font-size:11px;color:var(--text-muted)">THREAT LEVEL</div><div class="ml-score" id="mlThreatLevel">--</div><div style="font-size:12px;color:var(--text-secondary)" id="mlThreatMsg"></div></div>
-            <div class="ml-insight"><div style="font-size:11px;color:var(--text-muted)">PREDICTED NEXT ATTACK</div><div class="ml-score" id="mlPrediction" style="font-size:16px">--</div><div style="font-size:12px;color:var(--text-secondary)" id="mlPredMsg"></div></div>
-            <div class="ml-insight"><div style="font-size:11px;color:var(--text-muted)">SYSTEM HEALTH</div><div style="display:flex;gap:16px;margin-top:8px"><div><span style="color:#2ed573">CPU:</span> <span id="cpuVal">--</span></div><div><span style="color:#2ed573">RAM:</span> <span id="ramVal">--</span></div></div></div>
+        <div class="nav-links">
+            <a href="/index.html" class="nav-link active">Dashboard</a>
+            <a href="/alerts.html" class="nav-link">Alerts</a>
+            <a href="/blocked.html" class="nav-link">Blocked IPs</a>
+            <a href="/map.html" class="nav-link">Map</a><a href="/profile.html" class="nav-link">Profile</a>
+            <a href="/settings.html" class="nav-link" id="settingsLink" style="display:none">Settings</a>
         </div>
-    </div>
-</main>
-
-<script src="js/utils.js"></script>
-<script src="nav.js"></script>
+        <div class="nav-actions"><span id="usernameDisplay" class="username"></span><button onclick="logout()" class="logout-btn">Sign Out</button></div>
+    </nav>
+    <main class="main-content">
+        <div class="kpi-grid">
+            <div class="card kpi-card"><div class="kpi-icon" style="background:rgba(0,212,255,0.1)">📦</div><div class="kpi-info"><div class="kpi-label">Total Packets</div><div class="kpi-value" id="kpiPackets">-</div></div></div>
+            <div class="card kpi-card"><div class="kpi-icon" style="background:rgba(255,71,87,0.1)">🚨</div><div class="kpi-info"><div class="kpi-label">Active Alerts</div><div class="kpi-value" id="kpiAlerts">-</div></div></div>
+            <div class="card kpi-card"><div class="kpi-icon" style="background:rgba(255,165,2,0.1)">🚫</div><div class="kpi-info"><div class="kpi-label">Blocked IPs</div><div class="kpi-value" id="kpiBlocked">-</div></div></div>
+            <div class="card kpi-card"><div class="kpi-icon" style="background:rgba(46,213,115,0.1)">⚠️</div><div class="kpi-info"><div class="kpi-label">Active Threats</div><div class="kpi-value" id="kpiThreats">-</div></div></div>
+        </div>
+        <div class="charts-grid">
+            <div class="card"><h3 class="card-title">Attack Types Distribution</h3><div id="attackTypesChart" style="height:350px"></div></div>
+            <div class="card"><h3 class="card-title">Alerts Timeline (24h)</h3><div id="alertsTimelineChart" style="height:350px"></div></div>
+        </div>
+        <div class="charts-grid">
+            <div class="card"><h3 class="card-title">Top 10 Attacking IPs</h3><div id="topAttackersChart" style="height:350px"></div></div>
+            <div class="card"><h3 class="card-title">Top 10 Target IPs</h3><div id="topTargetsChart" style="height:350px"></div></div>
+        </div>
+        <div class="charts-grid">
+            <div class="card">
+                <h3 class="card-title">System Health</h3>
+                <div class="system-metrics">
+                    <div class="metric-item"><div class="metric-header"><span>CPU</span><span id="cpuValue">-</span></div><div class="progress-bar"><div class="progress-fill cpu-fill" id="cpuBar" style="width:0%"></div></div></div>
+                    <div class="metric-item"><div class="metric-header"><span>RAM</span><span id="ramValue">-</span></div><div class="progress-bar"><div class="progress-fill ram-fill" id="ramBar" style="width:0%"></div></div></div>
+                    <div class="metric-item"><div class="metric-header"><span>Disk</span><span id="diskValue">-</span></div><div class="progress-bar"><div class="progress-fill disk-fill" id="diskBar" style="width:0%"></div></div></div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3 class="card-title">Recent Alerts</h3></div>
+                <div class="table-container"><table class="alerts-table"><thead><tr><th>Time</th><th>Type</th><th>Severity</th><th>Source</th><th>Target</th><th>Action</th></tr></thead><tbody id="alertsTableBody"></tbody></table></div>
+            </div>
+        </div>
+    </main>
 <script>
-const T=localStorage.getItem('access_token');if(!T)location.href='/login.html';
-const H={Authorization:'Bearer '+T};
-const user=JSON.parse(localStorage.getItem('user')||'{}');
-document.getElementById('usernameDisplay').textContent=user.username||'User';
-if(user.role==='admin')document.getElementById('settingsLink').style.display='inline-block';
+// ============ API CLIENT ============
+const token = localStorage.getItem('access_token');
+if (!token) { window.location.href = '/login.html'; }
 
-// Инициализация карты
-const map=L.map('map').setView([20,0],2);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map);
+const user = JSON.parse(localStorage.getItem('user') || '{}');
+document.getElementById('usernameDisplay').textContent = user.username || 'User';
+if (user.role === 'admin') document.getElementById('settingsLink').style.display = 'inline-block';
 
-const sevColors={CRITICAL:'#ff4757',HIGH:'#ffa502',MEDIUM:'#ffd700',LOW:'#2ed573'};
-let prevStats=null;
-
-async function loadDashboard(){
-    const stats=await fetch('/api/stats/dashboard',{headers:H}).then(r=>r.json());
-    const alerts=await fetch('/api/alerts/?page_size=20',{headers:H}).then(r=>r.json());
-    const sys=await fetch('/api/stats/system',{headers:H}).then(r=>r.json());
-
-    // KPI
-    const sev=stats.severity_distribution||{};
-    document.getElementById('kpiCritical').textContent=sev.CRITICAL||0;
-    document.getElementById('kpiHigh').textContent=sev.HIGH||0;
-    document.getElementById('kpiMedium').textContent=sev.MEDIUM||0;
-    document.getElementById('kpiBlocked').textContent=stats.total_blocked||0;
-
-    // Тренды
-    if(prevStats){
-        const diff=stats.total_alerts-prevStats.total_alerts;
-        document.getElementById('kpiCriticalTrend').textContent=diff>0?`+${diff} new`:'';
-    }
-    prevStats=stats;
-
-    // Timeline
-    const hours=Array.from({length:24},(_,i)=>String(i).padStart(2,'0')+':00');
-    Plotly.react('timelineChart',[{x:hours,y:hours.map(h=>stats.alerts_by_hour?.[h]||0),type:'scatter',mode:'lines+markers',line:{color:'#00d4ff',width:2},fill:'tozeroy',fillcolor:'rgba(0,212,255,0.1)',marker:{size:4}}],{paper_bgcolor:'transparent',plot_bgcolor:'transparent',font:{color:'#fff'},margin:{t:10,b:40},xaxis:{gridcolor:'rgba(255,255,255,.05)'},yaxis:{gridcolor:'rgba(255,255,255,.05)'}});
-
-    // Attackers
-    const attackers=stats.top_attackers||[];
-    Plotly.react('attackersChart',[{y:attackers.map(a=>a.ip).reverse(),x:attackers.map(a=>a.count).reverse(),type:'bar',orientation:'h',marker:{color:attackers.map((_,i)=>['#ff4757','#ffa502','#ffd700','#2ed573'][i%4])}}],{paper_bgcolor:'transparent',plot_bgcolor:'transparent',font:{color:'#fff'},margin:{t:10,l:150}});
-
-    // Types
-    const types=Object.entries(stats.alerts_by_type||{});
-    Plotly.react('typesChart',[{values:types.map(t=>t[1]),labels:types.map(t=>t[0]),type:'pie',hole:.4,marker:{colors:['#00d4ff','#ff4757','#ffa502','#2ed573','#a29bfe','#fd79a8']},textinfo:'label+percent'}],{paper_bgcolor:'transparent',plot_bgcolor:'transparent',font:{color:'#fff'},margin:{t:10}});
-
-    // Alert Feed
-    const feed=document.getElementById('alertFeed');
-    feed.innerHTML=(alerts.alerts||[]).slice(0,15).map(a=>`<div class="alert-item"><div class="alert-severity alert-${a.severity?.toLowerCase()}"></div><div><span class="alert-time">${new Date(a.timestamp).toLocaleTimeString()}</span></div><div style="flex:1"><div class="alert-type">${a.alert_type}</div><div class="alert-ips">${a.source_ip} → ${a.destination_ip}</div></div><div><span class="severity-badge severity-${a.severity?.toLowerCase()}">${a.severity}</span></div></div>`).join('');
-
-    // ML Insights
-    const threatScore=stats.active_threats>5?'CRITICAL':stats.active_threats>2?'HIGH':stats.active_threats>0?'ELEVATED':'LOW';
-    document.getElementById('mlThreatLevel').textContent=threatScore;
-    document.getElementById('mlThreatMsg').textContent=threatScore==='LOW'?'System operating normally':'Active threats detected — attention required';
-
-    const topType=Object.entries(stats.alerts_by_type||{}).sort((a,b)=>b[1]-a[1])[0];
-    document.getElementById('mlPrediction').textContent=topType?`${topType[0]} (${topType[1]} in 24h)`:'No data';
-    document.getElementById('mlPredMsg').textContent='Based on historical attack patterns';
-
-    document.getElementById('cpuVal').textContent=(sys.cpu_percent||0).toFixed(1)+'%';
-    document.getElementById('ramVal').textContent=(sys.memory_percent||0).toFixed(1)+'%';
-
-    // Map — анимированные точки атак
-    map.eachLayer(l=>{if(l instanceof L.CircleMarker)map.removeLayer(l)});
-    (alerts.alerts||[]).forEach(a=>{
-        const lat=35+Math.random()*30,lon=-10+Math.random()*40; // заглушка координат
-        L.circleMarker([lat,lon],{radius:a.severity==='CRITICAL'?8:6,fillColor:sevColors[a.severity]||'#00d4ff',color:'#fff',weight:1,fillOpacity:.8}).bindPopup(`<b>${a.alert_type}</b><br>${a.source_ip} → ${a.destination_ip}`).addTo(map);
+async function api(url, options = {}) {
+    const res = await fetch('/api' + url, {
+        ...options,
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('access_token'),
+            'Content-Type': 'application/json',
+            ...options.headers
+        }
     });
+    if (res.status === 401) { localStorage.clear(); window.location.href = '/login.html'; return null; }
+    return res.json();
 }
 
-function logout(){localStorage.clear();location.href='/login.html';}
+// ============ DASHBOARD ============
+async function loadDashboard() {
+    const stats = await api('/stats/dashboard');
+    if (!stats) return;
+    
+    document.getElementById('kpiPackets').textContent = (stats.total_packets || 0).toLocaleString();
+    document.getElementById('kpiAlerts').textContent = (stats.total_alerts || 0).toLocaleString();
+    document.getElementById('kpiBlocked').textContent = (stats.total_blocked || 0).toLocaleString();
+    document.getElementById('kpiThreats').textContent = (stats.active_threats || 0).toLocaleString();
+    
+    // Attack types pie chart
+    const types = Object.entries(stats.alerts_by_type || {});
+    if (types.length > 0) {
+        Plotly.react('attackTypesChart', [{
+            values: types.map(t => t[1]), labels: types.map(t => t[0]),
+            type: 'pie', hole: 0.4,
+            marker: { colors: ['#00d4ff','#ff4757','#ffa502','#2ed573','#a29bfe','#fd79a8','#00cec9','#fdcb6e'] }
+        }], { paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', font: { color: '#fff' }, margin: { t: 10 } });
+    }
+    
+    // Timeline
+    const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0') + ':00');
+    const hData = stats.alerts_by_hour || {};
+    Plotly.react('alertsTimelineChart', [{
+        x: hours, y: hours.map(h => hData[h] || 0),
+        type: 'scatter', mode: 'lines+markers',
+        line: { color: '#00d4ff', width: 2 },
+        fill: 'tozeroy', fillcolor: 'rgba(0,212,255,0.1)'
+    }], { paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', font: { color: '#fff' }, margin: { t: 10 } });
+    
+    // Top attackers
+    const attackers = stats.top_attackers || [];
+    if (attackers.length > 0) {
+        Plotly.react('topAttackersChart', [{
+            y: attackers.map(a => a.ip).reverse(), x: attackers.map(a => a.count).reverse(),
+            type: 'bar', orientation: 'h', marker: { color: '#ff4757' }
+        }], { paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', font: { color: '#fff' }, margin: { t: 10, l: 150 } });
+    }
+    
+    // Top targets
+    const targets = stats.top_targets || [];
+    if (targets.length > 0) {
+        Plotly.react('topTargetsChart', [{
+            y: targets.map(a => a.ip).reverse(), x: targets.map(a => a.count).reverse(),
+            type: 'bar', orientation: 'h', marker: { color: '#00d4ff' }
+        }], { paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', font: { color: '#fff' }, margin: { t: 10, l: 150 } });
+    }
+    
+    // System metrics
+    const sys = await api('/stats/system');
+    if (sys) {
+        document.getElementById('cpuValue').textContent = (sys.cpu_percent || 0).toFixed(1) + '%';
+        document.getElementById('cpuBar').style.width = (sys.cpu_percent || 0) + '%';
+        document.getElementById('ramValue').textContent = (sys.memory_percent || 0).toFixed(1) + '%';
+        document.getElementById('ramBar').style.width = (sys.memory_percent || 0) + '%';
+        document.getElementById('diskValue').textContent = (sys.disk_percent || 0).toFixed(1) + '%';
+        document.getElementById('diskBar').style.width = (sys.disk_percent || 0) + '%';
+    }
+    
+    // Recent alerts
+    const alerts = await api('/alerts/?page_size=10');
+    if (alerts && alerts.alerts) {
+        document.getElementById('alertsTableBody').innerHTML = alerts.alerts.map(a => 
+            `<tr class="severity-${(a.severity || '').toLowerCase()}">
+                <td>${new Date(a.timestamp).toLocaleTimeString()}</td>
+                <td><span class="alert-type-badge">${a.alert_type}</span></td>
+                <td><span class="severity-badge severity-${(a.severity || '').toLowerCase()}">${a.severity}</span></td>
+                <td>${a.source_ip}</td>
+                <td>${a.destination_ip}</td>
+                <td>${a.is_blocked ? '<span class="blocked-badge">Blocked</span>' : '<button onclick="blockIP(\'' + a.id + '\')" class="block-btn">Block</button>'}</td>
+            </tr>`
+        ).join('');
+    }
+}
+
+async function blockIP(id) {
+    await api('/alerts/' + id + '/block', { method: 'POST' });
+    loadDashboard();
+}
+
+// logout in nav.js
 
 loadDashboard();
-setInterval(loadDashboard,5000);
+setInterval(loadDashboard, 5000);
 </script>
 </body>
 </html>
