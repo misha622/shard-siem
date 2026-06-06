@@ -29,10 +29,12 @@
 <script src="js/utils.js"></script>
     <script>
 // auth check in nav.js
+const T=localStorage.getItem('access_token');
+if(!T)location.href='/login.html';
 const H={Authorization:'Bearer '+T};
 const user=JSON.parse(localStorage.getItem('user')||'{}');
 // username in nav.js
-// settingsLink in nav.js
+if(user.role==='admin')document.getElementById('settingsLink').style.display='inline-block';
 
 const map=L.map('map').setView([20,0],2);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19}).addTo(map);
