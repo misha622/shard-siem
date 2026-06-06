@@ -736,7 +736,7 @@ class MachineLearningEngine(BaseModule):
         self._gnn_packet_counter = 0
 
         # Контекст для GNN
-        self._last_dst_ip = "0.0.0.0"
+        self._last_dst_ip = "unknown"
         self._last_dst_port = 0
 
         # DB connection pool reference

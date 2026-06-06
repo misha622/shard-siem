@@ -61,7 +61,7 @@ class EDRIntegration(BaseModule):
         ]
 
         self.suspicious_paths = [
-            '\\temp\\', '/tmp/', '\\users\\public\\',
+            '\\temp\\', '\\users\\public\\',
             '\\appdata\\local\\temp\\', '\\windows\\temp\\',
             '\\downloads\\', '\\desktop\\',
             '\\programdata\\', '\\recycler\\', '\\$recycle.bin\\',

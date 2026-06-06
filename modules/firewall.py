@@ -807,7 +807,7 @@ class SmartFirewall(BaseModule):
                 self.last_activity.clear()
 
             self.logger.info(f"Flushed {count} firewall rules")
-            self._audit_log('FLUSH_ALL', '0.0.0.0', 0, 'manual')
+            self._audit_log('FLUSH_ALL', '0.0.0.0/0', 0, 'manual')
             return count
 
         except Exception as e:
