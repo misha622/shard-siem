@@ -121,15 +121,15 @@ def get_blocked_ips() -> List[BlockedIP]:
     try: return db.query(BlockedIP).order_by(BlockedIP.blocked_at.desc()).all()
     finally: db.close()
 
-def block_ip(ip_address: str, reason: str, blocked_by: str, is_permanent: bool = False) -> BlockedIP:
+def block_ip(ip_address: str, reason: str, blocked_by: str, is_permanent: bool = False):
     db = SessionLocal()
     try:
         blocked = BlockedIP(ip_address=ip_address, reason=reason, blocked_by=blocked_by, is_permanent=is_permanent, expires_at=None if is_permanent else datetime.utcnow()+timedelta(hours=24))
         db.add(blocked)
-        # Bulk update skipped — is_blocked/blocked_at are properties
         db.commit()
-        return blocked
-    finally: db.close()
+        return {"id": blocked.id, "ip_address": blocked.ip_address, "blocked_at": str(blocked.blocked_at)}
+    finally:
+        db.close()
 
 def get_companies() -> List[Company]:
     db = SessionLocal()

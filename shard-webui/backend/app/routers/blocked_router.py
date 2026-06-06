@@ -20,8 +20,8 @@ async def list_blocked(current_user: dict = Depends(get_current_user)):
 
 @router.post("/block")
 async def block(request: BlockIPRequest, current_user: dict = Depends(get_current_user)):
-    blocked = block_ip(request.ip_address, request.reason, current_user["username"], request.is_permanent)
-    return {"message": f"IP {request.ip_address} blocked", "block_id": blocked.id}
+    result = block_ip(request.ip_address, request.reason, current_user["username"], request.is_permanent)
+    return {"message": f"IP {request.ip_address} blocked", "block_id": result["id"]}
 
 @router.delete("/unblock/{block_id}")
 async def unblock(block_id: int, current_user: dict = Depends(get_current_user)):
