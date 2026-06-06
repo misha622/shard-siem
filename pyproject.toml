@@ -7,6 +7,5 @@ name = "shard-siem"
 version = "5.2.0"
 requires-python = ">=3.11"
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["core", "core.*", "modules", "modules.*"]
+[tool.setuptools]
+packages = ["core", "modules"]
