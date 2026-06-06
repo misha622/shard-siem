@@ -43,7 +43,6 @@ ssl_model.pt
 ensemble_models.pkl
 
 # Structured folders (originals kept in root)
-core/
 ml/
 api/
 deploy/
