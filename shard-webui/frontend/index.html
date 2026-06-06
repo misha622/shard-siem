@@ -1,982 +1,168 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SHARD Enterprise SIEM — AI-Powered Threat Detection</title>
+    <title>SHARD Enterprise SIEM - Dashboard</title>
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600;700&family=Exo+2:wght@200;300;400;600&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg: #060b14;
-            --bg2: #0a0e17;
-            --bg3: #0f1828;
-            --accent: #00d4ff;
-            --accent2: #00ff88;
-            --danger: #ff4757;
-            --warn: #ffa502;
-            --border: rgba(0,212,255,0.15);
-            --text: #e8f4f8;
-            --muted: rgba(232,244,248,0.5);
-            --mono: 'Share Tech Mono', monospace;
-            --head: 'Rajdhani', sans-serif;
-            --body: 'Exo 2', sans-serif;
-        }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        html { scroll-behavior: smooth; }
-
-        body {
-            font-family: var(--body);
-            background: var(--bg);
-            color: var(--text);
-            overflow-x: hidden;
-        }
-
-        /* ── GRID BACKGROUND ── */
-        body::before {
-            content: '';
-            position: fixed;
-            inset: 0;
-            background-image:
-                linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
-            background-size: 60px 60px;
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        /* ── NAV ── */
-        nav {
-            position: fixed;
-            top: 0; left: 0; right: 0;
-            z-index: 100;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 16px 48px;
-            background: rgba(6,11,20,0.85);
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .nav-brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            text-decoration: none;
-        }
-
-        .nav-logo polygon { animation: pulse-stroke 3s ease-in-out infinite; }
-        @keyframes pulse-stroke {
-            0%,100% { stroke: #00d4ff; }
-            50% { stroke: #00ff88; }
-        }
-
-        .brand-text { line-height: 1; }
-        .brand-name {
-            font-family: var(--head);
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--accent);
-            letter-spacing: 3px;
-        }
-        .brand-sub {
-            font-family: var(--mono);
-            font-size: 10px;
-            color: var(--muted);
-            letter-spacing: 2px;
-        }
-
-        .nav-links { display: flex; gap: 32px; align-items: center; }
-        .nav-links a {
-            font-family: var(--head);
-            font-size: 13px;
-            font-weight: 500;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            color: var(--muted);
-            text-decoration: none;
-            transition: color 0.2s;
-        }
-        .nav-links a:hover { color: var(--accent); }
-
-        .nav-cta {
-            font-family: var(--head);
-            font-size: 13px;
-            font-weight: 600;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            color: var(--bg) !important;
-            background: var(--accent);
-            padding: 8px 24px;
-            border-radius: 2px;
-            transition: all 0.2s !important;
-        }
-        .nav-cta:hover { background: var(--accent2) !important; color: var(--bg) !important; }
-
-        /* ── HERO ── */
-        .hero {
-            position: relative;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 120px 24px 80px;
-            z-index: 1;
-        }
-
-        .hero-glow {
-            position: absolute;
-            top: 20%;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 600px;
-            height: 600px;
-            background: radial-gradient(ellipse, rgba(0,212,255,0.08) 0%, transparent 70%);
-            pointer-events: none;
-        }
-
-        .hero-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            font-family: var(--mono);
-            font-size: 11px;
-            letter-spacing: 3px;
-            color: var(--accent2);
-            background: rgba(0,255,136,0.08);
-            border: 1px solid rgba(0,255,136,0.25);
-            padding: 6px 16px;
-            border-radius: 2px;
-            margin-bottom: 32px;
-            animation: fadeInUp 0.6s ease both;
-        }
-
-        .hero-badge::before {
-            content: '';
-            width: 6px; height: 6px;
-            background: var(--accent2);
-            border-radius: 50%;
-            animation: blink 1.5s ease-in-out infinite;
-        }
-
-        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
-
-        .hero-title {
-            font-family: var(--head);
-            font-size: clamp(48px, 8vw, 96px);
-            font-weight: 700;
-            line-height: 0.95;
-            letter-spacing: -1px;
-            margin-bottom: 8px;
-            animation: fadeInUp 0.7s ease 0.1s both;
-        }
-
-        .hero-title .accent { color: var(--accent); }
-        .hero-title .dim { color: var(--muted); font-weight: 300; }
-
-        .hero-subtitle {
-            font-family: var(--mono);
-            font-size: 13px;
-            letter-spacing: 4px;
-            color: var(--muted);
-            text-transform: uppercase;
-            margin-bottom: 24px;
-            animation: fadeInUp 0.7s ease 0.2s both;
-        }
-
-        .hero-desc {
-            font-size: 18px;
-            font-weight: 300;
-            color: var(--muted);
-            max-width: 560px;
-            margin: 0 auto 48px;
-            line-height: 1.7;
-            animation: fadeInUp 0.7s ease 0.3s both;
-        }
-
-        .hero-actions {
-            display: flex;
-            gap: 16px;
-            justify-content: center;
-            flex-wrap: wrap;
-            animation: fadeInUp 0.7s ease 0.4s both;
-        }
-
-        .btn-primary {
-            font-family: var(--head);
-            font-size: 14px;
-            font-weight: 600;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            color: var(--bg);
-            background: var(--accent);
-            border: none;
-            padding: 16px 40px;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-block;
-            clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
-            transition: all 0.25s;
-            position: relative;
-        }
-        .btn-primary:hover { background: var(--accent2); transform: translateY(-2px); }
-
-        .btn-secondary {
-            font-family: var(--head);
-            font-size: 14px;
-            font-weight: 500;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            color: var(--accent);
-            background: transparent;
-            border: 1px solid var(--accent);
-            padding: 16px 40px;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-block;
-            clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
-            transition: all 0.25s;
-        }
-        .btn-secondary:hover { background: rgba(0,212,255,0.1); transform: translateY(-2px); }
-
-        /* ── STATS BAR ── */
-        .stats-bar {
-            position: relative;
-            z-index: 1;
-            display: flex;
-            justify-content: center;
-            gap: 0;
-            border-top: 1px solid var(--border);
-            border-bottom: 1px solid var(--border);
-            background: rgba(10,14,23,0.8);
-            overflow: hidden;
-        }
-
-        .stat-item {
-            flex: 1;
-            max-width: 220px;
-            padding: 28px 24px;
-            text-align: center;
-            border-right: 1px solid var(--border);
-            transition: background 0.3s;
-        }
-        .stat-item:last-child { border-right: none; }
-        .stat-item:hover { background: rgba(0,212,255,0.04); }
-
-        .stat-num {
-            font-family: var(--head);
-            font-size: 36px;
-            font-weight: 700;
-            color: var(--accent);
-            line-height: 1;
-            margin-bottom: 6px;
-        }
-        .stat-label {
-            font-family: var(--mono);
-            font-size: 10px;
-            letter-spacing: 2px;
-            color: var(--muted);
-            text-transform: uppercase;
-        }
-
-        /* ── SECTIONS ── */
-        section {
-            position: relative;
-            z-index: 1;
-            padding: 100px 48px;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .section-tag {
-            font-family: var(--mono);
-            font-size: 11px;
-            letter-spacing: 4px;
-            color: var(--accent);
-            text-transform: uppercase;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .section-tag::before {
-            content: '';
-            display: block;
-            width: 32px;
-            height: 1px;
-            background: var(--accent);
-        }
-
-        .section-title {
-            font-family: var(--head);
-            font-size: clamp(32px, 4vw, 52px);
-            font-weight: 700;
-            line-height: 1.1;
-            margin-bottom: 20px;
-        }
-
-        .section-desc {
-            font-size: 17px;
-            font-weight: 300;
-            color: var(--muted);
-            max-width: 560px;
-            line-height: 1.7;
-            margin-bottom: 60px;
-        }
-
-        /* ── FEATURES GRID ── */
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1px;
-            background: var(--border);
-            border: 1px solid var(--border);
-        }
-
-        .feature-card {
-            background: var(--bg2);
-            padding: 36px;
-            transition: background 0.3s;
-            position: relative;
-            overflow: hidden;
-        }
-        .feature-card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0;
-            width: 3px; height: 0;
-            background: var(--accent);
-            transition: height 0.4s ease;
-        }
-        .feature-card:hover { background: var(--bg3); }
-        .feature-card:hover::before { height: 100%; }
-
-        .feature-icon {
-            font-size: 32px;
-            margin-bottom: 20px;
-            display: block;
-        }
-        .feature-name {
-            font-family: var(--head);
-            font-size: 20px;
-            font-weight: 600;
-            letter-spacing: 1px;
-            margin-bottom: 12px;
-            color: var(--text);
-        }
-        .feature-desc {
-            font-size: 14px;
-            font-weight: 300;
-            color: var(--muted);
-            line-height: 1.7;
-        }
-
-        /* ── ML MODELS ── */
-        .ml-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 12px;
-        }
-
-        .ml-card {
-            background: var(--bg2);
-            border: 1px solid var(--border);
-            padding: 20px;
-            border-radius: 2px;
-            transition: all 0.25s;
-            cursor: default;
-        }
-        .ml-card:hover {
-            border-color: var(--accent);
-            background: rgba(0,212,255,0.04);
-            transform: translateY(-2px);
-        }
-        .ml-name {
-            font-family: var(--mono);
-            font-size: 12px;
-            color: var(--accent);
-            margin-bottom: 6px;
-            letter-spacing: 1px;
-        }
-        .ml-desc {
-            font-size: 12px;
-            color: var(--muted);
-            line-height: 1.5;
-        }
-
-        /* ── PRICING ── */
-        .pricing-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 24px;
-        }
-
-        .price-card {
-            background: var(--bg2);
-            border: 1px solid var(--border);
-            padding: 40px 32px;
-            position: relative;
-            transition: all 0.3s;
-        }
-        .price-card:hover { border-color: rgba(0,212,255,0.4); transform: translateY(-4px); }
-        .price-card.featured {
-            border-color: var(--accent);
-            background: linear-gradient(135deg, rgba(0,212,255,0.06) 0%, var(--bg2) 100%);
-        }
-
-        .price-featured-badge {
-            position: absolute;
-            top: -1px; right: 24px;
-            font-family: var(--mono);
-            font-size: 10px;
-            letter-spacing: 2px;
-            color: var(--bg);
-            background: var(--accent);
-            padding: 4px 12px;
-            text-transform: uppercase;
-        }
-
-        .price-tier {
-            font-family: var(--mono);
-            font-size: 11px;
-            letter-spacing: 3px;
-            color: var(--muted);
-            text-transform: uppercase;
-            margin-bottom: 16px;
-        }
-        .price-amount {
-            font-family: var(--head);
-            font-size: 52px;
-            font-weight: 700;
-            color: var(--text);
-            line-height: 1;
-            margin-bottom: 4px;
-        }
-        .price-amount span {
-            font-size: 20px;
-            font-weight: 300;
-            color: var(--muted);
-        }
-        .price-period {
-            font-family: var(--mono);
-            font-size: 11px;
-            color: var(--muted);
-            margin-bottom: 32px;
-        }
-
-        .price-features {
-            list-style: none;
-            margin-bottom: 36px;
-        }
-        .price-features li {
-            font-size: 14px;
-            color: var(--muted);
-            padding: 8px 0;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .price-features li::before {
-            content: '▸';
-            color: var(--accent);
-            flex-shrink: 0;
-        }
-
-        .price-btn {
-            display: block;
-            width: 100%;
-            font-family: var(--head);
-            font-size: 13px;
-            font-weight: 600;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            text-align: center;
-            padding: 14px;
-            text-decoration: none;
-            transition: all 0.25s;
-            border: 1px solid var(--accent);
-            color: var(--accent);
-            background: transparent;
-            cursor: pointer;
-        }
-        .price-btn:hover, .price-card.featured .price-btn {
-            background: var(--accent);
-            color: var(--bg);
-        }
-        .price-card.featured .price-btn:hover { background: var(--accent2); border-color: var(--accent2); }
-
-        /* ── CRYPTO ── */
-        .crypto-section {
-            background: var(--bg2);
-            border: 1px solid var(--border);
-            padding: 48px;
-            display: flex;
-            align-items: center;
-            gap: 48px;
-            flex-wrap: wrap;
-        }
-
-        .crypto-info { flex: 1; min-width: 280px; }
-        .crypto-title {
-            font-family: var(--head);
-            font-size: 28px;
-            font-weight: 700;
-            margin-bottom: 12px;
-        }
-        .crypto-desc { font-size: 15px; color: var(--muted); line-height: 1.7; }
-
-        .crypto-badges { display: flex; gap: 12px; flex-wrap: wrap; }
-        .crypto-badge {
-            font-family: var(--mono);
-            font-size: 12px;
-            letter-spacing: 2px;
-            padding: 10px 20px;
-            border: 1px solid var(--border);
-            color: var(--accent2);
-            background: rgba(0,255,136,0.06);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        /* ── CTA ── */
-        .cta-section {
-            text-align: center;
-            padding: 120px 48px;
-            position: relative;
-            z-index: 1;
-            border-top: 1px solid var(--border);
-        }
-        .cta-section::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 50%; transform: translateX(-50%);
-            width: 400px; height: 400px;
-            background: radial-gradient(ellipse, rgba(0,212,255,0.06), transparent 70%);
-            pointer-events: none;
-        }
-
-        .cta-title {
-            font-family: var(--head);
-            font-size: clamp(36px, 5vw, 64px);
-            font-weight: 700;
-            margin-bottom: 20px;
-        }
-        .cta-desc {
-            font-size: 17px;
-            font-weight: 300;
-            color: var(--muted);
-            margin-bottom: 48px;
-        }
-
-        /* ── FOOTER ── */
-        footer {
-            position: relative;
-            z-index: 1;
-            border-top: 1px solid var(--border);
-            padding: 32px 48px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 16px;
-        }
-
-        .footer-copy {
-            font-family: var(--mono);
-            font-size: 11px;
-            color: var(--muted);
-            letter-spacing: 1px;
-        }
-
-        .footer-links { display: flex; gap: 24px; }
-        .footer-links a {
-            font-family: var(--mono);
-            font-size: 11px;
-            color: var(--muted);
-            text-decoration: none;
-            letter-spacing: 1px;
-            transition: color 0.2s;
-        }
-        .footer-links a:hover { color: var(--accent); }
-
-        /* ── TERMINAL DEMO ── */
-        .terminal {
-            background: #05090f;
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            overflow: hidden;
-            font-family: var(--mono);
-            font-size: 13px;
-            line-height: 1.8;
-        }
-        .terminal-bar {
-            background: #0d1420;
-            padding: 10px 16px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            border-bottom: 1px solid var(--border);
-        }
-        .dot { width: 10px; height: 10px; border-radius: 50%; }
-        .dot.r { background: #ff5f57; }
-        .dot.y { background: #febc2e; }
-        .dot.g { background: #28c840; }
-        .terminal-title {
-            font-size: 11px;
-            color: var(--muted);
-            margin-left: 8px;
-            letter-spacing: 1px;
-        }
-        .terminal-body { padding: 24px; }
-        .t-prompt { color: var(--accent2); }
-        .t-cmd { color: var(--text); }
-        .t-out { color: var(--muted); }
-        .t-alert { color: var(--danger); }
-        .t-ok { color: var(--accent2); }
-        .t-warn { color: var(--warn); }
-        .t-cursor {
-            display: inline-block;
-            width: 8px; height: 14px;
-            background: var(--accent);
-            vertical-align: middle;
-            animation: blink 1s step-end infinite;
-        }
-
-        /* ── ANIMATIONS ── */
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(24px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .reveal {
-            opacity: 0;
-            transform: translateY(32px);
-            transition: opacity 0.7s ease, transform 0.7s ease;
-        }
-        .reveal.visible { opacity: 1; transform: none; }
-
-        /* ── RESPONSIVE ── */
-        @media (max-width: 768px) {
-            nav { padding: 16px 24px; }
-            .nav-links { display: none; }
-            section { padding: 60px 24px; }
-            .stats-bar { flex-wrap: wrap; }
-            .stat-item { min-width: 50%; border-right: none; border-bottom: 1px solid var(--border); }
-            .crypto-section { padding: 32px 24px; }
-            footer { flex-direction: column; text-align: center; }
-        }
-    </style>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-
-<!-- NAV -->
-<nav>
-    <a href="#" class="nav-brand">
-        <svg viewBox="0 0 40 40" width="36" height="36">
-            <polygon points="20,2 38,12 38,28 20,38 2,28 2,12" fill="none" stroke="#00d4ff" stroke-width="1.5" class="nav-logo"/>
-            <text x="20" y="25" text-anchor="middle" fill="#00d4ff" font-size="15" font-weight="bold" font-family="Rajdhani">S</text>
-        </svg>
-        <div class="brand-text">
-            <div class="brand-name">SHARD</div>
-            <div class="brand-sub">ENTERPRISE SIEM</div>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <svg class="nav-logo" viewBox="0 0 40 40" width="40" height="40">
+                <polygon points="20,2 38,12 38,28 20,38 2,28 2,12" fill="none" stroke="#00d4ff" stroke-width="2"/>
+                <text x="20" y="24" text-anchor="middle" fill="#00d4ff" font-size="16" font-weight="bold">S</text>
+            </svg>
+            <div><div class="nav-title">SHARD Enterprise</div><div class="nav-subtitle">SIEM v5.2.0</div></div>
         </div>
-    </a>
-    <div class="nav-links">
-        <a href="#features">Features</a>
-        <a href="#ai">AI Engine</a>
-        <a href="#pricing">Pricing</a>
-        <a href="https://github.com/misha622/shard-siem" target="_blank">GitHub</a>
-        <a href="/login.html" class="nav-cta">Login</a>
-    </div>
-</nav>
-
-<!-- HERO -->
-<div class="hero">
-    <div class="hero-glow"></div>
-    <div>
-        <div class="hero-badge">v5.2.7 — Production Ready</div>
-        <h1 class="hero-title">
-            <span class="dim">AI-Powered</span><br>
-            <span class="accent">SHARD</span> SIEM
-        </h1>
-        <p class="hero-subtitle">Enterprise Security Intelligence</p>
-        <p class="hero-desc">
-            Autonomous threat detection with 10 neural networks, 835 MITRE ATT&CK techniques, and real-time response. Built for teams that can't afford to miss a threat.
-        </p>
-        <div class="hero-actions">
-            <a href="/login.html" class="btn-primary">Launch Dashboard</a>
-            <a href="https://github.com/misha622/shard-siem" target="_blank" class="btn-secondary">View on GitHub</a>
+        <div class="nav-links">
+            <a href="/index.html" class="nav-link active">Dashboard</a>
+            <a href="/alerts.html" class="nav-link">Alerts</a>
+            <a href="/blocked.html" class="nav-link">Blocked IPs</a>
+            <a href="/map.html" class="nav-link">Map</a><a href="/profile.html" class="nav-link">Profile</a>
+            <a href="/settings.html" class="nav-link" id="settingsLink" style="display:none">Settings</a>
         </div>
-    </div>
-</div>
-
-<!-- STATS BAR -->
-<div class="stats-bar">
-    <div class="stat-item">
-        <div class="stat-num">10</div>
-        <div class="stat-label">Neural Networks</div>
-    </div>
-    <div class="stat-item">
-        <div class="stat-num">835</div>
-        <div class="stat-label">MITRE Techniques</div>
-    </div>
-    <div class="stat-item">
-        <div class="stat-num">175</div>
-        <div class="stat-label">Tests Passing</div>
-    </div>
-    <div class="stat-item">
-        <div class="stat-num">22</div>
-        <div class="stat-label">Security Modules</div>
-    </div>
-    <div class="stat-item">
-        <div class="stat-num">&lt;1s</div>
-        <div class="stat-label">Detection Latency</div>
-    </div>
-</div>
-
-<!-- FEATURES -->
-<section id="features">
-    <div class="reveal">
-        <div class="section-tag">Core Capabilities</div>
-        <h2 class="section-title">Everything you need to<br>defend your infrastructure</h2>
-        <p class="section-desc">SHARD combines AI-driven detection with enterprise-grade modules to give your security team complete visibility.</p>
-    </div>
-    <div class="features-grid reveal">
-        <div class="feature-card">
-            <span class="feature-icon">🧠</span>
-            <div class="feature-name">AI Threat Detection</div>
-            <div class="feature-desc">10 neural networks running in parallel: IsolationForest, XGBoost, Temporal GNN, VAE, RL DQN Agent and more — detecting anomalies humans miss.</div>
+        <div class="nav-actions"><span id="usernameDisplay" class="username"></span><button onclick="logout()" class="logout-btn">Sign Out</button></div>
+    </nav>
+    <main class="main-content">
+        <div class="kpi-grid">
+            <div class="card kpi-card"><div class="kpi-icon" style="background:rgba(0,212,255,0.1)">📦</div><div class="kpi-info"><div class="kpi-label">Total Packets</div><div class="kpi-value" id="kpiPackets">-</div></div></div>
+            <div class="card kpi-card"><div class="kpi-icon" style="background:rgba(255,71,87,0.1)">🚨</div><div class="kpi-info"><div class="kpi-label">Active Alerts</div><div class="kpi-value" id="kpiAlerts">-</div></div></div>
+            <div class="card kpi-card"><div class="kpi-icon" style="background:rgba(255,165,2,0.1)">🚫</div><div class="kpi-info"><div class="kpi-label">Blocked IPs</div><div class="kpi-value" id="kpiBlocked">-</div></div></div>
+            <div class="card kpi-card"><div class="kpi-icon" style="background:rgba(46,213,115,0.1)">⚠️</div><div class="kpi-info"><div class="kpi-label">Active Threats</div><div class="kpi-value" id="kpiThreats">-</div></div></div>
         </div>
-        <div class="feature-card">
-            <span class="feature-icon">⚡</span>
-            <div class="feature-name">Real-Time Response</div>
-            <div class="feature-desc">Sub-second alert generation with automatic IP blocking, WAF rules, and firewall updates. Threats stopped before damage occurs.</div>
+        <div class="charts-grid">
+            <div class="card"><h3 class="card-title">Attack Types Distribution</h3><div id="attackTypesChart" style="height:350px"></div></div>
+            <div class="card"><h3 class="card-title">Alerts Timeline (24h)</h3><div id="alertsTimelineChart" style="height:350px"></div></div>
         </div>
-        <div class="feature-card">
-            <span class="feature-icon">🔍</span>
-            <div class="feature-name">Deep Packet Inspection</div>
-            <div class="feature-desc">Full network visibility with DPI, traffic capture, JA3 fingerprinting, and encrypted traffic analysis — see everything on your network.</div>
+        <div class="charts-grid">
+            <div class="card"><h3 class="card-title">Top 10 Attacking IPs</h3><div id="topAttackersChart" style="height:350px"></div></div>
+            <div class="card"><h3 class="card-title">Top 10 Target IPs</h3><div id="topTargetsChart" style="height:350px"></div></div>
         </div>
-        <div class="feature-card">
-            <span class="feature-icon">🏢</span>
-            <div class="feature-name">Multi-Tenant Architecture</div>
-            <div class="feature-desc">Complete tenant isolation with 7-tier RBAC, JWT tokens, per-tenant data segregation. Perfect for MSSPs and enterprise deployments.</div>
+        <div class="charts-grid">
+            <div class="card">
+                <h3 class="card-title">System Health</h3>
+                <div class="system-metrics">
+                    <div class="metric-item"><div class="metric-header"><span>CPU</span><span id="cpuValue">-</span></div><div class="progress-bar"><div class="progress-fill cpu-fill" id="cpuBar" style="width:0%"></div></div></div>
+                    <div class="metric-item"><div class="metric-header"><span>RAM</span><span id="ramValue">-</span></div><div class="progress-bar"><div class="progress-fill ram-fill" id="ramBar" style="width:0%"></div></div></div>
+                    <div class="metric-item"><div class="metric-header"><span>Disk</span><span id="diskValue">-</span></div><div class="progress-bar"><div class="progress-fill disk-fill" id="diskBar" style="width:0%"></div></div></div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3 class="card-title">Recent Alerts</h3></div>
+                <div class="table-container"><table class="alerts-table"><thead><tr><th>Time</th><th>Type</th><th>Severity</th><th>Source</th><th>Target</th><th>Action</th></tr></thead><tbody id="alertsTableBody"></tbody></table></div>
+            </div>
         </div>
-        <div class="feature-card">
-            <span class="feature-icon">🎯</span>
-            <div class="feature-name">MITRE ATT&CK Mapping</div>
-            <div class="feature-desc">Every alert mapped to 835 MITRE ATT&CK techniques. Know exactly what the attacker is doing and what comes next.</div>
-        </div>
-        <div class="feature-card">
-            <span class="feature-icon">🍯</span>
-            <div class="feature-name">13 Honeypots</div>
-            <div class="feature-desc">Trap and study attackers with 13 configurable honeypot services. Capture TTPs, tools, and infrastructure of real threat actors.</div>
-        </div>
-        <div class="feature-card">
-            <span class="feature-icon">📊</span>
-            <div class="feature-name">Live Dashboard</div>
-            <div class="feature-desc">Plotly-powered real-time charts, geographic threat maps, attack timelines, and system health — all updating via WebSocket every 5 seconds.</div>
-        </div>
-        <div class="feature-card">
-            <span class="feature-icon">🚀</span>
-            <div class="feature-name">One-Command Deploy</div>
-            <div class="feature-desc">Full stack up in minutes with Docker Compose. Systemd services, automated backups, health checks included out of the box.</div>
-        </div>
-        <div class="feature-card">
-            <span class="feature-icon">🔗</span>
-            <div class="feature-name">Agent-Based Collection</div>
-            <div class="feature-desc">Deploy lightweight agents on remote servers to centralize logs and traffic from your entire infrastructure into one SHARD instance.</div>
-        </div>
-    </div>
-</section>
-
-<!-- AI ENGINE -->
-<section id="ai" style="border-top: 1px solid var(--border);">
-    <div class="reveal" style="display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:start; flex-wrap:wrap;">
-        <div>
-            <div class="section-tag">AI Engine</div>
-            <h2 class="section-title">10 Neural Networks.<br>One Platform.</h2>
-            <p class="section-desc">SHARD's ML stack trains on your traffic and detects zero-day threats with explainable SHAP scores — no black boxes.</p>
-            <a href="/login.html" class="btn-primary" style="display:inline-block">See it live →</a>
-        </div>
-        <div class="ml-grid reveal">
-            <div class="ml-card"><div class="ml-name">IsolationForest</div><div class="ml-desc">Anomaly detection for network traffic</div></div>
-            <div class="ml-card"><div class="ml-name">XGBoost</div><div class="ml-desc">Attack classification with SHAP</div></div>
-            <div class="ml-card"><div class="ml-name">Temporal GNN</div><div class="ml-desc">Graph-based lateral movement</div></div>
-            <div class="ml-card"><div class="ml-name">VAE</div><div class="ml-desc">Variational autoencoder for outliers</div></div>
-            <div class="ml-card"><div class="ml-name">RL DQN Agent</div><div class="ml-desc">Autonomous response decisions</div></div>
-            <div class="ml-card"><div class="ml-name">Seq2Seq</div><div class="ml-desc">Attack sequence prediction</div></div>
-            <div class="ml-card"><div class="ml-name">Attention LSTM</div><div class="ml-desc">Temporal pattern recognition</div></div>
-            <div class="ml-card"><div class="ml-name">Random Forest</div><div class="ml-desc">Multi-class threat scoring</div></div>
-            <div class="ml-card"><div class="ml-name">Multi-Modal</div><div class="ml-desc">Fusion of network + system signals</div></div>
-            <div class="ml-card"><div class="ml-name">Federated</div><div class="ml-desc">Privacy-preserving distributed learning</div></div>
-        </div>
-    </div>
-</section>
-
-<!-- TERMINAL -->
-<section style="border-top: 1px solid var(--border); padding-top: 80px; padding-bottom: 80px;">
-    <div class="reveal">
-        <div class="section-tag">Live Detection</div>
-        <h2 class="section-title" style="margin-bottom:40px">Real threats. Real response.</h2>
-    </div>
-    <div class="terminal reveal">
-        <div class="terminal-bar">
-            <div class="dot r"></div>
-            <div class="dot y"></div>
-            <div class="dot g"></div>
-            <span class="terminal-title">shard-engine — threat monitor</span>
-        </div>
-        <div class="terminal-body">
-            <div><span class="t-prompt">shard@enterprise:~$</span> <span class="t-cmd">shard start --modules all</span></div>
-            <div class="t-ok">✓ SHARD Enterprise v5.2.7 started</div>
-            <div class="t-ok">✓ 22 modules loaded | 10 ML models warm</div>
-            <div class="t-ok">✓ Listening on 0.0.0.0:9999</div>
-            <div>&nbsp;</div>
-            <div class="t-warn">[14:32:01] ALERT  Port scan detected — 192.168.1.105 → 203.0.113.42</div>
-            <div class="t-out">[14:32:01]        Technique: T1046 Network Service Discovery</div>
-            <div class="t-out">[14:32:01]        Confidence: 94.7% | Model: XGBoost + IsolationForest</div>
-            <div class="t-ok">[14:32:01] AUTO   Firewall rule added — 192.168.1.105 blocked</div>
-            <div>&nbsp;</div>
-            <div class="t-alert">[14:33:17] CRIT   Brute force SSH — 10.0.0.23 (847 attempts/min)</div>
-            <div class="t-out">[14:33:17]        Technique: T1110.001 Password Guessing</div>
-            <div class="t-ok">[14:33:17] AUTO   IP blocked + honeypot redirect activated</div>
-            <div>&nbsp;</div>
-            <div class="t-out">[14:35:44] INFO   Federated model sync completed (3 nodes)</div>
-            <div><span class="t-prompt">shard@enterprise:~$</span> <span class="t-cursor"></span></div>
-        </div>
-    </div>
-</section>
-
-<!-- PRICING -->
-<section id="pricing" style="border-top: 1px solid var(--border);">
-    <div class="reveal" style="text-align:center; margin-bottom:60px;">
-        <div class="section-tag" style="justify-content:center;">Pricing</div>
-        <h2 class="section-title">Simple. Transparent.</h2>
-        <p class="section-desc" style="margin: 0 auto;">Pay with crypto — Bitcoin or USDT. License activated within 24 hours.</p>
-    </div>
-    <div class="pricing-grid reveal">
-        <div class="price-card">
-            <div class="price-tier">Community</div>
-            <div class="price-amount">$0</div>
-            <div class="price-period">Free forever · Open Source</div>
-            <ul class="price-features">
-                <li>Core SIEM engine</li>
-                <li>Basic ML detection</li>
-                <li>Single tenant</li>
-                <li>Community support</li>
-                <li>GitHub access</li>
-            </ul>
-            <a href="https://github.com/misha622/shard-siem" target="_blank" class="price-btn">Download Free</a>
-        </div>
-        <div class="price-card featured">
-            <div class="price-featured-badge">Most Popular</div>
-            <div class="price-tier">Professional</div>
-            <div class="price-amount">$299<span>/mo</span></div>
-            <div class="price-period">Billed monthly · Cancel anytime</div>
-            <ul class="price-features">
-                <li>All 10 ML models</li>
-                <li>Multi-tenant RBAC</li>
-                <li>835 MITRE techniques</li>
-                <li>13 honeypots</li>
-                <li>Priority support</li>
-                <li>Updates included</li>
-            </ul>
-            <a href="mailto:shard-security@proton.me?subject=Pro License" class="price-btn">Get Pro License</a>
-        </div>
-        <div class="price-card">
-            <div class="price-tier">Enterprise</div>
-            <div class="price-amount">$999<span>/mo</span></div>
-            <div class="price-period">Custom deployment · SLA included</div>
-            <ul class="price-features">
-                <li>Everything in Pro</li>
-                <li>On-premise deployment</li>
-                <li>Federated learning</li>
-                <li>Custom integrations</li>
-                <li>Dedicated support</li>
-                <li>White-label option</li>
-            </ul>
-            <a href="mailto:shard-security@proton.me?subject=Enterprise License" class="price-btn">Contact Sales</a>
-        </div>
-    </div>
-
-    <!-- CRYPTO -->
-    <div class="crypto-section reveal" style="margin-top:48px;">
-        <div class="crypto-info">
-            <h3 class="crypto-title">🔐 Crypto Payments Accepted</h3>
-            <p class="crypto-desc">We accept USDT and Bitcoin. No KYC required. License key delivered to your email within 24 hours of payment confirmation.</p>
-        </div>
-        <div class="crypto-badges">
-            <div class="crypto-badge">₿ Bitcoin (BTC)</div>
-            <div class="crypto-badge">◎ USDT TRC-20</div>
-            <div class="crypto-badge">◎ USDT ERC-20</div>
-        </div>
-    </div>
-</section>
-
-<!-- CTA -->
-<div class="cta-section">
-    <h2 class="cta-title reveal">Ready to secure<br>your infrastructure?</h2>
-    <p class="cta-desc reveal">Start with the free Community edition or contact us for a Pro demo.</p>
-    <div class="hero-actions reveal">
-        <a href="/login.html" class="btn-primary">Launch Dashboard</a>
-        <a href="mailto:shard-security@proton.me" class="btn-secondary">Contact Us</a>
-    </div>
-</div>
-
-<!-- FOOTER -->
-<footer>
-    <div class="footer-copy">© 2026 SHARD Enterprise SIEM · All rights reserved</div>
-    <div class="footer-links">
-        <a href="https://github.com/misha622/shard-siem" target="_blank">GitHub</a>
-        <a href="mailto:shard-security@proton.me">Contact</a>
-        <a href="/login.html">Login</a>
-    </div>
-</footer>
-
+    </main>
 <script>
-// Reveal on scroll
-const observer = new IntersectionObserver((entries) => {
-    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
-}, { threshold: 0.1 });
-document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+// ============ API CLIENT ============
+const token = localStorage.getItem('access_token');
+if (!token) { window.location.href = '/login.html'; }
 
-// Animated counters
-function animateCount(el, target, suffix='') {
-    let start = 0;
-    const duration = 1500;
-    const step = target / (duration / 16);
-    const timer = setInterval(() => {
-        start = Math.min(start + step, target);
-        el.textContent = Math.floor(start) + suffix;
-        if (start >= target) clearInterval(timer);
-    }, 16);
-}
+const user = JSON.parse(localStorage.getItem('user') || '{}');
+document.getElementById('usernameDisplay').textContent = user.username || 'User';
+if (user.role === 'admin') document.getElementById('settingsLink').style.display = 'inline-block';
 
-const statsObserver = new IntersectionObserver((entries) => {
-    entries.forEach(e => {
-        if (e.isIntersecting) {
-            const nums = e.target.querySelectorAll('.stat-num');
-            nums.forEach(n => {
-                const text = n.textContent;
-                if (text === '10') animateCount(n, 10);
-                if (text === '835') animateCount(n, 835);
-                if (text === '175') animateCount(n, 175);
-                if (text === '22') animateCount(n, 22);
-            });
-            statsObserver.unobserve(e.target);
+async function api(url, options = {}) {
+    const res = await fetch('/api' + url, {
+        ...options,
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('access_token'),
+            'Content-Type': 'application/json',
+            ...options.headers
         }
     });
-}, { threshold: 0.5 });
-const statsBar = document.querySelector('.stats-bar');
-if (statsBar) statsObserver.observe(statsBar);
+    if (res.status === 401) { localStorage.clear(); window.location.href = '/login.html'; return null; }
+    return res.json();
+}
+
+// ============ DASHBOARD ============
+async function loadDashboard() {
+    const stats = await api('/stats/dashboard');
+    if (!stats) return;
+    
+    document.getElementById('kpiPackets').textContent = (stats.total_packets || 0).toLocaleString();
+    document.getElementById('kpiAlerts').textContent = (stats.total_alerts || 0).toLocaleString();
+    document.getElementById('kpiBlocked').textContent = (stats.total_blocked || 0).toLocaleString();
+    document.getElementById('kpiThreats').textContent = (stats.active_threats || 0).toLocaleString();
+    
+    // Attack types pie chart
+    const types = Object.entries(stats.alerts_by_type || {});
+    if (types.length > 0) {
+        Plotly.react('attackTypesChart', [{
+            values: types.map(t => t[1]), labels: types.map(t => t[0]),
+            type: 'pie', hole: 0.4,
+            marker: { colors: ['#00d4ff','#ff4757','#ffa502','#2ed573','#a29bfe','#fd79a8','#00cec9','#fdcb6e'] }
+        }], { paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', font: { color: '#fff' }, margin: { t: 10 } });
+    }
+    
+    // Timeline
+    const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0') + ':00');
+    const hData = stats.alerts_by_hour || {};
+    Plotly.react('alertsTimelineChart', [{
+        x: hours, y: hours.map(h => hData[h] || 0),
+        type: 'scatter', mode: 'lines+markers',
+        line: { color: '#00d4ff', width: 2 },
+        fill: 'tozeroy', fillcolor: 'rgba(0,212,255,0.1)'
+    }], { paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', font: { color: '#fff' }, margin: { t: 10 } });
+    
+    // Top attackers
+    const attackers = stats.top_attackers || [];
+    if (attackers.length > 0) {
+        Plotly.react('topAttackersChart', [{
+            y: attackers.map(a => a.ip).reverse(), x: attackers.map(a => a.count).reverse(),
+            type: 'bar', orientation: 'h', marker: { color: '#ff4757' }
+        }], { paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', font: { color: '#fff' }, margin: { t: 10, l: 150 } });
+    }
+    
+    // Top targets
+    const targets = stats.top_targets || [];
+    if (targets.length > 0) {
+        Plotly.react('topTargetsChart', [{
+            y: targets.map(a => a.ip).reverse(), x: targets.map(a => a.count).reverse(),
+            type: 'bar', orientation: 'h', marker: { color: '#00d4ff' }
+        }], { paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', font: { color: '#fff' }, margin: { t: 10, l: 150 } });
+    }
+    
+    // System metrics
+    const sys = await api('/stats/system');
+    if (sys) {
+        document.getElementById('cpuValue').textContent = (sys.cpu_percent || 0).toFixed(1) + '%';
+        document.getElementById('cpuBar').style.width = (sys.cpu_percent || 0) + '%';
+        document.getElementById('ramValue').textContent = (sys.memory_percent || 0).toFixed(1) + '%';
+        document.getElementById('ramBar').style.width = (sys.memory_percent || 0) + '%';
+        document.getElementById('diskValue').textContent = (sys.disk_percent || 0).toFixed(1) + '%';
+        document.getElementById('diskBar').style.width = (sys.disk_percent || 0) + '%';
+    }
+    
+    // Recent alerts
+    const alerts = await api('/alerts/?page_size=10');
+    if (alerts && alerts.alerts) {
+        document.getElementById('alertsTableBody').innerHTML = alerts.alerts.map(a => 
+            `<tr class="severity-${(a.severity || '').toLowerCase()}">
+                <td>${new Date(a.timestamp).toLocaleTimeString()}</td>
+                <td><span class="alert-type-badge">${a.alert_type}</span></td>
+                <td><span class="severity-badge severity-${(a.severity || '').toLowerCase()}">${a.severity}</span></td>
+                <td>${a.source_ip}</td>
+                <td>${a.destination_ip}</td>
+                <td>${a.is_blocked ? '<span class="blocked-badge">Blocked</span>' : '<button onclick="blockIP(\'' + a.id + '\')" class="block-btn">Block</button>'}</td>
+            </tr>`
+        ).join('');
+    }
+}
+
+async function blockIP(id) {
+    await api('/alerts/' + id + '/block', { method: 'POST' });
+    loadDashboard();
+}
+
+// logout in nav.js
+
+loadDashboard();
+setInterval(loadDashboard, 5000);
 </script>
+<script src="nav.js"></script>
 </body>
 </html>
