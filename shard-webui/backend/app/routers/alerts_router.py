@@ -44,7 +44,7 @@ async def export_csv(current_user: dict = Depends(get_current_user)):
     for a in alerts:
         writer.writerow([a.id, a.timestamp, a.attack_type, a.severity,
                         a.src_ip, a.dst_ip, a.explanation, a.score * 100,
-                        a.company.name if a.company else ""])
+                        ""])
     output.seek(0)
     return StreamingResponse(iter([output.getvalue()]), media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename=alerts_{datetime.utcnow():%Y%m%d_%H%M%S}.csv"})
@@ -57,7 +57,7 @@ async def export_excel(current_user: dict = Depends(get_current_user)):
     for a in alerts:
         ws.append([a.id, a.timestamp, a.attack_type, a.severity,
                    a.src_ip, a.dst_ip, a.explanation, a.score * 100,
-                   a.company.name if a.company else ""])
+                   ""])
     output = BytesIO(); wb.save(output); output.seek(0)
     return StreamingResponse(output, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=alerts_{datetime.utcnow():%Y%m%d_%H%M%S}.xlsx"})
