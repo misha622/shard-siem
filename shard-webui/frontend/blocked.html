@@ -40,8 +40,7 @@ const T=localStorage.getItem('access_token');
 if(!T)location.href='/login.html';
 const H={Authorization:'Bearer '+T};
 const user=JSON.parse(localStorage.getItem('user')||'{}');
-// username in nav.js
-if(user.role==='admin')document.getElementById('settingsLink').style.display='inline-block';
+document.addEventListener('DOMContentLoaded',function(){if(user.role==='admin')document.getElementById('settingsLink').style.display='inline-block';});
 
 async function load(){
     const r=await fetch('/api/blocked/',{headers:H});
