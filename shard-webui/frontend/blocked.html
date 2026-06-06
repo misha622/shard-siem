@@ -50,7 +50,7 @@ async function load(){
     document.getElementById('blockedTableBody').innerHTML=data.map(b=>`<tr><td><span style="color:#ff4757;font-family:monospace">🚫 ${b.ip_address}</span></td><td>${b.reason}</td><td>${new Date(b.blocked_at).toLocaleString()}</td><td>${b.blocked_by}</td><td>${b.expires_at?new Date(b.expires_at).toLocaleString():'Never'}</td><td>${user.role==='admin'?`<button onclick="unblock('${b.id}')" class="unblock-btn">Unblock</button>`:'-'}</td></tr>`).join('');
 }
 async function unblock(id){await fetch('/api/blocked/unblock/'+id,{method:'DELETE',headers:H});load();}
-// logout in nav.js
+function logout(){localStorage.clear();sessionStorage.clear();location.href='/login.html';}
 load();
 </script>
 <!-- nav.js removed, inline auth used -->

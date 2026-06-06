@@ -51,7 +51,7 @@ async function load(){
         }
     });
 }
-// logout in nav.js
+function logout(){localStorage.clear();sessionStorage.clear();location.href='/login.html';}
 load();setInterval(load,15000);
 </script>
 <!-- nav.js removed, inline auth used -->
