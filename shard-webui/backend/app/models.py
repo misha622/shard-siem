@@ -88,9 +88,7 @@ class Alert(Base):
     def blocked_at(self):
         return None
     
-    @property
-    def protocol(self):
-        return None
+    protocol = Column(String(20), nullable=True)
     
     @property
     def source_lat(self):

@@ -50,7 +50,7 @@ def init_db():
                 ("91.121.87.45","10.100.0.5",22,"SSH","Brute Force","HIGH","SSH brute force",80.0,companies[2].id),
             ]
             for i, (src,dst,port,proto,atype,sev,desc,score,cid) in enumerate(alerts_data):
-                db.add(Alert(timestamp=datetime.utcnow()-timedelta(hours=i), attack_type=atype, severity=sev, src_ip=src, dst_ip=dst, dst_port=port, protocol=proto, explanation=desc, score=score, company_id=cid))
+                db.add(Alert(timestamp=datetime.utcnow()-timedelta(hours=i), attack_type=atype, severity=sev, src_ip=src, dst_ip=dst, dst_port=port, explanation=desc, score=score, company_id=cid))
             db.commit()
             logger.info(f"DB initialized: {len(companies)} companies, {len(users)} users, {len(alerts_data)} alerts")
     finally:
