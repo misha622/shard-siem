@@ -32,17 +32,14 @@ jobs:
     name: Core Tests (pytest)
     runs-on: ubuntu-latest
     needs: lint
-
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-
       - name: Install system deps
         run: sudo apt-get update -qq && sudo apt-get install -y libpcap-dev 2>/dev/null || true
-
       - name: Install Python deps
         run: |
           pip install --upgrade pip
@@ -51,39 +48,26 @@ jobs:
             aiofiles psutil aiohttp fastapi uvicorn \
             "python-jose[cryptography]" "passlib[bcrypt]" \
             sqlalchemy asyncpg psycopg2-binary \
-            redis prometheus-client \
-            python-multipart httpx requests
-          pip install scikit-learn numpy pandas || true
-          pip install xgboost || true
-
-      - name: Create conftest.py for path resolution
-        run: |
-          cat > conftest.py << 'EOF'
-          import sys, os
-          sys.path.insert(0, os.path.dirname(__file__))
-          EOF
-
+            redis prometheus-client python-multipart httpx requests
+          pip install scikit-learn numpy pandas xgboost || true
       - name: Run core tests
         run: |
+          export PYTHONPATH="${GITHUB_WORKSPACE}:${PYTHONPATH}"
           pytest tests/ \
-            --cov=core \
-            --cov=modules \
+            --cov=core --cov=modules \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
             --cov-fail-under=30 \
-            -v \
-            --timeout=60 \
+            -v --timeout=60 \
             --ignore=tests/test_timescale.py \
             --ignore=tests/test_federated.py \
             --ignore=tests/test_siem_storage.py \
             -p no:warnings
         env:
-          PYTHONPATH: ${{ github.workspace }}
           SHARD_CONFIG_SECRET: test-secret-key-for-ci-only
           SHARD_DASHBOARD_PASSWORD: test-password-ci
           SHARD_DASHBOARD_USERNAME: admin
           SHARD_API_KEY: test-api-key-ci
-
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -94,14 +78,12 @@ jobs:
     name: WebUI Backend Tests
     runs-on: ubuntu-latest
     needs: lint
-
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-
       - name: Install WebUI deps
         run: |
           pip install --upgrade pip
@@ -109,12 +91,12 @@ jobs:
             fastapi uvicorn "python-jose[cryptography]" \
             "passlib[bcrypt]" slowapi python-multipart \
             sqlalchemy aiosqlite pydantic-settings
-
       - name: Run WebUI tests
         working-directory: shard-webui/backend
-        run: pytest tests/ -v --timeout=30 -p no:warnings
+        run: |
+          export PYTHONPATH="${GITHUB_WORKSPACE}/shard-webui/backend:${PYTHONPATH}"
+          pytest tests/ -v --timeout=30 -p no:warnings
         env:
-          PYTHONPATH: ${{ github.workspace }}/shard-webui/backend
           SECRET_KEY: test-secret-key-for-ci-only-32chars
           ALGORITHM: HS256
           ACCESS_TOKEN_EXPIRE_MINUTES: 15
@@ -128,7 +110,6 @@ jobs:
     name: Security Scan
     runs-on: ubuntu-latest
     needs: lint
-
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -137,11 +118,9 @@ jobs:
       - run: pip install bandit
       - name: Bandit scan
         run: |
-          bandit -r core/ modules/ \
-            -x shard_enterprise_complete.py \
+          bandit -r core/ modules/ -x shard_enterprise_complete.py \
             -ll -f json -o bandit-report.json || true
-          bandit -r core/ modules/ \
-            -x shard_enterprise_complete.py -ll
+          bandit -r core/ modules/ -x shard_enterprise_complete.py -ll
         continue-on-error: true
       - uses: actions/upload-artifact@v4
         if: always()
@@ -154,20 +133,17 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test-core, test-webui]
     if: github.ref == 'refs/heads/main'
-
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-      - name: Build core image
-        uses: docker/build-push-action@v5
+      - uses: docker/build-push-action@v5
         with:
           context: .
           push: false
           tags: ${{ env.IMAGE_NAME }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Build WebUI image
-        uses: docker/build-push-action@v5
+      - uses: docker/build-push-action@v5
         with:
           context: shard-webui/backend
           push: false
@@ -180,11 +156,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [docker-build]
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
-
     steps:
       - uses: actions/checkout@v4
       - name: Deploy via SSH
-        # Раскомментировать когда будет VPS:
         # uses: appleboy/ssh-action@v1
         # with:
         #   host: ${{ secrets.VPS_HOST }}
