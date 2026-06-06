@@ -84,3 +84,5 @@ main
 *.bak_*
 .env
 admin_credentials.txt
+.env
+admin_credentials.txt
