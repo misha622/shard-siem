@@ -1,34 +1,21 @@
-# SHARD Enterprise SIEM — Security Policy
+# Security Policy
 
 ## Reporting a Vulnerability
-Email: shard019@mail.ru — PGP I'll send you the key upon request. Don't create a public one. issue.
 
-## Supported Versions
-| Version | Supported |
-|---------|-----------|
-| 5.1.x   | ✅ Active |
-| 5.0.x   | ❌ EOL |
-| < 5.0   | ❌ EOL |
+If you discover a security vulnerability, please email shard-security@proton.me instead of opening a public issue.
 
-## Security Architecture
-- 10 neural networks for attack detection
-- EventBus with per-subscriber queues (lock-free)
-- iptables integration with IP validation (injections blocked)
-- API keys in environment variables, not in code
-- RBAC for Dashboard (admin/analyst/viewer)
-- HMAC signature of configuration (anti-spoofing)
-- WAF protection against SQLi/XSS/Path Traversal
+## Pre-deployment Checklist
 
-## Threat Model
-- Trusted zone: localhost, internal network
-- Untrusted zone: external traffic, API requests
-- Attack vectors: network packets → validation via Scapy, shell injections → strong IP validation
-- Attacker model: external attacker with network access
+- [ ] Change all default passwords (admin, viewer, API keys)
+- [ ] Rotate SECRET_KEY in .env
+- [ ] Run penetration test
+- [ ] Enable HTTPS with valid SSL certificate
+- [ ] Set up firewall rules
+- [ ] Configure rate limiting
+- [ ] Review access logs
 
-## Security Headers (Dashboard)
-- Content-Security-Policy
-- X-Content-Type-Options: nosniff
-- Access-Control-Allow-Origin limited
+## Known Limitations
 
-## Audit
-An independent pentest is recommended before production deployment.
+- Requires root for iptables packet capture
+- Single-instance deployment (no horizontal scaling yet)
+- shard_enterprise_complete.py is legacy monolithic file — use modular imports from core/ and modules/
