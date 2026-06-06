@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/alerts", tags=["Alerts"])
 
 @router.get("/")
 @limiter.limit("100/minute")
-async def list_alerts(
+async def list_alerts(request: Request, 
     alert_type: Optional[str] = None, severity: Optional[str] = None,
     source_ip: Optional[str] = None, destination_ip: Optional[str] = None,
     page: int = Query(default=1, ge=1), page_size: int = Query(default=50, ge=1, le=100),
