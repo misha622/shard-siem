@@ -1,4 +1,3 @@
-"""SQLAlchemy models for SHARD Enterprise."""
 import enum
 
 class UserRole(str, enum.Enum):
@@ -13,7 +12,6 @@ import secrets, os
 Base = declarative_base()
 
 class Company(Base):
-    """Company/organization model."""
     __tablename__ = "companies"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), unique=True, nullable=False)
@@ -26,7 +24,6 @@ class Company(Base):
 
 
 class User(Base):
-    """User account model."""
     __tablename__ = "users"
     id = Column(Integer, primary_key=True)
     username = Column(String(50), unique=True, nullable=False)
@@ -41,7 +38,6 @@ class User(Base):
     company = relationship("Company", back_populates="users", foreign_keys=[company_id])
 
 class Alert(Base):
-    """Security alert model."""
     """Alert model — синхронизировано с shard_siem.db"""
     __tablename__ = "alerts"
     __table_args__ = {'extend_existing': True}
@@ -92,20 +88,33 @@ class Alert(Base):
     def blocked_at(self):
         return None
     
-    # protocol column removed - not in shard_siem.db
+    @property
+    def protocol(self):
+        return None
     
-    source_lat = Column(Float, nullable=True)
-    source_lon = Column(Float, nullable=True)
-    source_country = Column(String(100), nullable=True)
-    source_city = Column(String(100), nullable=True)
-    company_id = Column(Integer, nullable=True)
+    @property
+    def source_lat(self):
+        return None
     
-    # company_id removed - not in shard_siem.db
+    @property
+    def source_lon(self):
+        return None
+    
+    @property
+    def source_country(self):
+        return None
+    
+    @property
+    def source_city(self):
+        return None
+    
+    @property
+    def company_id(self):
+        return None
 
 
 
 class BlockedIP(Base):
-    """Blocked IP address model."""
     __tablename__ = "blocked_ips"
     id = Column(Integer, primary_key=True)
     ip_address = Column(String(45), nullable=False, index=True)
@@ -116,7 +125,6 @@ class BlockedIP(Base):
     is_permanent = Column(Boolean, default=False)
 
 class RefreshToken(Base):
-    """JWT refresh token model."""
     __tablename__ = "refresh_tokens"
     id = Column(Integer, primary_key=True)
     token = Column(String(500), unique=True, nullable=False)
@@ -124,7 +132,6 @@ class RefreshToken(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class EmailSettings(Base):
-    """Email notification preferences."""
     __tablename__ = "email_settings"
     user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
     alert_critical = Column(Boolean, default=True)
@@ -136,7 +143,6 @@ class EmailSettings(Base):
 
 
 class GeoCache(Base):
-    """GeoIP cache model."""
     __tablename__ = "geo_cache"
     ip = Column(String(45), primary_key=True)
     latitude = Column(Float)
@@ -148,7 +154,6 @@ class GeoCache(Base):
 
 
 class AuditLog(Base):
-    """Audit log model."""
     """Audit log for compliance"""
     __tablename__ = "audit_logs"
     id = Column(Integer, primary_key=True)

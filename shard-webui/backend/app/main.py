@@ -1,7 +1,4 @@
-"""SHARD Enterprise SIEM — FastAPI application."""
 from fastapi import FastAPI
-from slowapi import _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import time, logging, os
@@ -27,8 +24,6 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan handler."""
-    app: FastAPI):
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     Base.metadata.create_all(bind=engine)
     init_db()
@@ -37,7 +32,6 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down...")
 
 app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION, lifespan=lifespan)
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 setup_middleware(app)
 
 app.include_router(auth_router)
@@ -54,8 +48,6 @@ app.include_router(websocket_router)
 
 @app.get("/api/health")
 async def health():
-    """Health check endpoint."""
-    
     return {"status": "healthy", "version": settings.APP_VERSION}
 
 frontend_path = os.path.join(os.path.dirname(__file__), "..", "..", "frontend")

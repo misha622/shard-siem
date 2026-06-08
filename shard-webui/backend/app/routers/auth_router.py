@@ -1,5 +1,4 @@
-"""auth_router module."""
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from typing import Optional
 import logging
@@ -131,26 +130,6 @@ async def change_pwd(request: ChangePasswordRequest, current_user: dict = Depend
         db.close()
 
 @router.post("/logout")
-async def logout(refresh_token: str = None, current_user: dict = Depends(get_current_user)):
-    """Logout — revoke refresh token"""
-    if refresh_token:
-        from app.database import revoke_refresh_token
-        revoke_refresh_token(refresh_token)
+async def logout(current_user: dict = Depends(get_current_user)):
+    """Logout — client drops tokens"""
     return {"message": "Logged out successfully"}
-
-@router.post("/verify-code")
-async def verify_email_code(email: str, code: str):
-    """Verify email with code."""
-    from app.email_service import email_service
-    if email_service.verify_code(email, code):
-        return {"status": "verified", "message": "Email verified"}
-    raise HTTPException(status_code=400, detail="Invalid or expired code")
-
-@router.post("/send-code")
-async def send_verification_code(email: str):
-    """Send verification code to email."""
-    from app.email_service import email_service
-    code = email_service.generate_code(email)
-    await email_service.send_verification(email, code)
-    return {"status": "sent", "message": "Verification code sent"}
-

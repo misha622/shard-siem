@@ -1,4 +1,3 @@
-"""Security and utility middleware for FastAPI."""
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -8,7 +7,6 @@ from app.config import settings
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Add security headers to all responses."""(BaseHTTPMiddleware):
     """Add security headers to all responses"""
 
     async def dispatch(self, request: Request, call_next):
@@ -20,18 +18,14 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         response.headers[
-            "Content-Security-Policy"] = "default-src 'self' https://unpkg.com https://*.basemaps.cartocdn.com; script-src 'self' 'unsafe-inline' https://cdn.plot.ly https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://*.basemaps.cartocdn.com; connect-src 'self' https://unpkg.com https://*.basemaps.cartocdn.com;"
+            "Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.plot.ly https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data:;"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
         response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
 
         return response
 
 
 class CorrelationIDMiddleware(BaseHTTPMiddleware):
-    """Add correlation ID to requests."""(BaseHTTPMiddleware):
     """Add correlation ID to requests"""
 
     async def dispatch(self, request: Request, call_next):
@@ -45,7 +39,6 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
 
 
 class TimingMiddleware(BaseHTTPMiddleware):
-    """Track request processing time."""(BaseHTTPMiddleware):
     """Add request timing"""
 
     async def dispatch(self, request: Request, call_next):
@@ -62,7 +55,7 @@ def setup_middleware(app: FastAPI):
     # CORS
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.ALLOWED_ORIGINS,
+        allow_origins=["http://localhost:5000","http://localhost:8081","http://127.0.0.1:5000"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

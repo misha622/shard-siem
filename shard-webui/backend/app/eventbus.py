@@ -20,7 +20,6 @@ except ImportError:
     logger.info("Core EventBus not available — using simulation mode")
 
 class SHARDEventBus:
-    """Integration with SHARD Core EventBus."""
     def __init__(self):
         self.connected = False
         self.subscribers = {"alert.detected": [], "firewall.blocked": [], "packet.processed": []}
@@ -32,7 +31,7 @@ class SHARDEventBus:
         if REAL_EVENTBUS:
             try:
                 self._core_bus = CoreEventBus()
-                # CoreEventBus is synchronous, no connect() needed
+                await self._core_bus.connect()
                 self._core_bus.subscribe("alert.detected", self._on_real_alert)
                 self._core_bus.subscribe("firewall.blocked", self._on_real_block)
                 self.connected = True
