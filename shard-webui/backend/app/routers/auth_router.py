@@ -1,3 +1,4 @@
+"""auth_router module."""
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel, Field
 from typing import Optional

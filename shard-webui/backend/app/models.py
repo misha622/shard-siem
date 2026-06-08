@@ -1,3 +1,4 @@
+"""SQLAlchemy models for SHARD Enterprise."""
 import enum
 
 class UserRole(str, enum.Enum):

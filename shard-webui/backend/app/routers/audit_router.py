@@ -1,3 +1,4 @@
+"""audit_router API endpoints."""
 from fastapi import APIRouter, Depends, Request
 from app.auth import get_current_user, require_admin
 from app.database import SessionLocal

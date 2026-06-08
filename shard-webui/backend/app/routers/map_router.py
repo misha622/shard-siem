@@ -1,3 +1,4 @@
+"""map_router API endpoints."""
 from fastapi import APIRouter, Depends
 from app.auth import get_current_user
 from app.database import get_alerts_for_map

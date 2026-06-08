@@ -1,3 +1,4 @@
+"""Alerts API endpoints with rate limiting."""
 from slowapi import Limiter
 limiter = Limiter(key_func=lambda request: request.client.host if request.client else "unknown")
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -26,7 +27,8 @@ async def list_alerts(request: Request,
     params = {"alert_type": alert_type, "severity": severity, "source_ip": source_ip,
               "destination_ip": destination_ip, "page": page, "page_size": page_size, "search": search}
     alerts, total = get_alerts(params, effective_company)
-    result = [{"id": a.id, "timestamp": __import__("datetime").datetime.fromtimestamp(a.timestamp).isoformat() if a.timestamp else None, "alert_type": a.attack_type,
+    result = [{
+                "id": a.id, "timestamp": __import__("datetime").datetime.fromtimestamp(a.timestamp).isoformat() if a.timestamp else None, "alert_type": a.attack_type,
                "severity": a.severity, "source_ip": a.src_ip,
                "destination_ip": a.dst_ip,
                "destination_port": a.dst_port, "protocol": "-",
@@ -34,6 +36,7 @@ async def list_alerts(request: Request,
                "is_blocked": False,
                "company_id": None,
                "source_lat": a.source_lat, "source_lon": a.source_lon, "source_country": a.source_country, "source_city": a.source_city,
+               
                } for a in alerts]  # company loaded separately
     return {"alerts": result, "total_count": total, "page": page, "page_size": page_size,
             "total_pages": (total + page_size - 1) // page_size}

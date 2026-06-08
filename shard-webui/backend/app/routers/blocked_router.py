@@ -1,3 +1,4 @@
+"""blocked_router API endpoints."""
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from app.database import get_blocked_ips, block_ip, unblock_ip

@@ -1,3 +1,4 @@
+"""SHARD Enterprise SIEM — FastAPI application."""
 from fastapi import FastAPI
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
