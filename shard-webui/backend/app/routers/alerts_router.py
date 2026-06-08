@@ -4,16 +4,6 @@ limiter = Limiter(key_func=lambda request: request.client.host if request.client
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from typing import Optional
 from datetime import datetime
-import csv, io
-from io import StringIO
-from app.auth import get_current_user
-from app.database import get_alerts
-"""Alerts API endpoints with rate limiting."""
-from slowapi import Limiter
-limiter = Limiter(key_func=lambda request: request.client.host if request.client else "unknown")
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from typing import Optional
-from datetime import datetime
 import csv, logging
 from io import StringIO, BytesIO
 from fastapi.responses import StreamingResponse
