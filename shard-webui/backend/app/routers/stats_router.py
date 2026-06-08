@@ -1,3 +1,4 @@
+"""Stats and dashboard API endpoints."""
 from fastapi import APIRouter, Depends
 from app.database import get_stats
 from app.auth import get_current_user

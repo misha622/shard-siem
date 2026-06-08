@@ -1,3 +1,4 @@
+"""Database operations for SHARD Enterprise SIEM."""
 import bcrypt, logging, ipaddress, os, hashlib
 from app.config import settings
 from sqlalchemy.orm import Session
@@ -122,6 +123,7 @@ def get_blocked_ips() -> List[BlockedIP]:
     finally: db.close()
 
 def block_ip(ip_address: str, reason: str, blocked_by: str, is_permanent: bool = False):
+    """Block an IP address."""
     db = SessionLocal()
     try:
         blocked = BlockedIP(ip_address=ip_address, reason=reason, blocked_by=blocked_by, is_permanent=is_permanent, expires_at=None if is_permanent else datetime.utcnow()+timedelta(hours=24))

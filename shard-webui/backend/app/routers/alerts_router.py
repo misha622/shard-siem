@@ -27,10 +27,12 @@ async def list_alerts(request: Request,
               "destination_ip": destination_ip, "page": page, "page_size": page_size, "search": search}
     alerts, total = get_alerts(params, effective_company)
     result = [{"id": a.id, "timestamp": __import__("datetime").datetime.fromtimestamp(a.timestamp).isoformat() if a.timestamp else None, "alert_type": a.attack_type,
-               "severity": a.severity, "source_ip": a.src_ip, "destination_ip": a.dst_ip,
+               "severity": a.severity, "source_ip": a.src_ip,
+               "destination_ip": a.dst_ip,
                "destination_port": a.dst_port, "protocol": "-",
                "description": a.explanation, "threat_score": a.score * 100,
-               "is_blocked": False, "company_id": None,
+               "is_blocked": False,
+               "company_id": None,
                "source_lat": a.source_lat, "source_lon": a.source_lon, "source_country": a.source_country, "source_city": a.source_city,
                } for a in alerts]  # company loaded separately
     return {"alerts": result, "total_count": total, "page": page, "page_size": page_size,
