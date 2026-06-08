@@ -60,6 +60,20 @@
         <button type="button" class="btn btn-primary" onclick="verifyEmail()">✅ Verify</button>
         <button type="button" class="btn btn-outline" onclick="prevStep()">← Back</button>
     </form>
+    
+    <form id="step2_5" class="step" style="display:none;">
+        <h3 style="margin-bottom:12px;">📧 Verify Email</h3>
+        <p style="color:rgba(255,255,255,.5);font-size:13px;margin-bottom:16px;">We sent a 6-digit code to your email. Check spam folder if not received.</p>
+        <div class="form-group">
+            <input id="vcode" placeholder="000000" maxlength="6" 
+                   style="text-align:center;font-size:28px;letter-spacing:8px;width:100%;padding:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;color:#fff;">
+        </div>
+        <div id="vcodeErr" style="color:#ff4757;text-align:center;margin-bottom:12px;display:none;font-size:13px;"></div>
+        <button type="button" class="btn btn-primary" onclick="verifyCode()">✅ Verify Code</button>
+        <button type="button" class="btn btn-outline" onclick="resendCode()" id="resendBtn" style="margin-top:8px;">🔄 Resend Code</button>
+        <button type="button" class="btn btn-outline" onclick="prevStep()">← Back</button>
+    </form>
+
     <form id="step3" class="step">
         <h3 style="margin-bottom:12px">📋 Almost Done!</h3>
         <div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:16px;margin-bottom:16px;font-size:11px;color:rgba(255,255,255,.4);max-height:150px;overflow-y:auto">
@@ -96,10 +110,45 @@ function prevStep(){
     document.getElementById('step'+(step-1)).classList.add('active');
     document.getElementById('d'+(step-1)).classList.add('active');document.getElementById('d'+step).classList.remove('active');step--;
 }
-function verifyEmail(){
-    document.getElementById('step2').classList.remove('active');document.getElementById('step3').classList.add('active');
-    document.getElementById('d2').classList.remove('active');document.getElementById('d2').classList.add('done');document.getElementById('d3').classList.add('active');step=3;
+async function verifyEmail(){
+    var em=document.getElementById('em').value;
+    try {
+        var r=await fetch('/api/auth/send-code?email='+encodeURIComponent(em),{method:'POST'});
+        var d=await r.json();
+        if(d.status==='sent'){
+            document.getElementById('step2').classList.remove('active');
+            document.getElementById('step2_5').classList.add('active');
+            document.getElementById('d2').classList.remove('active');
+            document.getElementById('d2').classList.add('done');
+            step=2.5;
+        } else { showErr('Failed to send code. Try again.'); }
+    } catch(e) { showErr('Error sending code: '+e.message); }
 }
+
+async function verifyCode(){
+    var em=document.getElementById('em').value;
+    var code=document.getElementById('vcode').value;
+    if(!code||code.length!==6) return showErr2('Enter 6-digit code');
+    try {
+        var r=await fetch('/api/auth/verify-code?email='+encodeURIComponent(em)+'&code='+code,{method:'POST'});
+        var d=await r.json();
+        if(d.status==='verified'){
+            document.getElementById('step2_5').classList.remove('active');
+            document.getElementById('step3').classList.add('active');
+            document.getElementById('d3').classList.add('active');step=3;
+        } else { showErr2(d.detail||'Invalid code'); }
+    } catch(e) { showErr2('Error: '+e.message); }
+}
+
+async function resendCode(){
+    var em=document.getElementById('em').value;
+    var btn=document.getElementById('resendBtn');
+    btn.disabled=true;btn.textContent='Sending...';
+    await fetch('/api/auth/send-code?email='+encodeURIComponent(em),{method:'POST'});
+    btn.disabled=false;btn.textContent='🔄 Resend Code';
+}
+
+function showErr2(m){var e=document.getElementById('vcodeErr');e.textContent=m;e.style.display='block';}
 async function register(){
     if(!document.getElementById('agree').checked)return showErr('Accept Terms of Service');
     try{
