@@ -88,25 +88,14 @@ class Alert(Base):
     def blocked_at(self):
         return None
     
-    protocol = Column(String(20), nullable=True)
+    # protocol column removed - not in shard_siem.db
     
-    @property
-    def source_lat(self):
-        return None
+    source_lat = Column(Float, nullable=True)
+    source_lon = Column(Float, nullable=True)
+    source_country = Column(String(100), nullable=True)
+    source_city = Column(String(100), nullable=True)
     
-    @property
-    def source_lon(self):
-        return None
-    
-    @property
-    def source_country(self):
-        return None
-    
-    @property
-    def source_city(self):
-        return None
-    
-    company_id = Column(Integer, nullable=True, index=True)
+    # company_id removed - not in shard_siem.db
 
 
 

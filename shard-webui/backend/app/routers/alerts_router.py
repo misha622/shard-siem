@@ -28,10 +28,11 @@ async def list_alerts(request: Request,
     alerts, total = get_alerts(params, effective_company)
     result = [{"id": a.id, "timestamp": __import__("datetime").datetime.fromtimestamp(a.timestamp).isoformat() if a.timestamp else None, "alert_type": a.attack_type,
                "severity": a.severity, "source_ip": a.src_ip, "destination_ip": a.dst_ip,
-               "destination_port": a.dst_port, "protocol": a.protocol,
+               "destination_port": a.dst_port, "protocol": "-",
                "description": a.explanation, "threat_score": a.score * 100,
-               "is_blocked": a.is_blocked, "company_id": a.company_id,
-               "company_name": None} for a in alerts]  # company loaded separately
+               "is_blocked": False, "company_id": None,
+               "source_lat": a.source_lat, "source_lon": a.source_lon, "source_country": a.source_country, "source_city": a.source_city,
+               } for a in alerts]  # company loaded separately
     return {"alerts": result, "total_count": total, "page": page, "page_size": page_size,
             "total_pages": (total + page_size - 1) // page_size}
 

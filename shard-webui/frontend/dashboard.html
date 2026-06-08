@@ -164,5 +164,12 @@ loadDashboard();
 setInterval(loadDashboard, 5000);
 </script>
 <script src="nav.js"></script>
+<script>
+function logout(){
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.href='/login.html';
+}
+</script>
 </body>
 </html>
