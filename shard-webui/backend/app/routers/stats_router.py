@@ -10,11 +10,15 @@ router = APIRouter(prefix="/api/stats", tags=["Statistics"])
 
 @router.get("/dashboard")
 async def dashboard(current_user: dict = Depends(get_current_user)):
+    """Get dashboard statistics."""
+    current_user: dict = Depends(get_current_user)):
     company_id = None if current_user["role"] == "admin" else current_user.get("company_id")
     return get_stats(company_id)
 
 @router.get("/system")
 async def system(current_user: dict = Depends(get_current_user)):
+    """Get system metrics."""
+    current_user: dict = Depends(get_current_user)):
     try:
         cpu = psutil.cpu_percent(interval=1)
         mem = psutil.virtual_memory()
