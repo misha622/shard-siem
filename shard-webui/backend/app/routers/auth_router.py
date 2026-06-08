@@ -50,7 +50,7 @@ async def login(request: LoginRequest):
     db = SessionLocal()
     try:
         user = db.query(User).options(joinedload(User.company)).filter(User.username == request.username).first()
-        if not user or (request.username != 'admin' and not verify_password(request.password, user.hashed_password)):
+        if not user or not verify_password(request.password, user.hashed_password):
             raise HTTPException(status_code=401, detail="Invalid credentials")
         
         update_last_login(user.id)

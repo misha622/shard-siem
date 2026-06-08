@@ -94,6 +94,7 @@ class Alert(Base):
     source_lon = Column(Float, nullable=True)
     source_country = Column(String(100), nullable=True)
     source_city = Column(String(100), nullable=True)
+    company_id = Column(Integer, nullable=True)
     
     # company_id removed - not in shard_siem.db
 
