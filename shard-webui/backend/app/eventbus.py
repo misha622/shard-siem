@@ -20,6 +20,7 @@ except ImportError:
     logger.info("Core EventBus not available — using simulation mode")
 
 class SHARDEventBus:
+    """Integration with SHARD Core EventBus."""
     def __init__(self):
         self.connected = False
         self.subscribers = {"alert.detected": [], "firewall.blocked": [], "packet.processed": []}

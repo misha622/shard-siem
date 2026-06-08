@@ -7,12 +7,15 @@ from app.auth import get_current_user
 router = APIRouter(prefix="/api/blocked", tags=["Blocked IPs"])
 
 class BlockIPRequest(BaseModel):
+    """Block IP request schema."""(BaseModel):
     ip_address: str
     reason: str
     is_permanent: bool = False
 
 @router.get("/")
 async def list_blocked(current_user: dict = Depends(get_current_user)):
+    """Get list of blocked IPs."""
+    current_user: dict = Depends(get_current_user)):
     blocked = get_blocked_ips()
     return [{"id": b.id, "ip_address": b.ip_address, "reason": b.reason,
              "blocked_at": b.blocked_at.isoformat(), "blocked_by": b.blocked_by,
@@ -21,6 +24,8 @@ async def list_blocked(current_user: dict = Depends(get_current_user)):
 
 @router.post("/block")
 async def block(request: BlockIPRequest, current_user: dict = Depends(get_current_user)):
+    """Block an IP address."""
+    request: BlockIPRequest, current_user: dict = Depends(get_current_user)):
     result = block_ip(request.ip_address, request.reason, current_user["username"], request.is_permanent)
     return {"message": f"IP {request.ip_address} blocked", "block_id": result["id"]}
 

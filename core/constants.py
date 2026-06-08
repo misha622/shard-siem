@@ -3,6 +3,7 @@
 from enum import Enum
 
 class AttackType(Enum):
+    """Attack type enumeration."""(Enum):
     NORMAL = "Normal"
     DOS = "DoS"
     DDOS = "DDoS"
@@ -23,6 +24,7 @@ class AttackType(Enum):
     UNKNOWN = "Unknown"
 
 class AlertSeverity(Enum):
+    """Alert severity levels."""(Enum):
     INFO = "INFO"
     LOW = "LOW"
     MEDIUM = "MEDIUM"
