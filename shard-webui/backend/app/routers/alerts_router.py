@@ -37,7 +37,7 @@ async def list_alerts(request: Request,
                "company_id": None,
                "source_lat": a.source_lat, "source_lon": a.source_lon, "source_country": a.source_country, "source_city": a.source_city,
                
-               } for a in alerts]  # company loaded separately
+               })  # company loaded separately
     return {"alerts": result, "total_count": total, "page": page, "page_size": page_size,
             "total_pages": (total + page_size - 1) // page_size}
 

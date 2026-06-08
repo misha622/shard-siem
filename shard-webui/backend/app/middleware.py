@@ -8,6 +8,7 @@ from app.config import settings
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Add security headers to all responses."""(BaseHTTPMiddleware):
     """Add security headers to all responses"""
 
     async def dispatch(self, request: Request, call_next):
@@ -30,6 +31,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 
 class CorrelationIDMiddleware(BaseHTTPMiddleware):
+    """Add correlation ID to requests."""(BaseHTTPMiddleware):
     """Add correlation ID to requests"""
 
     async def dispatch(self, request: Request, call_next):
@@ -43,6 +45,7 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
 
 
 class TimingMiddleware(BaseHTTPMiddleware):
+    """Track request processing time."""(BaseHTTPMiddleware):
     """Add request timing"""
 
     async def dispatch(self, request: Request, call_next):

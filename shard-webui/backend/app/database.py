@@ -168,8 +168,10 @@ def get_stats(company_id: Optional[int] = None) -> dict:
         alerts_by_hour = {}
         for row in db.query(sa_func.strftime('%H:00', Alert.timestamp), sa_func.count()).filter(Alert.timestamp >= datetime.utcnow()-timedelta(hours=24)).group_by(sa_func.strftime('%H:00', Alert.timestamp)).all():
             alerts_by_hour[row[0]] = row[1]
-        top_attackers = [{"ip": row[0], "count": row[1]} for row in db.query(Alert.src_ip, sa_func.count()).filter(Alert.company_id == company_id if company_id else True).group_by(Alert.src_ip).order_by(sa_func.count().desc()).limit(10).all()]
-        top_targets = [{"ip": row[0], "count": row[1]} for row in db.query(Alert.dst_ip, sa_func.count()).filter(Alert.company_id == company_id if company_id else True).group_by(Alert.dst_ip).order_by(sa_func.count().desc()).limit(10).all()]
+        top_att = db.query(Alert.src_ip, sa_func.count()).filter(Alert.company_id == company_id if company_id else True).group_by(Alert.src_ip).order_by(sa_func.count().desc()).limit(10).all()
+        top_attackers = [{"ip": row[0], "count": row[1]} for row in top_att]
+        top_tgt = db.query(Alert.dst_ip, sa_func.count()).filter(Alert.company_id == company_id if company_id else True).group_by(Alert.dst_ip).order_by(sa_func.count().desc()).limit(10).all()
+        top_targets = [{"ip": row[0], "count": row[1]} for row in top_tgt]
         return {"total_packets": total * 100, "total_alerts": total, "total_blocked": blocked, "active_threats": threats, "alerts_by_type": alerts_by_type, "alerts_by_hour": alerts_by_hour, "severity_distribution": dict(
                 db.query(Alert.severity, sa_func.count())
                 

@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Application lifespan handler."""
+    app: FastAPI):
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     Base.metadata.create_all(bind=engine)
     init_db()
@@ -52,6 +54,8 @@ app.include_router(websocket_router)
 
 @app.get("/api/health")
 async def health():
+    """Health check endpoint."""
+    
     return {"status": "healthy", "version": settings.APP_VERSION}
 
 frontend_path = os.path.join(os.path.dirname(__file__), "..", "..", "frontend")
