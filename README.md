@@ -1,234 +1,293 @@
-# 🛡️ SHARD Enterprise SIEM
+<div align="center">
 
-> Autonomous AI-driven SIEM platform with real-time threat detection, autonomous response, and multi-model cyber defense.
+<img src="https://raw.githubusercontent.com/misha622/shard-siem/main/shard-webui/frontend/assets/favicon.svg" width="80" height="80" alt="SHARD Logo"/>
 
-![Python](https://img.shields.io/badge/python-3.11-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
-![Version](https://img.shields.io/badge/version-5.2.0-orange)
-![Tests](https://img.shields.io/badge/tests-60%20passing-brightgreen)
-![Audits](https://img.shields.io/badge/security%20audits-25-red)
-![Pylint](https://img.shields.io/badge/code%20quality-8.29%2F10-yellow)
+# SHARD Enterprise SIEM
 
----
+**Autonomous AI-powered Security Information and Event Management**
 
-# 🚀 Overview
+[![CI/CD](https://github.com/misha622/shard-siem/actions/workflows/ci.yml/badge.svg)](https://github.com/misha622/shard-siem/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-175%20passing-brightgreen)](https://github.com/misha622/shard-siem/actions)
+[![Python](https://img.shields.io/badge/python-3.11-blue)](https://python.org)
+[![Version](https://img.shields.io/badge/version-5.2.7-orange)](https://github.com/misha622/shard-siem/releases)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Code Quality](https://img.shields.io/badge/pylint-8.29%2F10-yellow)](https://github.com/misha622/shard-siem)
+[![MITRE ATT&CK](https://img.shields.io/badge/MITRE%20ATT%26CK-835%20techniques-red)](https://attack.mitre.org)
 
-SHARD Enterprise SIEM is an autonomous cybersecurity platform designed to detect, investigate, and respond to cyber threats in real time using multiple AI/ML models.
+*Detect. Analyze. Respond. Automatically.*
 
-The platform combines:
+[🚀 Quick Start](#-quick-start) · [📖 Documentation](#-documentation) · [💰 Pricing](#-pricing) · [🎥 Demo](#-demo)
 
-- Deep Packet Inspection
-- AI-based anomaly detection
-- Threat intelligence
-- Autonomous incident response
-- MITRE ATT&CK mapping
-- Behavioral analytics
-- Digital forensics
-- Deception technologies
-
-into a unified AI-native security architecture.
+</div>
 
 ---
 
-# ⚡ Core Features
+## 🧠 What is SHARD?
 
-## 🤖 AI Security Engine
+SHARD is an **enterprise-grade, AI-native SIEM** that autonomously detects, investigates, and responds to cyber threats in real time. It combines 10 neural networks, 835 MITRE ATT&CK techniques, and 22 security modules into a unified platform that your team can deploy in minutes.
 
-SHARD uses 10 integrated AI/ML systems:
-
-| Model | Purpose |
-|---|---|
-| XGBoost | Threat classification |
-| Random Forest | Event analysis |
-| Isolation Forest | Anomaly detection |
-| Seq2Seq Transformer | Sequence threat prediction |
-| Variational Autoencoder | Unknown attack detection |
-| Graph Neural Network | Threat graph analysis |
-| Temporal GNN | MITRE ATT&CK correlation |
-| Attention LSTM | Temporal behavior analysis |
-| RL DQN Agent | Autonomous response |
-| Multi-Modal Fusion | Cross-source threat fusion |
+> Built for security teams that can't afford to miss a threat.
 
 ---
 
-# 🛡️ Security Modules
+## ⚡ Key Numbers
 
-## Included Modules
-
-- Web Application Firewall
-- Deep Packet Inspection
-- Honeypot System (13 services)
-- DNS Analyzer
-- Threat Intelligence
-- User Behavior Analytics
-- EDR Integration
-- Cloud Security Monitoring
-- Threat Hunting AI
-- CVE Intelligence
-- Lateral Movement Detection
-- Attack Chain Tracker
-- Digital Forensics
-- SOAR Integration
-- Deception Technology
+| Metric | Value |
+|--------|-------|
+| 🤖 Neural Networks | **10** concurrent ML models |
+| 🎯 MITRE ATT&CK | **835** techniques mapped |
+| 🧪 Test Coverage | **175** tests passing |
+| 🛡️ Security Modules | **22** active modules |
+| 🍯 Honeypots | **13** configurable services |
+| ⚡ Detection Latency | **< 1 second** |
+| 🐛 Bugs Fixed | **250+** across 52+ audits |
 
 ---
 
-# 🧠 Autonomous Response
+## 🤖 AI Detection Engine
 
-SHARD can autonomously:
+SHARD runs 10 neural networks in parallel — each specialized for different threat types:
 
-- Detect malicious behavior via 10 neural networks
-- Correlate attack chains using MITRE ATT&CK
-- Block malicious IPs through iptables
-- Generate forensic incident reports
-- Track lateral movement
-- Deploy deception responses
-
----
-
-# 📊 MITRE ATT&CK Integration
-
-- 835 ATT&CK techniques mapped
-- Attack chain reconstruction
-- Threat actor behavior analysis
-- Lateral movement detection
-- Automatic ATT&CK mapping
+| Model | Threat Type |
+|-------|-------------|
+| **XGBoost** | Attack classification with SHAP explanations |
+| **IsolationForest** | Network anomaly detection |
+| **Temporal GNN** | Lateral movement via graph analysis |
+| **Variational Autoencoder** | Zero-day / unknown attack detection |
+| **RL DQN Agent** | Autonomous response decisions |
+| **Seq2Seq Transformer** | Attack sequence prediction |
+| **Attention LSTM** | Temporal behavior patterns |
+| **Random Forest** | Multi-class threat scoring |
+| **Multi-Modal Fusion** | Cross-source signal correlation |
+| **Federated Learning** | Privacy-preserving distributed detection |
 
 ---
 
-# 🏗️ Architecture
+## 🛡️ Security Modules
 
+```
+✅ Web Application Firewall        ✅ Deep Packet Inspection
+✅ Honeypot System (13 services)   ✅ DNS Analyzer
+✅ Threat Intelligence             ✅ User Behavior Analytics (UBA)
+✅ EDR Integration                 ✅ Exfiltration Detector
+✅ Encrypted Traffic Analysis      ✅ LDAP Integration
+✅ Report Generator                ✅ Agentic AI Response
+✅ Traffic Capture (setcap)        ✅ SOAR Integration
+✅ Cloud Security Monitoring       ✅ Digital Forensics
+✅ CVE Intelligence                ✅ Deception Technology
+✅ Attack Chain Tracker            ✅ Lateral Movement Detection
+✅ Threat Hunting AI               ✅ Compliance Engine
+```
 
-Traffic Sources
-       ↓
-Packet Capture Layer
-       ↓
-Feature Extraction
-       ↓
-AI Detection Pipeline
-       ↓
-Threat Correlation Engine
-       ↓
-Autonomous Response System
-       ↓
-SIEM Dashboard / Alerts
-📦 Technology Stack
-Component	Technology
-Backend	Python 3.11
-AI/ML	PyTorch, Scikit-learn
-Infrastructure	Docker
-Monitoring	Prometheus + Grafana
-Notifications	Telegram
-Data Processing	AsyncIO
-🚀 Quick Start
-Requirements
-Docker
-Docker Compose
-8+ GB RAM
-20+ GB free disk space
-Installation
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────────────┐
+│                  Traffic Sources                     │
+│     Network · Endpoints · Cloud · Logs · DNS         │
+└──────────────────────┬──────────────────────────────┘
+                       ↓
+┌─────────────────────────────────────────────────────┐
+│              SHARD Core Engine                       │
+│  EventBus → ModuleRegistry → 10 ML Models           │
+│  ConfigManager (HMAC) · LoggingService               │
+└──────────────────────┬──────────────────────────────┘
+                       ↓
+┌─────────────────────────────────────────────────────┐
+│           Threat Correlation Engine                  │
+│   835 MITRE ATT&CK techniques · Attack chains        │
+│   Behavioral baseline · Anomaly scoring              │
+└──────────────────────┬──────────────────────────────┘
+                       ↓
+┌─────────────────────────────────────────────────────┐
+│         Autonomous Response System                   │
+│   Auto-block IPs · WAF rules · Honeypot redirect    │
+│   Forensic reports · Slack/email alerts             │
+└──────────────────────┬──────────────────────────────┘
+                       ↓
+┌─────────────────────────────────────────────────────┐
+│            WebUI Dashboard (FastAPI)                 │
+│   Real-time charts · Geo map · Multi-tenant RBAC    │
+│   WebSocket alerts · Prometheus metrics             │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🚀 Quick Start
+
+### Requirements
+
+- Docker & Docker Compose
+- 8+ GB RAM
+- 20+ GB disk space
+
+### One-Command Deploy
+
+```bash
 git clone https://github.com/misha622/shard-siem.git
 cd shard-siem
+cp shard-webui/backend/.env.example shard-webui/backend/.env
+# Edit .env with your credentials
 docker-compose up -d
-Logs
-docker-compose logs -f shard
-📈 Production Readiness
-Metric	Status
-Unit Tests	60
-Integration Tests	4
-Code Quality	8.29/10
-Security Audits	25
-Critical Vulnerabilities	0
-Bugs Fixed	250+
-🔥 Threat Detection Pipeline
+```
 
-SHARD analyzes:
+Dashboard available at `http://localhost:5000`
 
-Network traffic
-DNS activity
-User behavior
-Authentication events
-Cloud telemetry
-Endpoint activity
+### Manual Install (Linux)
 
-to identify:
+```bash
+git clone https://github.com/misha622/shard-siem.git
+cd shard-siem
+chmod +x install.sh
+sudo ./install.sh
+```
 
-Data exfiltration
-Lateral movement
-Malware behavior
-Brute force attacks
-Command & control activity
-Insider threats
-📸 Screenshots
-
-### Dashboard
-![SHARD Dashboard](docs/screenshots/dashboard.png)
-
-### Threats
-![Threat Detection](docs/screenshots/threats.png)
-
-### Alerts
-![Incident Timeline](docs/screenshots/alerts.png)
-
-🎥 Demo
-https://youtube.com/shorts/aeyiGMYsbn0?si=b5GO0zHzIJV2Q2P6
+---
 
 ## 🔍 Real Detection Examples
 
 ### SSH Brute Force
-- **Attack:** Multiple failed SSH attempts from 185.142.53.101
-- **Detected:** Isolation Forest anomaly + Behavioral deviation
-- **Response:** IP automatically blocked via iptables
-- **MITRE:** T1110 - Brute Force
 
-### Web Attack (SQL Injection)
-- **Attack:** SQL injection attempt on port 8080
-- **Detected:** WAF signature match + Seq2Seq Transformer
-- **Response:** Request blocked, IP throttled
-- **MITRE:** T1190 - Exploit Public-Facing Application
+```
+[14:32:01] ALERT   SSH brute force — 185.142.53.101 (847 attempts/min)
+           Technique: T1110 - Brute Force
+           Models: IsolationForest (94.7%) + Behavioral baseline
+[14:32:01] AUTO    IP blocked via iptables + honeypot redirect
+```
 
-### Honeypot Interaction
-- **Attack:** Connection to honeypot SSH (port 2222)
-- **Detected:** Honeypot trigger + Threat Intelligence lookup
-- **Response:** IP added to watchlist, alert generated
-- **MITRE:** T1046 - Network Service Scanning
+### SQL Injection
 
-📚 Roadmap
-v5.3
-Kubernetes support
-Advanced SOAR playbooks
-Federated AI training
-Distributed threat graph
-v6.0
-Autonomous SOC mode
-AI-generated threat reports
-Real-time adaptive policies
-🤝 Contributing
+```
+[15:17:44] ALERT   SQL injection attempt on port 8080
+           Payload: ' OR '1'='1'; DROP TABLE users--
+           Technique: T1190 - Exploit Public-Facing Application
+           Models: WAF signature + Seq2Seq Transformer
+[15:17:44] AUTO    Request blocked, IP rate-limited
+```
 
-Contributions are welcome.
+### Lateral Movement
 
-fork → feature branch → pull request
-⚠️ Disclaimer
+```
+[16:03:12] CRIT    Lateral movement detected — 10.0.0.23 → 10.0.0.x/24
+           Technique: T1021 - Remote Services
+           Models: Temporal GNN (attack graph analysis)
+[16:03:12] AUTO    Network segment isolated, alert escalated
+```
 
-This project is intended for:
+---
 
-Research
-Educational purposes
-Authorized environments only
+## 🏢 Multi-Tenant Architecture
 
-Users are responsible for compliance with applicable laws and regulations.
+SHARD supports multiple organizations on a single deployment:
 
-📄 License
+- **7-tier RBAC**: superadmin → admin → manager → analyst → operator → viewer → agent
+- **JWT authentication** with refresh tokens
+- **Row-level isolation** — tenants never see each other's data
+- **Invite-based onboarding** with company_id embedding in tokens
+- **Per-tenant dashboards** and alert streams
 
-MIT License
+---
 
-⭐ Support The Project
+## 📊 Tech Stack
 
-If you find SHARD useful:
+| Layer | Technology |
+|-------|-----------|
+| Core Engine | Python 3.11, AsyncIO |
+| AI/ML | PyTorch, Scikit-learn, XGBoost |
+| Web API | FastAPI, SQLAlchemy |
+| Frontend | Vanilla JS, Plotly, WebSocket |
+| Storage | SQLite (dev) → PostgreSQL / TimescaleDB (prod) |
+| Infrastructure | Docker Compose, systemd |
+| Monitoring | Prometheus + Grafana |
+| CI/CD | GitHub Actions (lint + test + security + docker) |
 
-Star the repository
-Share the project
-Contribute improvements
-Report issues
+---
 
+## 🧪 CI/CD Pipeline
+
+Every push to `main` automatically runs:
+
+```
+Code Quality (flake8 + pylint)
+    ↓
+Core Tests — 155 tests (pytest + coverage)
+    ↓
+WebUI Tests — 20 tests (FastAPI + httpx)
+    ↓
+Security Scan (Bandit — 0 critical findings)
+    ↓
+Docker Build (both images)
+    ↓
+Deploy to VPS (manual trigger)
+```
+
+---
+
+## 💰 Pricing
+
+| Plan | Price | What's included |
+|------|-------|----------------|
+| **Community** | Free | Core engine, basic ML, single tenant, GitHub |
+| **Professional** | $299/mo | All 10 ML models, multi-tenant, 835 MITRE, priority support |
+| **Enterprise** | $999/mo | On-premise, federated learning, custom integrations, SLA |
+
+**💳 Payments:** USDT (TRC-20 / ERC-20) · Bitcoin  
+**📧 Contact:** shard-security@proton.me
+
+---
+
+## 🎥 Demo
+
+[![Demo Video](https://img.shields.io/badge/▶%20Watch%20Demo-YouTube-red)](https://youtube.com/shorts/aeyiGMYsbn0)
+
+---
+
+## 🗺️ Roadmap
+
+**v5.3**
+- [ ] Kubernetes / Helm chart
+- [ ] Advanced SOAR playbooks
+- [ ] Slack / Teams / PagerDuty notifications
+- [ ] Load testing & horizontal scaling
+
+**v6.0**
+- [ ] Autonomous SOC mode
+- [ ] AI-generated threat reports
+- [ ] SOC 2 Type I certification
+- [ ] Real-time adaptive policies
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+```bash
+git fork → feature branch → pull request
+```
+
+---
+
+## ⚠️ Legal
+
+SHARD is intended for **authorized environments only** — research, education, and systems you own or have explicit permission to monitor. Users are responsible for compliance with applicable laws.
+
+---
+
+## 📄 License
+
+MIT License — see [LICENSE](LICENSE) for details.
+
+---
+
+<div align="center">
+
+**⭐ Star this repo if SHARD helped you — it means a lot!**
+
+[🚀 Get Started](https://github.com/misha622/shard-siem#-quick-start) · [💬 Contact](mailto:shard-security@proton.me) · [🐛 Issues](https://github.com/misha622/shard-siem/issues)
+
+</div>
 
