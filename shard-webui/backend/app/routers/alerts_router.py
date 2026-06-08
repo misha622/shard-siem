@@ -27,9 +27,7 @@ async def list_alerts(request: Request,
     params = {"alert_type": alert_type, "severity": severity, "source_ip": source_ip,
               "destination_ip": destination_ip, "page": page, "page_size": page_size, "search": search}
     alerts, total = get_alerts(params, effective_company)
-    alerts_list = []
-        for a in alerts:
-            alerts_list.append({
+    result = [{
                 "id": a.id, "timestamp": __import__("datetime").datetime.fromtimestamp(a.timestamp).isoformat() if a.timestamp else None, "alert_type": a.attack_type,
                "severity": a.severity, "source_ip": a.src_ip,
                "destination_ip": a.dst_ip,
@@ -39,8 +37,7 @@ async def list_alerts(request: Request,
                "company_id": None,
                "source_lat": a.source_lat, "source_lon": a.source_lon, "source_country": a.source_country, "source_city": a.source_city,
                
-               })
-        result = alerts_list  # company loaded separately
+               } for a in alerts]  # company loaded separately
     return {"alerts": result, "total_count": total, "page": page, "page_size": page_size,
             "total_pages": (total + page_size - 1) // page_size}
 
@@ -49,8 +46,7 @@ async def export_csv(current_user: dict = Depends(get_current_user)):
     alerts, _ = get_alerts({}, current_user.get("company_id") if current_user["role"] != "admin" else None)
     output = StringIO()
     writer = csv.writer(output)
-    writer.writerow(["ID","Timestamp","Type","Severity",
-                           "Source IP","Dest IP","Description","Score","Company"])
+    writer.writerow(["ID","Timestamp","Type","Severity","Source IP","Dest IP","Description","Score","Company"])
     for a in alerts:
         writer.writerow([a.id, a.timestamp, a.attack_type, a.severity,
                         a.src_ip, a.dst_ip, a.explanation, a.score * 100,
