@@ -33,6 +33,9 @@ from core.base import ModuleRegistry
 from module_loader import ModuleLoader
 from module_specs import MODULE_SPECS, MODULES_WITH_SETUP, MODULES_WITH_STOP
 
+# DecisionFusion будет инициализирован в EnhancedShardEnterprise.start()
+from modules.decision_fusion import init_decision_fusion, get_decision_fusion
+
 
 # ============================================================
 # КОНСТАНТЫ И ПЕРЕЧИСЛЕНИЯ
@@ -755,7 +758,62 @@ class EnhancedShardEnterprise:
             except Exception as e:
                 self.logger.error(f"Ошибка настройки автономной системы: {e}")
                 self._update_module_status('autonomous', ModuleStatus.DEGRADED, str(e))
+        
+        # Инициализируем DecisionFusion после настройки автономной системы
+        self._init_decision_fusion()
 
+
+    def _init_decision_fusion(self):
+        """Инициализирует DecisionFusion - оркестратор защиты"""
+        with safe_operation("инициализация DecisionFusion", self.logger):
+            try:
+                # Находим нужные модули
+                rl_defense = self.modules.get('rl_defense')
+                autonomous_defender = self.modules.get('autonomous') or self.autonomous
+                firewall = None
+                
+                # Ищем firewall в модулях ShardEnterprise
+                if hasattr(self.shard, 'modules'):
+                    for module in self.shard.modules:
+                        if module is not None and hasattr(module, 'name'):
+                            if module.name in ('Firewall', 'SmartFirewall'):
+                                firewall = module
+                                break
+                
+                # Если firewall не найден в shard.modules, ищем в self.modules
+                if not firewall:
+                    firewall = self.modules.get('firewall') or self.modules.get('smart_firewall')
+                
+                # ML Engine
+                ml_engine = None
+                if hasattr(self.shard, 'modules'):
+                    for module in self.shard.modules:
+                        if module is not None and hasattr(module, 'name') and module.name == 'ML':
+                            ml_engine = module
+                            break
+                
+                # Инициализируем DecisionFusion
+                self.decision_fusion = init_decision_fusion(
+                    event_bus=self.event_bus,
+                    rl_defense=rl_defense,
+                    autonomous_defender=autonomous_defender,
+                    firewall=firewall,
+                    ml_engine=ml_engine
+                )
+                
+                self._update_module_status('decision_fusion', ModuleStatus.RUNNING)
+                print("🧠 DecisionFusion оркестратор активирован")
+                self.logger.info(
+                    f"DecisionFusion: RL={rl_defense is not None}, "
+                    f"Defender={autonomous_defender is not None}, "
+                    f"Firewall={firewall is not None}, "
+                    f"ML={ml_engine is not None}"
+                )
+                
+            except Exception as e:
+                self.logger.error(f"Ошибка инициализации DecisionFusion: {e}")
+                self._update_module_status('decision_fusion', ModuleStatus.FAILED, str(e))
+    
     def _subscribe_to_events(self):
         """Подписка на события с обработкой ошибок"""
         with safe_operation("подписка на события", self.logger):

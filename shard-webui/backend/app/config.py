@@ -29,6 +29,13 @@ class Settings(BaseSettings):
             return [o.strip() for o in v.split(",") if o.strip()]
         return [f"http://localhost:{info.data.get('PORT', 5000) if info.data else 5000}"]
 
+
+    SMTP_USER: str = ""
+    SMTP_PASS: str = ""
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    FROM_EMAIL: str = ""
+
     class Config:
         env_file = ".env"
 
