@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHARD Defense — Управление защитой</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        .defense-container { padding: 20px; max-width: 1400px; margin: 0 auto; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .stat-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; text-align: center; }
+        .stat-value { font-size: 2em; font-weight: 700; color: var(--accent); }
+        .stat-label { color: var(--text-secondary); font-size: 0.9em; margin-top: 5px; }
+        .action-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.85em; font-weight: 600; }
+        .badge-block_perm { background: #ff4757; color: #fff; }
+        .badge-block_temp { background: #ffa502; color: #000; }
+        .badge-throttle { background: #2ed573; color: #000; }
+        .badge-ignore { background: #747d8c; color: #fff; }
+        .badge-log { background: #70a1ff; color: #fff; }
+        .manual-control { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: var(--text-secondary); font-size: 0.9em; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text); font-size: 1em; }
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 1em; cursor: pointer; font-weight: 600; margin-right: 10px; transition: all 0.2s; }
+        .btn-block { background: #ff4757; color: #fff; }
+        .btn-block:hover { background: #ee5a24; }
+        .btn-unblock { background: #2ed573; color: #000; }
+        .btn-unblock:hover { background: #7bed9f; }
+        .btn-test { background: var(--accent); color: #000; }
+        .table-container { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--border-color); }
+        th { background: var(--bg-secondary); font-weight: 600; font-size: 0.85em; text-transform: uppercase; color: var(--text-secondary); }
+        tr:hover { background: rgba(0,212,255,0.05); }
+        .toast { position: fixed; top: 20px; right: 20px; padding: 15px 25px; border-radius: 10px; color: #fff; font-weight: 600; z-index: 1000; animation: slideIn 0.3s ease; }
+        .toast-success { background: #2ed573; }
+        .toast-error { background: #ff4757; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <svg class="nav-logo" viewBox="0 0 40 40" width="40" height="40">
+                <polygon points="20,2 38,12 38,28 20,38 2,28 2,12" fill="none" stroke="#00d4ff" stroke-width="2"/>
+                <text x="20" y="24" text-anchor="middle" fill="#00d4ff" font-size="16" font-weight="bold">S</text>
+            </svg>
+            <div><div class="nav-title">SHARD Enterprise</div><div class="nav-subtitle">SIEM v5.2.0</div></div>
+        </div>
+        <div class="nav-links">
+            <a href="/dashboard.html" class="nav-link">Dashboard</a>
+            <a href="/alerts.html" class="nav-link">Alerts</a>
+            <a href="/blocked.html" class="nav-link">Blocked IPs</a>
+            <a href="/map.html" class="nav-link">Map</a>
+            <a href="/defense.html" class="nav-link active">🛡️ Defense</a>
+            <a href="/profile.html" class="nav-link">Profile</a>
+            <a href="/settings.html" class="nav-link" id="settingsLink" style="display:none">Settings</a>
+        </div>
+        <div class="nav-actions"><span id="usernameDisplay" class="username"></span><button onclick="logout()" class="logout-btn">Sign Out</button></div>
+    </nav>
+    
+    <div class="defense-container">
+        <h1>🛡️ Autonomous Defense Control <span id="wsStatus" style="font-size:0.5em; margin-left:10px;">⏳ Connecting...</span></h1>
+        <p style="color: var(--text-secondary); margin-bottom: 25px;">Управление автономной защитой SHARD DecisionFusion</p>
+        
+        <!-- Статистика -->
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card"><div class="stat-value" id="statDecisions">0</div><div class="stat-label">Всего решений</div></div>
+            <div class="stat-card"><div class="stat-value" id="statBlocks">0</div><div class="stat-label">Блокировок</div></div>
+            <div class="stat-card"><div class="stat-value" id="statThrottles">0</div><div class="stat-label">Throttle</div></div>
+            <div class="stat-card"><div class="stat-value" id="statActive">0</div><div class="stat-label">Активных защит</div></div>
+            <div class="stat-card"><div class="stat-value" id="statRuleBased">0</div><div class="stat-label">Rule-Based</div></div>
+            <div class="stat-card"><div class="stat-value" id="statRL">0</div><div class="stat-label">RL Decisions</div></div>
+        </div>
+        
+        <!-- Ручное управление -->
+        <div class="manual-control">
+            <h2>🎮 Ручное управление</h2>
+            <div class="form-group">
+                <label>IP-адрес</label>
+                <input type="text" id="manualIP" placeholder="Например: 185.142.53.101">
+            </div>
+            <div class="form-group">
+                <label>Действие</label>
+                <select id="manualAction">
+                    <option value="4">🔴 Перманентная блокировка (24h)</option>
+                    <option value="3">🟠 Временная блокировка (30min)</option>
+                    <option value="2">🟡 Замедление трафика</option>
+                    <option value="1">🔵 Усиленное логирование</option>
+                    <option value="0">⚪ Игнорировать</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Причина</label>
+                <input type="text" id="manualReason" placeholder="Причина блокировки">
+            </div>
+            <button class="btn btn-block" onclick="manualBlock()">🛡️ Применить</button>
+            <button class="btn btn-unblock" onclick="manualUnblock()">🔓 Разблокировать</button>
+            <button class="btn btn-test" onclick="testDefense()">🧪 Тест (без реальной блокировки)</button>
+        </div>
+        
+        <!-- Активные защиты -->
+        <h2>🔒 Активные защиты</h2>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>IP</th>
+                        <th>Действие</th>
+                        <th>Источник</th>
+                        <th>Приоритет</th>
+                        <th>Осталось</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="activeDefensesTable">
+                    <tr><td colspan="6" style="text-align:center; color: var(--text-secondary);">Нет активных защит</td></tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- История -->
+        <h2 style="margin-top: 30px;">📜 История решений</h2>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Время</th>
+                        <th>IP</th>
+                        <th>Тип атаки</th>
+                        <th>Действие</th>
+                        <th>Источник</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTable">
+                    <tr><td colspan="6" style="text-align:center; color: var(--text-secondary);">История пуста</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <script src="js/api-client.js"></script>
+    <script>
+        // ====== WebSocket Real-Time Updates ======
+        const WS_URL = window.location.protocol === 'https:' 
+            ? `wss://${window.location.host}/ws` 
+            : `ws://${window.location.host}/ws`;
+        
+        let ws = null;
+        let wsReconnectTimer = null;
+        let updateInterval = null;
+        
+        function connectWebSocket() {
+            try {
+                ws = new WebSocket(WS_URL);
+                
+                ws.onopen = () => {
+                    console.log('🟢 WebSocket connected');
+                    document.getElementById('wsStatus').textContent = '🟢 Live';
+                    document.getElementById('wsStatus').style.color = '#2ed573';
+                    
+                    // Останавливаем polling, WebSocket сам всё обновит
+                    if (updateInterval) clearInterval(updateInterval);
+                    
+                    // Запрашиваем первое обновление
+                    ws.send('get_stats');
+                };
+                
+                ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        
+                        if (data.type === 'defense_update') {
+                            updateStatsFromWS(data.stats);
+                            updateActiveDefensesFromWS(data.active_defenses);
+                            
+                            if (data.alert) {
+                                showToast(`🚨 ${data.alert.attack_type || 'Alert'} from ${data.alert.src_ip}`, 'error');
+                            }
+                        } else if (data.type === 'pong') {
+                            console.log('💓 Ping/pong');
+                        } else if (data.type === 'connected') {
+                            console.log('✅ WebSocket:', data.message);
+                        }
+                    } catch(e) {
+                        console.error('WS message error:', e);
+                    }
+                };
+                
+                ws.onclose = () => {
+                    console.log('🔴 WebSocket disconnected');
+                    document.getElementById('wsStatus').textContent = '🔴 Offline';
+                    document.getElementById('wsStatus').style.color = '#ff4757';
+                    
+                    // Возвращаемся к polling
+                    if (!updateInterval) {
+                        updateInterval = setInterval(loadAll, 5000);
+                    }
+                    
+                    // Переподключение через 3 секунды
+                    wsReconnectTimer = setTimeout(connectWebSocket, 3000);
+                };
+                
+                ws.onerror = (err) => {
+                    console.error('WebSocket error:', err);
+                };
+                
+            } catch(e) {
+                console.error('WebSocket connection failed:', e);
+                document.getElementById('wsStatus').textContent = '⚠️ No WS';
+            }
+        }
+        
+        function updateStatsFromWS(stats) {
+            if (!stats) return;
+            document.getElementById('statDecisions').textContent = stats.total_decisions || 0;
+            document.getElementById('statBlocks').textContent = stats.blocks_applied || 0;
+            document.getElementById('statThrottles').textContent = stats.throttles_applied || 0;
+            document.getElementById('statActive').textContent = stats.active_defenses || 0;
+            document.getElementById('statRuleBased').textContent = stats.rule_based || 0;
+            document.getElementById('statRL').textContent = stats.rl_decisions || 0;
+        }
+        
+        function updateActiveDefensesFromWS(active) {
+            const tbody = document.getElementById('activeDefensesTable');
+            if (!active || active.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Нет активных защит</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = active.map(d => `
+                <tr>
+                    <td><code>${d.ip}</code></td>
+                    <td><span class="action-badge badge-${d.action_name}">${d.action_name}</span></td>
+                    <td>${d.source}</td>
+                    <td>${d.priority}</td>
+                    <td>${Math.floor(d.remaining)}s</td>
+                    <td><button class="btn btn-unblock" onclick="manualUnblock('${d.ip}')">🔓</button></td>
+                </tr>
+            `).join('');
+        }
+        
+        // Подключаем WebSocket при загрузке
+        connectWebSocket();
+        
+        // Загружаем навигацию
+        // Navigation is now inline
+        
+        const API = '/api/defense';
+        
+        function showToast(msg, type) {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+        
+        async function loadStats() {
+            try {
+                const stats = await apiCall(`${API}/stats`);
+                document.getElementById('statDecisions').textContent = stats.total_decisions || 0;
+                document.getElementById('statBlocks').textContent = stats.blocks_applied || 0;
+                document.getElementById('statThrottles').textContent = stats.throttles_applied || 0;
+                document.getElementById('statActive').textContent = stats.active_defenses || 0;
+                document.getElementById('statRuleBased').textContent = stats.rule_based || 0;
+                document.getElementById('statRL').textContent = stats.rl_decisions || 0;
+            } catch(e) { console.error('Stats error:', e); }
+        }
+        
+        async function loadActiveDefenses() {
+            try {
+                const active = await apiCall(`${API}/active`);
+                const tbody = document.getElementById('activeDefensesTable');
+                
+                if (active.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--text-secondary);">Нет активных защит</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = active.map(d => `
+                    <tr>
+                        <td><code>${d.ip}</code></td>
+                        <td><span class="action-badge badge-${d.action_name}">${d.action_name}</span></td>
+                        <td>${d.source}</td>
+                        <td>${d.priority}</td>
+                        <td>${Math.floor(d.remaining)}s</td>
+                        <td><button class="btn btn-unblock" onclick="manualUnblock('${d.ip}')">Разблокировать</button></td>
+                    </tr>
+                `).join('');
+            } catch(e) { console.error('Active error:', e); }
+        }
+        
+        async function loadHistory() {
+            try {
+                const history = await apiCall(`${API}/history?limit=15`);
+                const tbody = document.getElementById('historyTable');
+                
+                if (history.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--text-secondary);">История пуста</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = history.reverse().map(h => `
+                    <tr>
+                        <td>${new Date(h.action.timestamp * 1000).toLocaleTimeString()}</td>
+                        <td><code>${h.alert.src_ip || '?'}</code></td>
+                        <td>${h.alert.attack_type || '?'}</td>
+                        <td><span class="action-badge badge-${h.action.action_name}">${h.action.action_name}</span></td>
+                        <td>${h.action.source}</td>
+                        <td>${h.success ? '✅' : '❌'}</td>
+                    </tr>
+                `).join('');
+            } catch(e) { console.error('History error:', e); }
+        }
+        
+        async function manualBlock() {
+            const ip = document.getElementById('manualIP').value;
+            const actionId = parseInt(document.getElementById('manualAction').value);
+            const reason = document.getElementById('manualReason').value || 'Manual block';
+            
+            if (!ip) { showToast('Введите IP-адрес', 'error'); return; }
+            
+            try {
+                const result = await apiCall(`${API}/block`, {
+                    method: 'POST',
+                    body: JSON.stringify({ src_ip: ip, action_id: actionId, reason })
+                });
+                
+                if (result.success) {
+                    showToast(`✅ ${result.description}`, 'success');
+                    loadAll();
+                } else {
+                    showToast(`❌ ${result.error || 'Ошибка'}`, 'error');
+                }
+            } catch(e) {
+                showToast(`❌ ${e.message}`, 'error');
+            }
+        }
+        
+        async function manualUnblock(ip) {
+            const targetIp = ip || document.getElementById('manualIP').value;
+            if (!targetIp) { showToast('Введите IP-адрес', 'error'); return; }
+            
+            try {
+                const result = await apiCall(`${API}/unblock`, {
+                    method: 'POST',
+                    body: JSON.stringify({ src_ip: targetIp, action_id: 0 })
+                });
+                
+                if (result.success) {
+                    showToast(`🔓 ${targetIp} разблокирован`, 'success');
+                    loadAll();
+                }
+            } catch(e) {
+                showToast(`❌ ${e.message}`, 'error');
+            }
+        }
+        
+        async function testDefense() {
+            const ip = document.getElementById('manualIP').value || '203.0.113.100';
+            const actionId = parseInt(document.getElementById('manualAction').value);
+            const reason = document.getElementById('manualReason').value || 'Test';
+            
+            try {
+                const result = await apiCall(`${API}/test`, {
+                    method: 'POST',
+                    body: JSON.stringify({ src_ip: ip, action_id: actionId, reason })
+                });
+                
+                showToast(`🧪 Тест: ${result.description}`, 'success');
+            } catch(e) {
+                showToast(`❌ ${e.message}`, 'error');
+            }
+        }
+        
+        async function apiCall(url, options = {}) {
+            const token = localStorage.getItem('access_token');
+            const headers = { 'Content-Type': 'application/json', ...options.headers };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            
+            const res = await fetch(url, { ...options, headers });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ detail: res.statusText }));
+                throw new Error(err.detail || 'API error');
+            }
+            return res.json();
+        }
+        
+        function loadAll() {
+            loadStats();
+            loadActiveDefenses();
+            loadHistory();
+        }
+        
+        // Загрузка при открытии и автообновление
+        loadAll();
+        setInterval(loadAll, 5000);
+    </script>
+</body>
+</html>

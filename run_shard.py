@@ -35,6 +35,8 @@ from module_specs import MODULE_SPECS, MODULES_WITH_SETUP, MODULES_WITH_STOP
 
 # DecisionFusion будет инициализирован в EnhancedShardEnterprise.start()
 from modules.decision_fusion import init_decision_fusion, get_decision_fusion
+from shard_bridge import bridge
+from modules.shard_notifier import telegram_notifier
 
 
 # ============================================================
@@ -803,6 +805,18 @@ class EnhancedShardEnterprise:
                 
                 self._update_module_status('decision_fusion', ModuleStatus.RUNNING)
                 print("🧠 DecisionFusion оркестратор активирован")
+                
+                # Подключаем Bridge к SHARD Engine
+                bridge.connect(self)
+                
+                # Запускаем Telegram бота
+                telegram_notifier.setup(
+                    event_bus=self.event_bus,
+                    decision_fusion=self.decision_fusion,
+                    firewall=self.firewall
+                )
+                telegram_notifier.start()
+                print("📱 Telegram бот запущен")
                 self.logger.info(
                     f"DecisionFusion: RL={rl_defense is not None}, "
                     f"Defender={autonomous_defender is not None}, "

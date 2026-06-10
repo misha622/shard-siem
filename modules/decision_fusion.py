@@ -426,7 +426,21 @@ class DecisionFusion:
         success = False
         
         try:
-            # Применяем через Smart Firewall
+            # Сначала пробуем AppFirewall (работает без root)
+            try:
+                from modules.app_firewall import app_firewall
+                if not hasattr(self, '_app_fw_started'):
+                    app_firewall.start()
+                    self._app_fw_started = True
+                
+                if action.action_id >= 3:
+                    app_firewall.block_ip(src_ip, duration=action.block_duration, reason=alert.get('attack_type', ''))
+                elif action.action_id == 2:
+                    app_firewall.block_ip(src_ip, duration=300, reason='throttle')
+            except Exception as e:
+                logger.debug(f"AppFirewall skipped: {e}")
+            
+            # Затем пробуем Smart Firewall (iptables)
             if self.firewall:
                 if action.action_id >= 3:  # Блокировка IP
                     success = self.firewall.block_ip(
@@ -480,6 +494,19 @@ class DecisionFusion:
                     'action': action.to_dict(),
                     'alert': alert
                 })
+            
+            # WebSocket broadcast (если WebUI запущен)
+            try:
+                import sys
+                sys.path.insert(0, 'shard-webui/backend')
+                from app.routers.websocket_router import broadcast_defense_update
+                broadcast_defense_update(
+                    stats=self.get_stats(),
+                    active=self.get_active_defenses(),
+                    alert=alert if success else None
+                )
+            except Exception:
+                pass
             
             # Обратная связь для RL
             if self.rl_defense and hasattr(self.rl_defense, 'defender'):
@@ -575,6 +602,21 @@ class DecisionFusion:
         
         return active
     
+    def export_stats_to_file(self, filepath: str = None):
+        """Экспорт статистики в JSON файл для WebUI"""
+        import json
+        path = filepath or 'data/defense_stats.json'
+        try:
+            data = {
+                'stats': self.get_stats(),
+                'active': self.get_active_defenses(),
+                'timestamp': __import__('time').time()
+            }
+            with open(path, 'w') as f:
+                json.dump(data, f, default=str)
+        except Exception:
+            pass
+
     def cleanup_expired(self) -> int:
         """Очистка истёкших защит"""
         now = time.time()
