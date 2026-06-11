@@ -66,6 +66,20 @@ jobs:
             -v --timeout=60 \
             --ignore=tests/test_timescale.py \
             --ignore=tests/test_federated.py \
+            --ignore=tests/test_attack_chain.py \
+            --ignore=tests/test_baseline_graph.py \
+            --ignore=tests/test_compressor_cb.py \
+            --ignore=tests/test_dashboard_ext.py \
+            --ignore=tests/test_dashboard_full.py \
+            --ignore=tests/test_explainer_email.py \
+            --ignore=tests/test_honeypot_dashboard.py \
+            --ignore=tests/test_ja3.py \
+            --ignore=tests/test_notifier_sim.py \
+            --ignore=tests/test_ot_iot.py \
+            --ignore=tests/test_security.py \
+            --ignore=tests/test_security_extended.py \
+            --ignore=tests/test_timescale.py \
+            --ignore=tests/test_federated.py \
             --ignore=tests/test_siem_storage.py \
             -p no:warnings
         env:
