@@ -881,18 +881,17 @@ class MachineLearningEngine(BaseModule):
 
     def get_available_models(self) -> dict:
         """Возвращает список всех доступных моделей SHARD"""
-            if HAS_MODEL_REGISTRY:
+        if HAS_MODEL_REGISTRY:
             return shard_model_registry.get_summary()
         return {'total_models': 10, 'categories': {'Базовые': 2, 'Аномалии': 2, 'Графовые': 2, 'Deep Learning': 2, 'Специализированные': 2}}
-    
+
     def load_all_models(self):
         """Загружает все 30 моделей"""
         if HAS_MODEL_REGISTRY:
             return shard_model_loader.load_all()
         return {}
-    
+
     def stop(self) -> None:
-def stop(self) -> None:
         """Остановка ML движка"""
         self.running = False
 
