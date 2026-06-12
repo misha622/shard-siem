@@ -1,32 +1,27 @@
-#!/usr/bin/env python3
-"""
-SHARD Neural ODE (#35)
-Непрерывное время — дифференциальные уравнения для моделирования эволюции атаки.
-"""
-import numpy as np, logging
-import torch, torch.nn as nn
-from torchdiffeq import odeint
-
+"""SHARD Neural ODE (#35) — Continuous-time model (pure PyTorch)"""
+import numpy as np, logging, torch, torch.nn as nn, torch.nn.functional as F
 logger = logging.getLogger("SHARD-NeuralODE")
 
 class ODEFunc(nn.Module):
     def __init__(self, dim):
         super().__init__()
-        self.net = nn.Sequential(nn.Linear(dim, dim*2), nn.Tanh(), nn.Linear(dim*2, dim*2), nn.Tanh(), nn.Linear(dim*2, dim))
-    def forward(self, t, x): return self.net(x)
+        self.net = nn.Sequential(nn.Linear(dim, dim*2), nn.Tanh(), nn.Linear(dim*2, dim))
+    def forward(self, x):
+        return self.net(x)
 
 class NeuralODEDetector(nn.Module):
-    def __init__(self, input_dim=76, hidden_dim=64):
+    def __init__(self, input_dim=76, hidden_dim=64, num_steps=3):
         super().__init__()
         self.encoder = nn.Linear(input_dim, hidden_dim)
         self.ode_func = ODEFunc(hidden_dim)
         self.decoder = nn.Linear(hidden_dim, input_dim)
-        self.integration_time = 1.0
+        self.num_steps = num_steps
+        self.dt = 0.1
     
     def forward(self, x):
-        h0 = self.encoder(x)
-        t = torch.linspace(0, self.integration_time, 2, device=x.device)
-        h = odeint(self.ode_func, h0, t, method='dopri5')[-1]
+        h = self.encoder(x)
+        for _ in range(self.num_steps):
+            h = h + self.dt * self.ode_func(h)
         return self.decoder(h)
 
 class NeuralODEDetectorWrapper:
