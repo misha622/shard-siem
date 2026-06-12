@@ -591,6 +591,20 @@ class EnhancedShardEnterprise:
         else:
             self.logger.info("Все модули успешно запущены")
 
+                # Загружаем все 30 ML моделей
+        print("\n🧠 Loading SHARD model registry...")
+        try:
+            from ml.model_registry import registry
+            from ml.model_loader import loader
+            summary = registry.get_summary()
+            print(f"   Models in registry: {summary['total_models']}")
+            print(f"   Categories: {list(summary['categories'].keys())}")
+            # Загружаем лёгкие модели сразу
+            loader.load_category('Базовые')
+            print(f"   Loaded: {len(loader.loaded_models)} models")
+        except Exception as e:
+            print(f"   ⚠️ Model registry: {e}")
+        
         self._running = True
         if self.shard is not None:
             self.shard.start()
