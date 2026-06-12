@@ -107,9 +107,8 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install pytest pytest-asyncio pytest-timeout httpx \
-            fastapi uvicorn "python-jose[cryptography]" \
-            "passlib[bcrypt]" slowapi python-multipart \
-            sqlalchemy aiosqlite pydantic-settings openpyxl
+            fastapi uvicorn PyJWT "passlib[bcrypt]" slowapi python-multipart \
+            sqlalchemy aiosqlite pydantic-settings openpyxl bcrypt
       - name: Run WebUI tests
         working-directory: shard-webui/backend
         run: |
