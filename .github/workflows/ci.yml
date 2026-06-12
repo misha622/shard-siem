@@ -50,6 +50,7 @@ jobs:
             sqlalchemy asyncpg psycopg2-binary \
             redis prometheus-client python-multipart httpx requests
           pip install scikit-learn numpy pandas xgboost torch --index-url https://download.pytorch.org/whl/cpu || true
+          pip install pyyaml psutil aiohttp prometheus-client || true
           # Устанавливаем пакет (core/ и modules/ становятся импортируемыми)
           pip install -e . --no-build-isolation
       - name: Run core tests
