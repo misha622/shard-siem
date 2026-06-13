@@ -88,3 +88,5 @@ admin_credentials.txt
 shard-webui/backend/.env
 admin_credentials.txt
 .env.telegram
+secret
+password
