@@ -32,7 +32,28 @@ async def lifespan(app: FastAPI):
     yield
     logger.info("Shutting down...")
 
-app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION, lifespan=lifespan)
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    lifespan=lifespan,
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
+    description="""
+🛡️ **SHARD Enterprise SIEM API** — Autonomous AI-powered Security Information and Event Management.
+
+## Features
+- **50 ML/DL Models** for attack detection
+- **DecisionFusion** — 4-level autonomous response
+- **Telegram Bot** — real-time alerts
+- **AppFirewall** — blocking without root
+
+## Authentication
+`POST /api/auth/login` with username/password to get JWT token.
+""",
+    contact={"name": "SHARD Enterprise", "url": "https://github.com/misha622/shard-siem"},
+    license_info={"name": "MIT", "url": "https://opensource.org/licenses/MIT"},
+)
 setup_middleware(app)
 
 app.include_router(auth_router)

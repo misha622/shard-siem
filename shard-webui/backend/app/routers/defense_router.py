@@ -12,7 +12,7 @@ from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger("SHARD-DefenseAPI")
-router = APIRouter(prefix="/api/defense", tags=["defense"])
+router = APIRouter(prefix="/api/defense", tags=["🛡️ Defense"])
 
 
 class DefenseActionRequest(BaseModel):
