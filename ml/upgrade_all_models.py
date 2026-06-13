@@ -1,54 +1,16 @@
-"""SHARD Liquid Neural Network (#39) — адаптивные дифференциальные уравнения"""
-import numpy as np, logging, torch, torch.nn as nn, torch.nn.functional as F
-logger = logging.getLogger("SHARD-LiquidNN")
+#!/usr/bin/env python3
+"""
+SHARD Model Upgrader — добавляет метрики, save/load, SHAP, онлайн-обучение
+во ВСЕ 39 моделей в ml/new_models/.
 
-class LiquidLayer(nn.Module):
-    def __init__(self, dim):
-        super().__init__()
-        self.W = nn.Parameter(torch.randn(dim, dim))
-        self.A = nn.Parameter(torch.randn(dim, dim))
-        self.tau = nn.Parameter(torch.ones(1))
-        self.bias = nn.Parameter(torch.zeros(dim))
-    def forward(self, x, h=None):
-        if h is None: h = torch.zeros(x.size(0), x.size(-1), device=x.device)
-        dh = -h / self.tau + torch.tanh(F.linear(x, self.W) + F.linear(h, self.A) + self.bias)
-        return h + dh
+Запуск: python3 ml/upgrade_all_models.py
+"""
 
-class LiquidNN(nn.Module):
-    def __init__(self, input_dim=76, hidden_dim=64, num_layers=3, num_classes=2):
-        super().__init__()
-        self.embed = nn.Linear(input_dim, hidden_dim)
-        self.liquid_layers = nn.ModuleList([LiquidLayer(hidden_dim) for _ in range(num_layers)])
-        self.head = nn.Linear(hidden_dim, num_classes)
-    def forward(self, x):
-        h = F.silu(self.embed(x))
-        for layer in self.liquid_layers: h = layer(h)
-        return self.head(h)
+import re
+from pathlib import Path
 
-class LiquidNNDetector:
-    def __init__(self, input_dim=76):
-        self.model = LiquidNN(input_dim)
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.model.to(self.device)
-        self.is_trained = False
-    def train(self, X, y, epochs=30):
-        self.model.train()
-        opt = torch.optim.Adam(self.model.parameters(), lr=0.001)
-        X_t, y_t = torch.FloatTensor(X).to(self.device), torch.LongTensor(y).to(self.device)
-        for _ in range(epochs):
-            opt.zero_grad()
-            loss = F.cross_entropy(self.model(X_t), y_t)
-            loss.backward()
-            opt.step()
-        self.is_trained = True
-        return {'epochs': epochs}
-    def predict(self, X):
-        if not self.is_trained: return np.zeros(len(X)), np.ones(len(X))
-        self.model.eval()
-        X_t = torch.FloatTensor(X).to(self.device)
-        with torch.no_grad(): probs = F.softmax(self.model(X_t), dim=-1)[:,1].cpu().numpy()
-        return (probs>0.5).astype(int), probs
-
+# Шаблон улучшений который добавляется в каждую модель
+UPGRADE_TEMPLATE = '''
     # ============================================================
     # UPGRADED: метрики, save/load, SHAP, онлайн-обучение
     # ============================================================
@@ -111,5 +73,65 @@ class LiquidNNDetector:
         except:
             pass
         return {'message': 'SHAP not available for this model'}
+'''
 
-logger.info("✅ Liquid NN ready (#39)")
+def upgrade_file(filepath):
+    """Добавляет улучшения в один файл модели."""
+    with open(filepath, 'r') as f:
+        content = f.read()
+    
+    # Пропускаем если уже улучшен
+    if 'def evaluate(self, X_test, y_test):' in content:
+        return False
+    
+    # Находим последний метод и добавляем после него
+    # Ищем последний def в классе
+    last_def = content.rfind('\n    def ')
+    if last_def < 0:
+        last_def = content.rfind('\ndef ')
+    
+    # Находим конец метода (следующая строка без отступа или конец файла)
+    end_of_method = content.find('\n', last_def + 1)
+    # Ищем где метод заканчивается (строка не с пробелом)
+    lines = content[last_def:].split('\n')
+    method_end = 0
+    for i, line in enumerate(lines[1:], 1):
+        if line.strip() and not line.startswith('    ') and not line.startswith('\t'):
+            method_end = i
+            break
+    
+    insert_pos = last_def + sum(len(l) + 1 for l in lines[:method_end]) if method_end else len(content)
+    
+    # Вставляем улучшения перед последней строкой (обычно logger.info)
+    logger_line = content.rfind('logger.info(')
+    if logger_line > 0:
+        # Вставляем перед logger.info
+        insert_pos = content.rfind('\n', 0, logger_line)
+    
+    new_content = content[:insert_pos] + UPGRADE_TEMPLATE + content[insert_pos:]
+    
+    with open(filepath, 'w') as f:
+        f.write(new_content)
+    
+    return True
+
+
+# Запуск
+model_dir = Path('ml/new_models')
+upgraded = 0
+skipped = 0
+
+for py_file in sorted(model_dir.glob('shard_*.py')):
+    if py_file.name in ['shard_ensemble_voting.py']:  # Уже улучшен
+        continue
+    
+    result = upgrade_file(py_file)
+    if result:
+        upgraded += 1
+        print(f"  ✅ {py_file.name}")
+    else:
+        skipped += 1
+        print(f"  ⏭️ {py_file.name} (already upgraded)")
+
+print(f"\n✅ Upgraded: {upgraded} models")
+print(f"⏭️ Skipped: {skipped} models")
