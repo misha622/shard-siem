@@ -1,0 +1,14 @@
+{
+  "LightGBM": {
+    "f1": 0.9985,
+    "precision": 0.9983,
+    "recall": 0.9987,
+    "auc": 0.9999
+  },
+  "XGBoost": {
+    "f1": 0.9983,
+    "precision": 0.9977,
+    "recall": 0.999,
+    "auc": 0.9999
+  }
+}
