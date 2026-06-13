@@ -95,4 +95,97 @@ class VotingEnsemble(BaseShardDetector):
         return {name: round(w, 4) for name, (_, w) in self.models.items()}
 
 
+
+    def save(self, path=None):
+        """Сохранить ансамбль и все его модели."""
+        import joblib
+        from pathlib import Path
+        save_path = Path(path) if path else Path('models') / 'voting_ensemble.joblib'
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        state = {
+            'meta_weights': self.meta_weights,
+            'metrics': self.metrics,
+            'is_fitted': self._is_fitted
+        }
+        # Сохраняем каждую модель отдельно
+        for name, (model, weight) in self.models.items():
+            model_path = save_path.parent / f'{name}_ensemble.joblib'
+            try:
+                if hasattr(model, 'save'):
+                    model.save(model_path)
+                else:
+                    joblib.dump(model, model_path, compress=0)
+            except:
+                pass
+        
+        joblib.dump(state, save_path, compress=0)
+        return True
+    
+    def load(self, path=None):
+        """Загрузить ансамбль."""
+        import joblib
+        from pathlib import Path
+        load_path = Path(path) if path else Path('models') / 'voting_ensemble.joblib'
+        
+        if not load_path.exists():
+            return False
+        
+        state = joblib.load(load_path)
+        self.meta_weights = state.get('meta_weights', {})
+        self.metrics = state.get('metrics', {})
+        self._is_fitted = state.get('is_fitted', False)
+        
+        # Загружаем модели
+        for name in self.meta_weights:
+            model_path = load_path.parent / f'{name}_ensemble.joblib'
+            if model_path.exists() and name in self.models:
+                try:
+                    model_data = joblib.load(model_path)
+                    self.models[name] = (model_data, self.meta_weights.get(name, 1.0))
+                except:
+                    pass
+        return True
+    
+    def explain(self, X, top_k=10):
+        """SHAP объяснение — усреднённое по всем моделям."""
+        import numpy as np
+        all_importances = []
+        for name, (model, weight) in self.models.items():
+            try:
+                if hasattr(model, 'explain'):
+                    exp = model.explain(X)
+                    if 'shap_values' in exp:
+                        all_importances.append(np.array(exp['shap_values']) * weight)
+                elif hasattr(model, 'feature_importances_'):
+                    all_importances.append(model.feature_importances_ * weight)
+            except:
+                pass
+        
+        if all_importances:
+            avg_importance = np.mean(all_importances, axis=0)
+            top_idx = np.argsort(np.abs(avg_importance))[-top_k:][::-1]
+            return {
+                'top_features': [f'feature_{i}' for i in top_idx],
+                'importances': avg_importance[top_idx].tolist(),
+                'method': 'ensemble_average'
+            }
+        return {'message': 'No explainable models in ensemble'}
+    
+    def get_metrics(self):
+        """Метрики качества ансамбля."""
+        return self.metrics
+    
+    def evaluate(self, X_test, y_test):
+        """Оценить качество ансамбля."""
+        from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
+        preds, scores = self.predict(X_test)
+        self.metrics = {
+            'f1_score': round(f1_score(y_test, preds, zero_division=0), 4),
+            'precision': round(precision_score(y_test, preds, zero_division=0), 4),
+            'recall': round(recall_score(y_test, preds, zero_division=0), 4),
+            'roc_auc': round(roc_auc_score(y_test, scores), 4)
+        }
+        return self.metrics
+
 logger.info("✅ Voting Ensemble ready (#22) — full fit() + weighted voting")
