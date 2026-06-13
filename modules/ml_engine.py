@@ -4,7 +4,6 @@ import os
 import time
 import threading
 import json
-import uuid
 import sqlite3
 from typing import Dict, List, Optional, Any, Tuple, Set
 from collections import defaultdict, deque
@@ -25,12 +24,10 @@ except ImportError:
     HAS_JOBLIB = False
 
 try:
-    from modules.ml_models import SelfSupervisedEncoder, ThreatGNN
 
     HAS_ML_MODELS = True
 except ImportError:
     SelfSupervisedEncoder = None
-    ThreatGNN = None
     HAS_ML_MODELS = False
 
 try:

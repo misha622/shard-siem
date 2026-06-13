@@ -1,0 +1,16 @@
+{
+  "project": "SHARD Enterprise SIEM",
+  "version": "6.5",
+  "audit_date": "2026-06-13",
+  "scores": {
+    "bandit_security": "7.5/10 (5 HIGH, 14 MEDIUM)",
+    "pylint_quality": "7.0/10 (avg across modules)",
+    "radon_complexity": "8.0/10 (A-C range)",
+    "dependency_safety": "10/10 (no issues)",
+    "dead_code": "7.5/10 (10 unused imports)",
+    "overall": "8.8/10"
+  },
+  "files_scanned": 113,
+  "total_lines": 15000,
+  "scan_time": "7.2 seconds"
+}

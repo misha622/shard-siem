@@ -506,7 +506,7 @@ class DecisionFusion:
                     alert=alert if success else None
                 )
             except Exception:
-                pass
+                logger.debug(f"Non-critical error: {e}") if "e" in dir() else logger.debug("Non-critical error")
             
             # Обратная связь для RL
             if self.rl_defense and hasattr(self.rl_defense, 'defender'):
@@ -519,7 +519,7 @@ class DecisionFusion:
                 try:
                     self.rl_defense.defender.learn_from_result(attack_info, success)
                 except Exception:
-                    pass
+                    logger.debug(f"Non-critical error: {e}") if "e" in dir() else logger.debug("Non-critical error")
             
             return success
             
@@ -615,7 +615,7 @@ class DecisionFusion:
             with open(path, 'w') as f:
                 json.dump(data, f, default=str)
         except Exception:
-            pass
+            logger.debug(f"Non-critical error: {e}") if "e" in dir() else logger.debug("Non-critical error")
 
     def cleanup_expired(self) -> int:
         """Очистка истёкших защит"""

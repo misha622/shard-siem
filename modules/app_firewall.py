@@ -13,7 +13,6 @@ import logging
 from pathlib import Path
 from typing import Dict, Set, Optional
 from datetime import datetime
-from collections import defaultdict
 
 logger = logging.getLogger("SHARD-AppFirewall")
 
@@ -190,7 +189,7 @@ class AppFirewall:
                     self.hosts_deny_blocks.discard(ip)
                     result['methods'].append('hosts.deny')
                 except Exception:
-                    pass
+                    logger.debug(f"Non-critical error: {e}") if "e" in dir() else logger.debug("Non-critical error")
             
             # iptables
             if ip in self.iptables_blocks:
@@ -203,7 +202,7 @@ class AppFirewall:
                     self.iptables_blocks.discard(ip)
                     result['methods'].append('iptables')
                 except Exception:
-                    pass
+                    logger.debug(f"Non-critical error: {e}") if "e" in dir() else logger.debug("Non-critical error")
             
             if result['methods']:
                 result['success'] = True
@@ -272,7 +271,7 @@ class AppFirewall:
                 except ValueError:
                     continue
         except Exception:
-            pass
+            logger.debug(f"Non-critical error: {e}") if "e" in dir() else logger.debug("Non-critical error")
         
         return False
     
@@ -312,7 +311,7 @@ class AppFirewall:
                         '-s', ip, '-j', 'DROP'
                     ], capture_output=True, timeout=5)
                 except Exception:
-                    pass
+                    logger.debug(f"Non-critical error: {e}") if "e" in dir() else logger.debug("Non-critical error")
             self.iptables_blocks.clear()
     
     def _cleanup_loop(self):
@@ -337,7 +336,7 @@ class AppFirewall:
             with open(self.data_dir / 'firewall_state.json', 'w') as f:
                 json.dump(state, f)
         except Exception:
-            pass
+            logger.debug(f"Non-critical error: {e}") if "e" in dir() else logger.debug("Non-critical error")
     
     def _load_state(self):
         """Загрузить состояние"""
@@ -350,7 +349,7 @@ class AppFirewall:
                         self.memory_blocks = state.get('memory_blocks', {})
                         logger.info(f"📂 Loaded {len(self.memory_blocks)} blocks from state")
         except Exception:
-            pass
+            logger.debug(f"Non-critical error: {e}") if "e" in dir() else logger.debug("Non-critical error")
     
     def _audit_log(self, action: str, ip: str, duration: int, reason: str):
         """Аудит-лог"""
@@ -360,7 +359,7 @@ class AppFirewall:
             with open(log_file, 'a') as f:
                 f.write(f"{timestamp} | {action} | {ip} | {duration}s | {reason}\n")
         except Exception:
-            pass
+            logger.debug(f"Non-critical error: {e}") if "e" in dir() else logger.debug("Non-critical error")
 
 
 # Глобальный экземпляр
