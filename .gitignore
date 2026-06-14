@@ -90,3 +90,7 @@ admin_credentials.txt
 .env.telegram
 secret
 password
+credentials.json
+client_secret*.json
+token.json
+*.token.json
