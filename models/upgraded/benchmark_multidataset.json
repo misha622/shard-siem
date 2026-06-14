@@ -1,41 +1,84 @@
 {
-  "results": {
+  "timestamp": "2026-06-13",
+  "dataset": "Multi-Dataset (4 datasets)",
+  "datasets": {
     "CIC-IDS2017": {
-      "LightGBM": {
-        "f1": 0.9984,
-        "auc": 0.9999,
-        "precision": 0.9983,
-        "recall": 0.9985
-      },
-      "XGBoost": {
-        "f1": 0.9984,
-        "auc": 0.9999,
-        "precision": 0.9983,
-        "recall": 0.9985
-      },
-      "CatBoost": {
-        "f1": 0.9976,
-        "auc": 0.9998,
-        "precision": 0.9968,
-        "recall": 0.9985
+      "samples": 2827677,
+      "features": 76,
+      "models": {
+        "LightGBM": {
+          "f1": 0.9982,
+          "auc": 0.9999,
+          "precision": 0.9983,
+          "recall": 0.9985
+        },
+        "XGBoost": {
+          "f1": 0.9975,
+          "auc": 0.9999,
+          "precision": 0.997,
+          "recall": 0.9982
+        },
+        "CatBoost": {
+          "f1": 0.9976,
+          "auc": 0.9998,
+          "precision": 0.9963,
+          "recall": 0.9988
+        }
+      }
+    },
+    "NSL-KDD": {
+      "samples": 148516,
+      "features": 42,
+      "models": {
+        "LightGBM": {
+          "f1": 0.9635,
+          "auc": 0.9921
+        },
+        "XGBoost": {
+          "f1": 0.9724,
+          "auc": 0.9933
+        }
+      }
+    },
+    "UNSW-NB15": {
+      "samples": 49994,
+      "features": 77,
+      "models": {
+        "LightGBM": {
+          "f1": 0.9809,
+          "auc": 0.9985
+        },
+        "XGBoost": {
+          "f1": 0.9722,
+          "auc": 0.9983
+        }
+      }
+    },
+    "Merged": {
+      "samples": "Mixed",
+      "features": "Multi",
+      "models": {
+        "LightGBM": {
+          "f1": 1.0,
+          "auc": 1.0
+        },
+        "XGBoost": {
+          "f1": 1.0,
+          "auc": 1.0
+        }
       }
     }
   },
   "averages": {
     "LightGBM": {
-      "f1": 0.9984,
-      "auc": 0.9999,
-      "datasets": 1
+      "f1": 0.9857,
+      "auc": 0.9976,
+      "datasets": 4
     },
     "XGBoost": {
-      "f1": 0.9984,
-      "auc": 0.9999,
-      "datasets": 1
-    },
-    "CatBoost": {
-      "f1": 0.9976,
-      "auc": 0.9998,
-      "datasets": 1
+      "f1": 0.9855,
+      "auc": 0.9978,
+      "datasets": 4
     }
   }
 }
