@@ -236,16 +236,16 @@
             <div class="card">
                 <table><thead><tr><th>Channel</th><th>Status</th><th>Critical</th><th>High</th><th>Medium</th><th>Low</th></tr></thead>
                 <tbody>
-                    <tr><td>📧 Email</td><td><span class="badge badge-green">Active</span></td>
-                        <td><label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label></td>
-                        <td><label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label></td>
-                        <td><label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label></td>
-                        <td><label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label></td></tr>
-                    <tr><td>🤖 Telegram</td><td><span class="badge badge-green">Active</span></td>
-                        <td><label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label></td>
-                        <td><label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label></td>
-                        <td><label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label></td>
-                        <td><label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label></td></tr>
+                    <tr><td>📧 Email</td><td><span class="badge badge-green" id="emailStatus">Active</span></td>
+                        <td><label class="toggle"><input type="checkbox" id="emailCritical" checked><span class="toggle-slider"></span></label></td>
+                        <td><label class="toggle"><input type="checkbox" id="emailHigh" checked><span class="toggle-slider"></span></label></td>
+                        <td><label class="toggle"><input type="checkbox" id="emailMedium"><span class="toggle-slider"></span></label></td>
+                        <td><label class="toggle"><input type="checkbox" id="emailLow"><span class="toggle-slider"></span></label></td></tr>
+                    <tr><td>🤖 Telegram</td><td><span class="badge badge-green" id="telegramStatus">Active</span></td>
+                        <td><label class="toggle"><input type="checkbox" id="tgCritical" checked><span class="toggle-slider"></span></label></td>
+                        <td><label class="toggle"><input type="checkbox" id="tgHigh" checked><span class="toggle-slider"></span></label></td>
+                        <td><label class="toggle"><input type="checkbox" id="tgMedium"><span class="toggle-slider"></span></label></td>
+                        <td><label class="toggle"><input type="checkbox" id="tgLow"><span class="toggle-slider"></span></label></td></tr>
                 </tbody></table>
                 <button class="btn btn-primary" style="margin-top:15px;" onclick="saveNotifications()">💾 Save Preferences</button>
             </div>
@@ -305,15 +305,15 @@
             <div class="page-subtitle">Customize your experience</div>
             <div class="card">
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
-                    <span>🌙 Dark Mode</span><label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label></div>
+                    <span>🌙 Dark Mode</span><label class="toggle"><input type="checkbox" id="prefDark" onchange="applyDarkMode()"><span class="toggle-slider"></span></label></div>
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
-                    <span>🔊 Sound Alerts</span><label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label></div>
+                    <span>🔊 Sound Alerts</span><label class="toggle"><input type="checkbox" id="prefSound"><span class="toggle-slider"></span></label></div>
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
-                    <span>📧 Weekly Report</span><label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label></div>
+                    <span>📧 Weekly Report</span><label class="toggle"><input type="checkbox" id="prefReport"><span class="toggle-slider"></span></label></div>
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;">
                     <span>🕐 Timezone</span>
-                    <select style="padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:#fff;">
-                        <option>UTC+3 (Moscow)</option><option>UTC+0 (London)</option><option>UTC-5 (New York)</option><option>UTC+4 (Dubai)</option></select></div>
+                    <select id="prefTz" style="padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:#fff;">
+                        <option value="UTC+3">UTC+3 (Moscow)</option><option value="UTC+0">UTC+0 (London)</option><option value="UTC-5">UTC-5 (New York)</option><option value="UTC+4">UTC+4 (Dubai)</option></select></div>
                 <button class="btn btn-primary" style="margin-top:15px;" onclick="savePreferences()">💾 Save Preferences</button>
             </div>
         </div>
@@ -434,6 +434,7 @@
         await fetch('/api/profile/update', { method: 'PUT', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify({ first_name: document.getElementById('editFn').value, last_name: document.getElementById('editLn').value, email: document.getElementById('editEm').value }) });
         showToast('Profile updated!', 'success');
         init();
+    if (localStorage.getItem('darkMode') === '0') { document.body.style.filter = 'invert(1) hue-rotate(180deg)'; }
     }
 
     async function changePassword() {
@@ -453,10 +454,14 @@
         document.getElementById('page-' + page).classList.add('active');
         if (el) el.classList.add('active');
         if (page === 'activity') init();
+    if (localStorage.getItem('darkMode') === '0') { document.body.style.filter = 'invert(1) hue-rotate(180deg)'; }
         if (page === 'alerts') loadMyAlerts();
         if (page === 'audit') loadAuditLog();
         if (page === 'security') loadSessions();
         if (page === 'api') loadAPIKeys();
+        if (page === 'preferences') loadPreferences();
+        if (page === 'notifications') loadNotifications();
+        if (page === 'notifications') loadNotifications();
     }
 
     function showToast(msg, type) {
@@ -468,21 +473,74 @@
     }
 
     
+    async function loadNotifications() {
+        try {
+            const r = await fetch('/api/profile/notifications', { headers: H });
+            const d = await r.json();
+            const s = d.settings || {};
+            if (s.email) {
+                document.getElementById('emailCritical').checked = s.email.CRITICAL !== false;
+                document.getElementById('emailHigh').checked = s.email.HIGH !== false;
+                document.getElementById('emailMedium').checked = s.email.MEDIUM === true;
+                document.getElementById('emailLow').checked = s.email.LOW === true;
+            }
+            if (s.telegram) {
+                document.getElementById('tgCritical').checked = s.telegram.CRITICAL !== false;
+                document.getElementById('tgHigh').checked = s.telegram.HIGH !== false;
+                document.getElementById('tgMedium').checked = s.telegram.MEDIUM === true;
+                document.getElementById('tgLow').checked = s.telegram.LOW === true;
+            }
+        } catch(e) {}
+    }
+
     async function saveNotifications() {
         const settings = {
-            email: { CRITICAL: true, HIGH: true, MEDIUM: false, LOW: false },
-            telegram: { CRITICAL: true, HIGH: true, MEDIUM: false, LOW: false }
+            email: {
+                CRITICAL: document.getElementById('emailCritical').checked,
+                HIGH: document.getElementById('emailHigh').checked,
+                MEDIUM: document.getElementById('emailMedium').checked,
+                LOW: document.getElementById('emailLow').checked
+            },
+            telegram: {
+                CRITICAL: document.getElementById('tgCritical').checked,
+                HIGH: document.getElementById('tgHigh').checked,
+                MEDIUM: document.getElementById('tgMedium').checked,
+                LOW: document.getElementById('tgLow').checked
+            }
         };
         await fetch('/api/profile/notifications', { method: 'PUT', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify({ settings }) });
         showToast('Notifications saved!', 'success');
     }
 
+    async function loadPreferences() {
+        try {
+            const r = await fetch('/api/profile/preferences', { headers: H });
+            const d = await r.json();
+            const s = d.settings || {};
+            document.getElementById('prefDark').checked = s.dark_mode !== false;
+            document.getElementById('prefSound').checked = s.sound_alerts === true;
+            document.getElementById('prefReport').checked = s.weekly_report !== false;
+            document.getElementById('prefTz').value = s.timezone || 'UTC+3';
+            applyDarkMode();
+        } catch(e) {}
+    }
+
+    function applyDarkMode() {
+        const isDark = document.getElementById('prefDark').checked;
+        document.body.style.filter = isDark ? 'none' : 'invert(1) hue-rotate(180deg)';
+        document.querySelectorAll('img, canvas, [style*="background"]').forEach(el => {
+            if (isDark) el.style.filter = 'none';
+            else el.style.filter = 'invert(1) hue-rotate(180deg)';
+        });
+        localStorage.setItem('darkMode', isDark ? '1' : '0');
+    }
+
     async function savePreferences() {
         const settings = {
-            dark_mode: true,
-            sound_alerts: false,
-            weekly_report: true,
-            timezone: 'UTC+3 (Moscow)'
+            dark_mode: document.getElementById('prefDark').checked,
+            sound_alerts: document.getElementById('prefSound').checked,
+            weekly_report: document.getElementById('prefReport').checked,
+            timezone: document.getElementById('prefTz').value
         };
         await fetch('/api/profile/preferences', { method: 'PUT', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify({ settings }) });
         showToast('Preferences saved!', 'success');
@@ -503,6 +561,7 @@
 
     function logout() { localStorage.clear(); location.href = '/login.html'; }
     init();
+    if (localStorage.getItem('darkMode') === '0') { document.body.style.filter = 'invert(1) hue-rotate(180deg)'; }
 </script>
 </body>
 </html>
