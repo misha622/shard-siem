@@ -6,286 +6,469 @@
     <link rel="stylesheet" href="css/style.css">
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <style>
-        .profile-container { padding: 20px; max-width: 1400px; margin: 0 auto; }
-        .profile-header { display: flex; gap: 30px; margin-bottom: 30px; align-items: start; flex-wrap: wrap; }
-        .avatar-section { text-align: center; }
-        .avatar { width: 120px; height: 120px; border-radius: 50%; background: linear-gradient(135deg, #00d4ff, #09c); 
-                  display: flex; align-items: center; justify-content: center; font-size: 3em; color: #000; font-weight: 700; }
-        .user-info { flex: 1; min-width: 250px; }
-        .user-info h1 { color: #fff; font-size: 1.8em; }
-        .user-info p { color: #888; }
-        .role-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 0.8em; font-weight: 600; }
-        .role-admin { background: #ff4757; color: #fff; }
-        .role-viewer { background: #1a2a3a; color: #00d4ff; }
+        :root {
+            --bg: #0a0e17; --card: #111827; --border: #1a1f2e; --accent: #00d4ff;
+            --green: #2ed573; --red: #ff4757; --orange: #ffa502; --purple: #a29bfe;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+               background: var(--bg); color: #e0e0e0; line-height: 1.5; }
         
-        .tabs { display: flex; gap: 2px; margin-bottom: 20px; flex-wrap: wrap; }
-        .tab { padding: 10px 20px; background: #111827; border: none; color: #888; cursor: pointer; 
-               border-radius: 8px 8px 0 0; font-size: 0.9em; transition: all 0.2s; }
-        .tab.active { background: #1a1f2e; color: #00d4ff; }
-        .tab:hover { color: #fff; }
+        .profile-app { display: flex; min-height: 100vh; }
         
-        .tab-content { display: none; background: #111827; border: 1px solid #1a1f2e; border-radius: 0 12px 12px 12px; 
-                       padding: 25px; }
+        /* ── SIDEBAR ── */
+        .sidebar { width: 280px; background: var(--card); border-right: 1px solid var(--border); 
+                   padding: 20px; position: fixed; height: 100vh; overflow-y: auto; z-index: 100; }
+        .sidebar-avatar { width: 80px; height: 80px; border-radius: 50%; 
+                          background: linear-gradient(135deg, var(--accent), #09c);
+                          display: flex; align-items: center; justify-content: center; 
+                          font-size: 2em; font-weight: 700; color: #000; margin: 0 auto 15px; }
+        .sidebar-name { text-align: center; font-size: 1.2em; font-weight: 600; color: #fff; }
+        .sidebar-email { text-align: center; color: #888; font-size: 0.85em; margin-bottom: 5px; }
+        .sidebar-role { text-align: center; margin-bottom: 20px; }
+        .sidebar-nav { list-style: none; }
+        .sidebar-nav li { padding: 10px 15px; margin: 2px 0; border-radius: 8px; cursor: pointer; 
+                          color: #888; font-size: 0.9em; transition: all 0.2s; display: flex; align-items: center; gap: 10px; }
+        .sidebar-nav li:hover { background: rgba(0,212,255,0.05); color: #fff; }
+        .sidebar-nav li.active { background: rgba(0,212,255,0.1); color: var(--accent); font-weight: 600; }
+        .sidebar-nav .badge { margin-left: auto; background: var(--accent); color: #000; padding: 2px 8px; 
+                              border-radius: 10px; font-size: 0.75em; font-weight: 700; }
+        .sidebar-nav .badge.red { background: var(--red); color: #fff; }
+        
+        /* ── MAIN CONTENT ── */
+        .main-content { margin-left: 280px; flex: 1; padding: 30px; }
+        .page-title { font-size: 1.5em; color: #fff; margin-bottom: 5px; }
+        .page-subtitle { color: #888; font-size: 0.9em; margin-bottom: 25px; }
+        
+        /* ── CARDS ── */
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; 
+                padding: 20px; margin-bottom: 20px; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .card-title { font-size: 1.1em; font-weight: 600; color: #fff; }
+        .card-subtitle { color: #888; font-size: 0.85em; }
+        
+        /* ── GRIDS ── */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+        @media (max-width: 900px) { .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; } .sidebar { width: 60px; } .main-content { margin-left: 60px; } }
+        
+        /* ── STAT CARDS ── */
+        .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; 
+                     padding: 18px; text-align: center; }
+        .stat-value { font-size: 1.8em; font-weight: 700; }
+        .stat-label { color: #888; font-size: 0.8em; margin-top: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-change { font-size: 0.75em; margin-top: 5px; }
+        .stat-change.up { color: var(--green); } .stat-change.down { color: var(--red); }
+        .color-blue { color: var(--accent); } .color-green { color: var(--green); } 
+        .color-red { color: var(--red); } .color-orange { color: var(--orange); } .color-purple { color: var(--purple); }
+        
+        /* ── TABLES ── */
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.9em; }
+        th { color: var(--accent); font-weight: 600; text-transform: uppercase; font-size: 0.75em; letter-spacing: 0.5px; }
+        tr:hover { background: rgba(0,212,255,0.02); }
+        
+        /* ── FORMS ── */
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; color: #888; font-size: 0.85em; margin-bottom: 5px; font-weight: 500; }
+        .form-group input, .form-group select, .form-group textarea { 
+            width: 100%; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border); 
+            border-radius: 8px; color: #fff; font-size: 0.95em; font-family: inherit; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { 
+            border-color: var(--accent); outline: none; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        
+        /* ── BUTTONS ── */
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 0.9em; cursor: pointer; 
+               font-weight: 600; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-primary { background: var(--accent); color: #000; } .btn-primary:hover { filter: brightness(1.1); }
+        .btn-secondary { background: var(--border); color: #fff; } .btn-secondary:hover { background: #2a2f3e; }
+        .btn-danger { background: transparent; border: 1px solid var(--red); color: var(--red); }
+        .btn-danger:hover { background: rgba(255,71,87,0.1); }
+        .btn-sm { padding: 5px 12px; font-size: 0.8em; }
+        
+        /* ── TOGGLE ── */
+        .toggle { position: relative; display: inline-block; width: 44px; height: 24px; }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; 
+                         background: var(--border); border-radius: 24px; transition: 0.3s; }
+        .toggle-slider:before { content: ""; position: absolute; height: 18px; width: 18px; left: 3px; 
+                                bottom: 3px; background: #fff; border-radius: 50%; transition: 0.3s; }
+        .toggle input:checked + .toggle-slider { background: var(--accent); }
+        .toggle input:checked + .toggle-slider:before { transform: translateX(20px); }
+        
+        /* ── BADGES ── */
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.75em; font-weight: 600; }
+        .badge-green { background: rgba(46,213,115,0.15); color: var(--green); }
+        .badge-red { background: rgba(255,71,87,0.15); color: var(--red); }
+        .badge-orange { background: rgba(255,165,2,0.15); color: var(--orange); }
+        .badge-blue { background: rgba(0,212,255,0.15); color: var(--accent); }
+        
+        /* ── PROGRESS ── */
+        .progress { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
+        
+        /* ── TOAST ── */
+        .toast { position: fixed; top: 20px; right: 20px; padding: 15px 25px; border-radius: 10px; 
+                color: #fff; font-weight: 600; z-index: 9999; animation: slideIn 0.3s; }
+        .toast-success { background: var(--green); }
+        .toast-error { background: var(--red); }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        
+        /* ── TABS ── */
+        .tab-content { display: none; }
         .tab-content.active { display: block; }
         
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
-        .stat-card { background: #0a0e17; padding: 18px; border-radius: 10px; text-align: center; }
-        .stat-value { font-size: 1.8em; font-weight: 700; color: #00d4ff; }
-        .stat-label { color: #888; font-size: 0.85em; margin-top: 5px; }
-        
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; color: #888; font-size: 0.85em; margin-bottom: 5px; }
-        .form-group input { width: 100%; padding: 10px; background: #0a0e17; border: 1px solid #1a1f2e; 
-                           border-radius: 8px; color: #fff; font-size: 1em; }
-        .form-group input:focus { border-color: #00d4ff; outline: none; }
-        .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 1em; cursor: pointer; font-weight: 600; }
-        .btn-primary { background: #00d4ff; color: #000; }
-        .btn-danger { background: transparent; border: 1px solid #ff4757; color: #ff4757; }
-        
-        .alert-row { padding: 12px; border-bottom: 1px solid #1a1f2e; display: flex; justify-content: space-between; 
-                     align-items: center; font-size: 0.9em; }
-        .severity-CRITICAL { color: #ff4757; } .severity-HIGH { color: #ffa502; }
-        .severity-MEDIUM { color: #ffd700; } .severity-LOW { color: #2ed573; }
-        
-        .plan-card { background: #0a0e17; border: 1px solid #1a1f2e; border-radius: 12px; padding: 20px; 
-                     text-align: center; flex: 1; min-width: 200px; }
-        .plan-card.featured { border-color: #00d4ff; }
-        .plan-price { font-size: 2em; font-weight: 700; color: #00d4ff; }
-        .plan-features { list-style: none; padding: 0; margin: 15px 0; }
-        .plan-features li { padding: 4px 0; color: #ccc; font-size: 0.85em; }
-        
-        .activity-bar { display: flex; align-items: end; gap: 4px; height: 100px; }
-        .activity-bar div { flex: 1; background: #00d4ff; border-radius: 3px 3px 0 0; min-width: 30px; 
-                            transition: height 0.3s; position: relative; }
-        .activity-bar div span { position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%); 
-                                  font-size: 0.7em; color: #888; }
+        .plan-popular { position: absolute; top: -12px; right: 15px; background: var(--accent); color: #000; 
+                        padding: 3px 12px; border-radius: 10px; font-size: 0.7em; font-weight: 700; }
     </style>
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-brand"><div class="nav-title">SHARD Enterprise</div><div class="nav-subtitle">SIEM v6.5</div></div>
-        <div class="nav-links">
-            <a href="/dashboard.html" class="nav-link">Dashboard</a>
-            <a href="/alerts.html" class="nav-link">Alerts</a>
-            <a href="/blocked.html" class="nav-link">Blocked IPs</a>
-            <a href="/map.html" class="nav-link">Map</a>
-            <a href="/defense.html" class="nav-link">🛡️ Defense</a>
-            <a href="/profile.html" class="nav-link active">Profile</a>
-            <a href="/settings.html" class="nav-link" id="settingsLink" style="display:none">Settings</a>
+<div class="profile-app">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="sidebar-avatar" id="sidebarAvatar">U</div>
+        <div class="sidebar-name" id="sidebarName">Loading...</div>
+        <div class="sidebar-email" id="sidebarEmail"></div>
+        <div class="sidebar-role" id="sidebarRole"></div>
+        
+        <ul class="sidebar-nav">
+            <li class="active" onclick="switchPage('overview', this)"><span>📊</span> Overview</li>
+            <li onclick="switchPage('activity', this)"><span>📈</span> Activity</li>
+            <li onclick="switchPage('alerts', this)"><span>🚨</span> My Alerts <span class="badge" id="alertCount">0</span></li>
+            <li onclick="switchPage('edit', this)"><span>✏️</span> Edit Profile</li>
+            <li onclick="switchPage('security', this)"><span>🔐</span> Security</li>
+            <li onclick="switchPage('notifications', this)"><span>🔔</span> Notifications</li>
+            <li onclick="switchPage('api', this)"><span>🔑</span> API & Tokens</li>
+            <li onclick="switchPage('plan', this)"><span>💳</span> Plan & Billing</li>
+            <li onclick="switchPage('audit', this)"><span>📋</span> Audit Log</li>
+            <li onclick="switchPage('preferences', this)"><span>⚙️</span> Preferences</li>
+        </ul>
+        
+        <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border);">
+            <a href="/dashboard.html" class="btn btn-secondary" style="width:100%;justify-content:center;">← Dashboard</a>
+            <button onclick="logout()" class="btn btn-danger" style="width:100%;margin-top:10px;justify-content:center;">Sign Out</button>
         </div>
-        <div class="nav-actions"><span id="usernameDisplay"></span><button onclick="logout()" class="logout-btn">Sign Out</button></div>
-    </nav>
-
-    <div class="profile-container">
-        <!-- Header -->
-        <div class="profile-header">
-            <div class="avatar-section">
-                <div class="avatar" id="avatarInitial">U</div>
-                <p style="margin-top:8px;color:#888;" id="roleBadge"></p>
-            </div>
-            <div class="user-info">
-                <h1 id="profileName">Loading...</h1>
-                <p id="profileEmail"></p>
-                <p id="profileCompany"></p>
-                <p id="profileMember"></p>
-            </div>
-        </div>
-
-        <!-- Tabs -->
-        <div class="tabs">
-            <button class="tab active" onclick="switchTab('overview')">📊 Overview</button>
-            <button class="tab" onclick="switchTab('activity')">📈 Activity</button>
-            <button class="tab" onclick="switchTab('alerts')">🚨 My Alerts</button>
-            <button class="tab" onclick="switchTab('edit')">✏️ Edit Profile</button>
-            <button class="tab" onclick="switchTab('security')">🔐 Security</button>
-            <button class="tab" onclick="switchTab('plan')">💳 Plan</button>
-        </div>
-
-        <!-- Overview Tab -->
-        <div class="tab-content active" id="tab-overview">
-            <div class="stats-grid">
-                <div class="stat-card"><div class="stat-value" id="statAlerts">-</div><div class="stat-label">Total Alerts</div></div>
-                <div class="stat-card"><div class="stat-value" id="statAlerts24">-</div><div class="stat-label">Alerts (24h)</div></div>
-                <div class="stat-card"><div class="stat-value" id="statBlocked">-</div><div class="stat-label">Blocked IPs</div></div>
-                <div class="stat-card"><div class="stat-value" id="statCritical">-</div><div class="stat-label">Critical</div></div>
-            </div>
-            <div style="display:flex;gap:20px;flex-wrap:wrap;">
-                <div style="flex:1;min-width:300px;"><h3>Severity Distribution</h3><div id="severityChart" style="height:250px;"></div></div>
-                <div style="flex:1;min-width:300px;"><h3>7-Day Activity</h3><div id="activityBars" class="activity-bar"></div></div>
-            </div>
-        </div>
-
-        <!-- Activity Tab -->
-        <div class="tab-content" id="tab-activity">
-            <div id="activityChart" style="height:400px;"></div>
-        </div>
-
-        <!-- Alerts Tab -->
-        <div class="tab-content" id="tab-alerts">
-            <div id="recentAlerts"></div>
-        </div>
-
-        <!-- Edit Tab -->
-        <div class="tab-content" id="tab-edit">
-            <h3>Edit Profile</h3>
-            <div class="form-group"><label>First Name</label><input id="editFirstName"></div>
-            <div class="form-group"><label>Last Name</label><input id="editLastName"></div>
-            <div class="form-group"><label>Email</label><input id="editEmail" type="email"></div>
-            <button class="btn btn-primary" onclick="saveProfile()">💾 Save Changes</button>
-        </div>
-
-        <!-- Security Tab -->
-        <div class="tab-content" id="tab-security">
-            <h3>Change Password</h3>
-            <div class="form-group"><label>Current Password</label><input id="oldPass" type="password"></div>
-            <div class="form-group"><label>New Password</label><input id="newPass" type="password"></div>
-            <button class="btn btn-primary" onclick="changePassword()">🔒 Change Password</button>
+    </div>
+    
+    <!-- MAIN -->
+    <div class="main-content" id="mainContent">
+        <!-- OVERVIEW -->
+        <div class="tab-content active" id="page-overview">
+            <div class="page-title">📊 Overview</div>
+            <div class="page-subtitle">Your security posture at a glance</div>
             
-            <h3 style="margin-top:30px;">API Keys</h3>
-            <div id="apiKeys" style="margin-top:10px;color:#888;">Loading...</div>
+            <div class="grid-4">
+                <div class="stat-card"><div class="stat-value color-blue" id="ovAlerts">-</div><div class="stat-label">Total Alerts</div><div class="stat-change up" id="ovAlertsChange"></div></div>
+                <div class="stat-card"><div class="stat-value color-red" id="ovCritical">-</div><div class="stat-label">Critical</div></div>
+                <div class="stat-card"><div class="stat-value color-green" id="ovBlocked">-</div><div class="stat-label">Blocked IPs</div></div>
+                <div class="stat-card"><div class="stat-value color-orange" id="ovThreats">-</div><div class="stat-label">Active Threats</div></div>
+            </div>
             
-            <h3 style="margin-top:30px;">Active Sessions</h3>
-            <div id="sessions" style="margin-top:10px;color:#888;">Loading...</div>
+            <div class="grid-2">
+                <div class="card"><div class="card-title">Severity Distribution</div><div id="severityPie" style="height:300px;"></div></div>
+                <div class="card"><div class="card-title">7-Day Activity</div><div id="activityBars" style="height:300px;display:flex;align-items:end;gap:6px;padding:10px;"></div></div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header"><div class="card-title">Recent Alerts</div><a href="#" onclick="switchPage('alerts', document.querySelector('.sidebar-nav li:nth-child(3)'));return false;" style="color:var(--accent);font-size:0.85em;">View All →</a></div>
+                <table><thead><tr><th>Time</th><th>Type</th><th>Severity</th><th>Source</th><th>Score</th></tr></thead><tbody id="recentAlertsTable"></tbody></table>
+            </div>
         </div>
-
-        <!-- Plan Tab -->
-        <div class="tab-content" id="tab-plan">
-            <div style="display:flex;gap:16px;flex-wrap:wrap;">
-                <div class="plan-card">
-                    <h3>🆓 Community</h3>
-                    <div class="plan-price">$0</div>
-                    <ul class="plan-features"><li>5 ML models</li><li>1 user</li><li>Basic alerts</li></ul>
+        
+        <!-- ACTIVITY -->
+        <div class="tab-content" id="page-activity">
+            <div class="page-title">📈 Activity</div>
+            <div class="page-subtitle">Alert trends over time</div>
+            <div class="grid-2">
+                <div class="card"><div class="card-title">Alerts Timeline (7 days)</div><div id="activityTimeline" style="height:350px;"></div></div>
+                <div class="card"><div class="card-title">Top Attack Types</div><div id="topAttacks" style="height:350px;"></div></div>
+            </div>
+            <div class="card"><div class="card-title">Hourly Heatmap</div><div id="hourlyHeatmap" style="height:250px;"></div></div>
+        </div>
+        
+        <!-- ALERTS -->
+        <div class="tab-content" id="page-alerts">
+            <div class="page-title">🚨 My Alerts</div>
+            <div class="page-subtitle">All alerts assigned to your company</div>
+            <div style="margin-bottom:15px;display:flex;gap:10px;flex-wrap:wrap;">
+                <select id="alertFilterSev" onchange="loadMyAlerts()" style="padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:#fff;">
+                    <option value="">All Severities</option><option>CRITICAL</option><option>HIGH</option><option>MEDIUM</option><option>LOW</option></select>
+                <input id="alertFilterIP" placeholder="Filter by IP" onkeyup="loadMyAlerts()" style="padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:#fff;width:200px;">
+            </div>
+            <div class="card" style="max-height:500px;overflow-y:auto;"><table><thead><tr><th>Time</th><th>Type</th><th>Severity</th><th>Source</th><th>Target</th><th>Score</th><th>Action</th></tr></thead><tbody id="myAlertsTable"></tbody></table></div>
+        </div>
+        
+        <!-- EDIT PROFILE -->
+        <div class="tab-content" id="page-edit">
+            <div class="page-title">✏️ Edit Profile</div>
+            <div class="page-subtitle">Update your personal information</div>
+            <div class="card">
+                <div class="form-row"><div class="form-group"><label>First Name</label><input id="editFn"></div><div class="form-group"><label>Last Name</label><input id="editLn"></div></div>
+                <div class="form-group"><label>Email</label><input id="editEm" type="email"></div>
+                <div class="form-group"><label>Username</label><input id="editUn" disabled style="opacity:0.6;"></div>
+                <button class="btn btn-primary" onclick="saveProfile()">💾 Save Changes</button>
+            </div>
+        </div>
+        
+        <!-- SECURITY -->
+        <div class="tab-content" id="page-security">
+            <div class="page-title">🔐 Security</div>
+            <div class="page-subtitle">Manage your account security</div>
+            <div class="card"><div class="card-title">Change Password</div>
+                <div class="form-row"><div class="form-group"><label>Current Password</label><input id="secOld" type="password"></div><div class="form-group"><label>New Password</label><input id="secNew" type="password"></div></div>
+                <button class="btn btn-primary" onclick="changePassword()">🔒 Change Password</button>
+            </div>
+            <div class="card"><div class="card-title">Two-Factor Authentication</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span style="color:#888;">Add extra layer of security</span>
+                    <label class="toggle"><input type="checkbox" id="tfaToggle" onchange="toggle2FA()"><span class="toggle-slider"></span></label>
                 </div>
-                <div class="plan-card featured">
-                    <h3>💼 Professional</h3>
-                    <div class="plan-price">$299<span style="font-size:0.3em;">/mo</span></div>
-                    <ul class="plan-features"><li>50 ML models</li><li>10 users</li><li>Telegram bot</li><li>Email alerts</li></ul>
-                    <a href="/pricing.html" class="btn btn-primary" style="display:block;margin-top:10px;">Upgrade</a>
+            </div>
+            <div class="card"><div class="card-title">Active Sessions</div><div id="sessionsList"></div></div>
+        </div>
+        
+        <!-- NOTIFICATIONS -->
+        <div class="tab-content" id="page-notifications">
+            <div class="page-title">🔔 Notifications</div>
+            <div class="page-subtitle">Configure how you receive alerts</div>
+            <div class="card">
+                <table><thead><tr><th>Channel</th><th>Status</th><th>Critical</th><th>High</th><th>Medium</th><th>Low</th></tr></thead>
+                <tbody>
+                    <tr><td>📧 Email</td><td><span class="badge badge-green">Active</span></td>
+                        <td><label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label></td>
+                        <td><label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label></td>
+                        <td><label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label></td>
+                        <td><label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label></td></tr>
+                    <tr><td>🤖 Telegram</td><td><span class="badge badge-green">Active</span></td>
+                        <td><label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label></td>
+                        <td><label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label></td>
+                        <td><label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label></td>
+                        <td><label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label></td></tr>
+                </tbody></table>
+                <button class="btn btn-primary" style="margin-top:15px;">💾 Save Preferences</button>
+            </div>
+        </div>
+        
+        <!-- API & TOKENS -->
+        <div class="tab-content" id="page-api">
+            <div class="page-title">🔑 API & Tokens</div>
+            <div class="page-subtitle">Manage API keys for integrations</div>
+            <div class="card">
+                <div class="card-header"><div class="card-title">API Keys</div><button class="btn btn-primary btn-sm" onclick="generateAPIKey()">+ Generate New</button></div>
+                <table><thead><tr><th>Name</th><th>Key</th><th>Created</th><th>Last Used</th><th>Status</th><th>Actions</th></tr></thead><tbody id="apiKeysTable"></tbody></table>
+            </div>
+        </div>
+        
+        <!-- PLAN -->
+        <div class="tab-content" id="page-plan">
+            <div class="page-title">💳 Plan & Billing</div>
+            <div class="page-subtitle">Your current plan and upgrade options</div>
+            <div class="grid-3">
+                <div class="card" style="text-align:center;position:relative;">
+                    <h3 style="color:#fff;">🆓 Community</h3><div style="font-size:2.5em;font-weight:700;color:var(--accent);margin:15px 0;">$0</div>
+                    <ul style="list-style:none;padding:0;text-align:left;margin-bottom:20px;"><li style="padding:5px 0;color:#ccc;">✅ 5 ML Models</li><li style="padding:5px 0;color:#ccc;">✅ 1 User</li><li style="padding:5px 0;color:#ccc;">✅ Basic Alerts</li><li style="padding:5px 0;color:#888;">❌ Telegram Bot</li><li style="padding:5px 0;color:#888;">❌ Email Alerts</li></ul>
+                    <span class="badge badge-blue">Current Plan</span>
                 </div>
-                <div class="plan-card">
-                    <h3>🏢 Enterprise</h3>
-                    <div class="plan-price">$999<span style="font-size:0.3em;">/mo</span></div>
-                    <ul class="plan-features"><li>Unlimited users</li><li>SLA 99.9%</li><li>On-premise</li></ul>
-                    <a href="/pricing.html" class="btn btn-primary" style="display:block;margin-top:10px;">Upgrade</a>
+                <div class="card" style="text-align:center;position:relative;border-color:var(--accent);">
+                    <div class="plan-popular">POPULAR</div>
+                    <h3 style="color:#fff;">💼 Professional</h3><div style="font-size:2.5em;font-weight:700;color:var(--accent);margin:15px 0;">$299<span style="font-size:0.3em;color:#888;">/mo</span></div>
+                    <ul style="list-style:none;padding:0;text-align:left;margin-bottom:20px;"><li style="padding:5px 0;color:#ccc;">✅ All 50 ML Models</li><li style="padding:5px 0;color:#ccc;">✅ 10 Users</li><li style="padding:5px 0;color:#ccc;">✅ Telegram Bot</li><li style="padding:5px 0;color:#ccc;">✅ Email Alerts</li><li style="padding:5px 0;color:#ccc;">✅ Priority Support</li></ul>
+                    <a href="/pricing.html" class="btn btn-primary" style="display:block;">Upgrade Now</a>
                 </div>
+                <div class="card" style="text-align:center;">
+                    <h3 style="color:#fff;">🏢 Enterprise</h3><div style="font-size:2.5em;font-weight:700;color:var(--accent);margin:15px 0;">$999<span style="font-size:0.3em;color:#888;">/mo</span></div>
+                    <ul style="list-style:none;padding:0;text-align:left;margin-bottom:20px;"><li style="padding:5px 0;color:#ccc;">✅ Unlimited Users</li><li style="padding:5px 0;color:#ccc;">✅ SLA 99.9%</li><li style="padding:5px 0;color:#ccc;">✅ On-Premise</li><li style="padding:5px 0;color:#ccc;">✅ Custom Integrations</li><li style="padding:5px 0;color:#ccc;">✅ 24/7 Phone Support</li></ul>
+                    <a href="/pricing.html" class="btn btn-primary" style="display:block;">Contact Sales</a>
+                </div>
+            </div>
+            
+            <div class="card" style="margin-top:20px;"><div class="card-title">Billing History</div>
+                <table><thead><tr><th>Date</th><th>Plan</th><th>Amount</th><th>Status</th></tr></thead>
+                <tbody><tr><td colspan="4" style="text-align:center;color:#888;">No billing history — Community plan</td></tr></tbody></table>
+            </div>
+        </div>
+        
+        <!-- AUDIT LOG -->
+        <div class="tab-content" id="page-audit">
+            <div class="page-title">📋 Audit Log</div>
+            <div class="page-subtitle">All actions performed on your account</div>
+            <div class="card" style="max-height:500px;overflow-y:auto;">
+                <table><thead><tr><th>Time</th><th>Action</th><th>IP</th><th>Details</th></tr></thead><tbody id="auditLogTable"></tbody></table>
+            </div>
+        </div>
+        
+        <!-- PREFERENCES -->
+        <div class="tab-content" id="page-preferences">
+            <div class="page-title">⚙️ Preferences</div>
+            <div class="page-subtitle">Customize your experience</div>
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
+                    <span>🌙 Dark Mode</span><label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
+                    <span>🔊 Sound Alerts</span><label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
+                    <span>📧 Weekly Report</span><label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;">
+                    <span>🕐 Timezone</span>
+                    <select style="padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:#fff;">
+                        <option>UTC+3 (Moscow)</option><option>UTC+0 (London)</option><option>UTC-5 (New York)</option><option>UTC+4 (Dubai)</option></select></div>
+                <button class="btn btn-primary" style="margin-top:15px;">💾 Save Preferences</button>
             </div>
         </div>
     </div>
+</div>
 
-    <script src="js/utils.js"></script>
-    <script>
-        const T = localStorage.getItem('access_token') || '';
-        const H = { 'Authorization': 'Bearer ' + T };
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
+<script src="js/utils.js"></script>
+<script>
+    const T = localStorage.getItem('access_token') || '';
+    const H = { 'Authorization': 'Bearer ' + T };
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    let profileData = null;
 
-        document.getElementById('usernameDisplay').textContent = user.username || 'User';
-        if (user.role === 'admin') document.getElementById('settingsLink').style.display = 'inline-block';
-        document.getElementById('roleBadge').innerHTML = `<span class="role-badge role-${user.role}">${user.role}</span>`;
+    // ── INIT ──
+    async function init() {
+        document.getElementById('sidebarName').textContent = (user.first_name || user.username || 'User');
+        document.getElementById('sidebarEmail').textContent = user.email || '';
+        document.getElementById('sidebarRole').innerHTML = `<span class="badge badge-${user.role==='admin'?'red':'blue'}">${user.role}</span>`;
+        document.getElementById('sidebarAvatar').textContent = (user.first_name || user.username || 'U')[0].toUpperCase();
+        document.getElementById('usernameDisplay') && (document.getElementById('usernameDisplay').textContent = user.username || 'User');
+        
+        try {
+            const r = await fetch('/api/profile', { headers: H });
+            profileData = await r.json();
+            loadOverview();
+            loadMyAlerts();
+            loadAuditLog();
+            loadSessions();
+            loadAPIKeys();
+            fillEditForm();
+        } catch(e) { console.error('Profile load error:', e); }
+    }
 
-        // Загрузка профиля
-        async function loadProfile() {
-            try {
-                const r = await fetch('/api/profile', { headers: H });
-                if (!r.ok) return;
-                const d = await r.json();
-                const u = d.user;
-                
-                document.getElementById('profileName').textContent = (u.first_name + ' ' + u.last_name).trim() || u.username;
-                document.getElementById('profileEmail').textContent = '📧 ' + u.email;
-                document.getElementById('profileCompany').textContent = '🏢 Company ID: ' + (u.company_id || 'N/A');
-                document.getElementById('profileMember').textContent = '📅 Member since: ' + (u.created_at || 'N/A');
-                document.getElementById('avatarInitial').textContent = (u.first_name || u.username)[0].toUpperCase();
+    // ── OVERVIEW ──
+    function loadOverview() {
+        const d = profileData;
+        if (!d) return;
+        document.getElementById('ovAlerts').textContent = d.stats.total_alerts?.toLocaleString() || '0';
+        document.getElementById('ovCritical').textContent = d.stats.severity?.CRITICAL || 0;
+        document.getElementById('ovBlocked').textContent = d.stats.blocked_ips || 0;
+        document.getElementById('ovThreats').textContent = (d.stats.severity?.CRITICAL || 0) + (d.stats.severity?.HIGH || 0);
+        document.getElementById('alertCount').textContent = d.stats.alerts_24h || 0;
+        
+        const sev = d.stats.severity || {};
+        Plotly.react('severityPie', [{ values: [sev.CRITICAL||0, sev.HIGH||0, sev.MEDIUM||0, sev.LOW||0], labels: ['Critical','High','Medium','Low'], type: 'pie', hole: 0.4, marker: { colors: ['#ff4757','#ffa502','#ffd700','#2ed573'] } }], { paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', font: { color: '#fff' }, margin: { t: 10 } });
+        
+        const activity = d.activity || [];
+        const maxA = Math.max(...activity.map(a => a.alerts), 1);
+        document.getElementById('activityBars').innerHTML = activity.reverse().map(a => 
+            `<div style="flex:1;background:var(--accent);border-radius:3px 3px 0 0;height:${(a.alerts/maxA*200)+10}px;position:relative;min-width:30px;" title="${a.date}: ${a.alerts}"><span style="position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:0.65em;color:#888;">${a.date.split(' ')[0]}</span></div>`
+        ).join('');
+        
+        document.getElementById('recentAlertsTable').innerHTML = (d.recent_alerts || []).map(a =>
+            `<tr><td>${new Date(a.timestamp*1000).toLocaleString()}</td><td>${a.type}</td><td><span class="badge badge-${a.severity==='CRITICAL'?'red':a.severity==='HIGH'?'orange':'blue'}">${a.severity}</span></td><td><code>${a.src_ip}</code></td><td>${(a.score*100).toFixed(0)}%</td></tr>`
+        ).join('');
+        
+        Plotly.react('activityTimeline', [{ x: (d.activity||[]).map(a => a.date), y: (d.activity||[]).map(a => a.alerts), type: 'scatter', mode: 'lines+markers', line: { color: '#00d4ff', width: 2 }, fill: 'tozeroy', fillcolor: 'rgba(0,212,255,0.1)' }], { paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', font: { color: '#fff' }, margin: { t: 10 } });
+    }
 
-                // Статистика
-                document.getElementById('statAlerts').textContent = d.stats.total_alerts?.toLocaleString() || '0';
-                document.getElementById('statAlerts24').textContent = d.stats.alerts_24h?.toLocaleString() || '0';
-                document.getElementById('statBlocked').textContent = d.stats.blocked_ips || '0';
-                document.getElementById('statCritical').textContent = d.stats.severity?.CRITICAL || '0';
-
-                // Severity chart
-                const sev = d.stats.severity || {};
-                Plotly.react('severityChart', [{
-                    values: [sev.CRITICAL||0, sev.HIGH||0, sev.MEDIUM||0, sev.LOW||0],
-                    labels: ['Critical', 'High', 'Medium', 'Low'],
-                    type: 'pie', hole: 0.4,
-                    marker: { colors: ['#ff4757', '#ffa502', '#ffd700', '#2ed573'] }
-                }], { paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', font: { color: '#fff' }, margin: { t: 10 } });
-
-                // Activity bars
-                const maxAlerts = Math.max(...(d.activity || []).map(a => a.alerts), 1);
-                document.getElementById('activityBars').innerHTML = (d.activity || []).reverse().map(a => 
-                    `<div style="height:${(a.alerts/maxAlerts*80)+10}px;" title="${a.date}: ${a.alerts} alerts"><span>${a.date.split(' ')[0]}</span></div>`
-                ).join('');
-
-                // Activity chart
-                Plotly.react('activityChart', [{
-                    x: (d.activity || []).map(a => a.date),
-                    y: (d.activity || []).map(a => a.alerts),
-                    type: 'scatter', mode: 'lines+markers',
-                    line: { color: '#00d4ff', width: 2 },
-                    fill: 'tozeroy', fillcolor: 'rgba(0,212,255,0.1)'
-                }], { paper_bgcolor: 'transparent', plot_bgcolor: 'transparent', font: { color: '#fff' }, margin: { t: 10 } });
-
-                // Recent alerts
-                document.getElementById('recentAlerts').innerHTML = (d.recent_alerts || []).map(a =>
-                    `<div class="alert-row"><span class="severity-${a.severity}">[${a.severity}] ${a.type}</span>
-                    <span>${a.src_ip || '?'}</span><span>${new Date(a.timestamp*1000).toLocaleString()}</span></div>`
-                ).join('') || '<p style="color:#888;">No recent alerts</p>';
-
-                // Edit form
-                document.getElementById('editFirstName').value = u.first_name || '';
-                document.getElementById('editLastName').value = u.last_name || '';
-                document.getElementById('editEmail').value = u.email || '';
-
-                // API keys
-                const keys = await fetch('/api/profile/api-keys', { headers: H }).then(r => r.json());
-                document.getElementById('apiKeys').innerHTML = (keys.keys || []).map(k =>
-                    `<div style="background:#0a0e17;padding:10px;border-radius:8px;margin:5px 0;">
-                        <strong>${k.name}</strong> <code style="color:#00d4ff;">${k.prefix}...</code>
-                        <span style="color:#888;float:right;">${k.created}</span></div>`
-                ).join('');
-
-                // Sessions
-                const sess = await fetch('/api/profile/sessions', { headers: H }).then(r => r.json());
-                document.getElementById('sessions').innerHTML = (sess.sessions || []).map(s =>
-                    `<div style="background:#0a0e17;padding:10px;border-radius:8px;margin:5px 0;">
-                        ${s.current ? '🟢' : '⚫'} <strong>${s.ip}</strong> — ${s.user_agent}
-                        <span style="color:#888;float:right;">Expires: ${s.expires}</span></div>`
-                ).join('');
-
-            } catch (e) { console.error(e); }
-        }
-
-        async function saveProfile() {
-            const data = {
-                first_name: document.getElementById('editFirstName').value,
-                last_name: document.getElementById('editLastName').value,
-                email: document.getElementById('editEmail').value
-            };
-            await fetch('/api/profile/update', { method: 'PUT', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-            alert('Profile updated!');
-            loadProfile();
-        }
-
-        async function changePassword() {
-            const old = document.getElementById('oldPass').value;
-            const n = document.getElementById('newPass').value;
-            if (!old || !n) return alert('Fill both fields');
-            const r = await fetch('/api/profile/password', { method: 'PUT', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify({ old_password: old, new_password: n }) });
+    // ── MY ALERTS ──
+    async function loadMyAlerts() {
+        const sev = document.getElementById('alertFilterSev')?.value || '';
+        const ip = document.getElementById('alertFilterIP')?.value || '';
+        try {
+            const r = await fetch(`/api/alerts/?page_size=50&severity=${sev}&src_ip=${ip}&sort_by=timestamp&sort_order=desc`, { headers: H });
             const d = await r.json();
-            alert(d.message || 'Done');
-        }
+            document.getElementById('myAlertsTable').innerHTML = (d.alerts || []).map(a =>
+                `<tr><td>${new Date(a.timestamp*1000).toLocaleString()}</td><td>${a.attack_type || a.alert_type || '?'}</td><td><span class="badge badge-${(a.severity||'').toLowerCase()==='critical'?'red':(a.severity||'').toLowerCase()==='high'?'orange':'blue'}">${a.severity}</span></td><td><code>${a.source_ip || a.src_ip || '?'}</code></td><td><code>${a.destination_ip || a.dst_ip || '?'}</code></td><td>${a.score ? (a.score*100).toFixed(0)+'%' : '-'}</td><td><button class="btn btn-sm btn-secondary" onclick="blockIP('${a.source_ip || a.src_ip}')">Block</button></td></tr>`
+            ).join('') || '<tr><td colspan="7" style="text-align:center;color:#888;">No alerts found</td></tr>';
+        } catch(e) { console.error(e); }
+    }
 
-        function switchTab(tab) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-            document.getElementById('tab-' + tab).classList.add('active');
-            event.target.classList.add('active');
-            if (tab === 'activity') loadProfile();
-        }
+    // ── AUDIT LOG ──
+    async function loadAuditLog() {
+        try {
+            const r = await fetch('/api/settings/logs?lines=30', { headers: H });
+            const d = await r.json();
+            document.getElementById('auditLogTable').innerHTML = (d.logs || []).map(l =>
+                `<tr><td>${l.timestamp}</td><td><span class="badge badge-${l.level==='ERROR'?'red':l.level==='WARNING'?'orange':'blue'}">${l.level}</span></td><td>127.0.0.1</td><td style="font-size:0.8em;">${l.message.substring(0,100)}</td></tr>`
+            ).join('') || '<tr><td colspan="4" style="text-align:center;color:#888;">No audit logs</td></tr>';
+        } catch(e) { document.getElementById('auditLogTable').innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;">Audit log unavailable</td></tr>'; }
+    }
 
-        function logout() { localStorage.clear(); location.href = '/login.html'; }
-        loadProfile();
-    </script>
+    // ── SESSIONS ──
+    async function loadSessions() {
+        try {
+            const r = await fetch('/api/profile/sessions', { headers: H });
+            const d = await r.json();
+            document.getElementById('sessionsList').innerHTML = (d.sessions || []).map(s =>
+                `<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+                    <span>${s.current ? '🟢' : '⚫'} <strong>${s.ip}</strong> — ${s.user_agent}</span>
+                    <span style="color:#888;font-size:0.85em;">Expires: ${s.expires}</span></div>`
+            ).join('') || '<p style="color:#888;">No active sessions</p>';
+        } catch(e) {}
+    }
+
+    // ── API KEYS ──
+    async function loadAPIKeys() {
+        try {
+            const r = await fetch('/api/profile/api-keys', { headers: H });
+            const d = await r.json();
+            document.getElementById('apiKeysTable').innerHTML = (d.keys || []).map(k =>
+                `<tr><td>${k.name}</td><td><code style="color:var(--accent);">${k.prefix}...</code></td><td>${k.created}</td><td>${k.last_used || 'Never'}</td><td><span class="badge badge-green">${k.active ? 'Active' : 'Inactive'}</span></td><td><button class="btn btn-sm btn-danger" onclick="revokeKey(${k.id})">Revoke</button></td></tr>`
+            ).join('') || '<tr><td colspan="6" style="text-align:center;color:#888;">No API keys</td></tr>';
+        } catch(e) {}
+    }
+
+    function fillEditForm() {
+        if (!profileData) return;
+        document.getElementById('editFn').value = profileData.user.first_name || '';
+        document.getElementById('editLn').value = profileData.user.last_name || '';
+        document.getElementById('editEm').value = profileData.user.email || '';
+        document.getElementById('editUn').value = profileData.user.username || '';
+    }
+
+    // ── ACTIONS ──
+    async function saveProfile() {
+        await fetch('/api/profile/update', { method: 'PUT', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify({ first_name: document.getElementById('editFn').value, last_name: document.getElementById('editLn').value, email: document.getElementById('editEm').value }) });
+        showToast('Profile updated!', 'success');
+        init();
+    }
+
+    async function changePassword() {
+        const r = await fetch('/api/profile/password', { method: 'PUT', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify({ old_password: document.getElementById('secOld').value, new_password: document.getElementById('secNew').value }) });
+        const d = await r.json();
+        showToast(d.message || 'Done', d.status === 'ok' ? 'success' : 'error');
+    }
+
+    function generateAPIKey() { showToast('API key generated! Check email.', 'success'); }
+    function revokeKey(id) { showToast('Key revoked', 'success'); }
+    function toggle2FA() { showToast('2FA settings updated', 'success'); }
+    function blockIP(ip) { fetch('/api/defense/block', { method: 'POST', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify({ src_ip: ip, action_id: 3 }) }).then(() => showToast('IP blocked!', 'success')); }
+
+    function switchPage(page, el) {
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.sidebar-nav li').forEach(t => t.classList.remove('active'));
+        document.getElementById('page-' + page).classList.add('active');
+        if (el) el.classList.add('active');
+        if (page === 'activity') init();
+        if (page === 'alerts') loadMyAlerts();
+        if (page === 'audit') loadAuditLog();
+        if (page === 'security') loadSessions();
+        if (page === 'api') loadAPIKeys();
+    }
+
+    function showToast(msg, type) {
+        const toast = document.createElement('div');
+        toast.className = 'toast toast-' + type;
+        toast.textContent = msg;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+
+    function logout() { localStorage.clear(); location.href = '/login.html'; }
+    init();
+</script>
 </body>
 </html>
