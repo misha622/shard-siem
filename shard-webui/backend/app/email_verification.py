@@ -1,5 +1,6 @@
 """Email Verification for SHARD Registration"""
 import random, time, logging, sys
+from pathlib import Path
 
 logger = logging.getLogger("SHARD-Verification")
 _verification_codes = {}
@@ -12,7 +13,7 @@ def send_verification_email(email: str) -> bool:
     _verification_codes[email] = {'code': code, 'expires': time.time() + 600, 'attempts': 0}
     
     try:
-        sys.path.insert(0, '/mnt/c/Users/user/PycharmProjects/Shard')
+        sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
         from modules.email_notifier import email_notifier
         
         alert = {
