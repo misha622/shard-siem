@@ -18,6 +18,7 @@ from app.routers.compliance_router import router as compliance_router
 from app.routers.admin_router import router as admin_router
 from app.routers.email_router import router as email_router
 from app.routers.websocket_router import router as websocket_router
+from app.routers.profile_router import router as profile_router
 from app.routers.defense_router import router as defense_router
 
 logging.basicConfig(level=logging.INFO)
@@ -67,6 +68,7 @@ app.include_router(compliance_router)
 app.include_router(admin_router)
 app.include_router(email_router)
 app.include_router(websocket_router)
+app.include_router(profile_router)
 app.include_router(defense_router)
 
 @app.get("/api/health")
