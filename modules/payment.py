@@ -7,9 +7,9 @@ logger = logging.getLogger("SHARD-Payment")
 
 # Платёжные реквизиты
 PAYMENT_METHODS = {
-    'USDT_TRC20': 'TXxXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',  # Замени на свой
-    'USDT_ERC20': '0xYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY',  # Замени
-    'BTC': 'bc1qxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',  # Замени
+    'USDT_TRC20': 'THVqXJHryY6975tNFrqhYH5UNVipoNiDDN',  # Замени на свой
+    'USDT_ERC20': '0xD5a40E4d339668D8D9b746074a128716405Ab34c',  # Замени
+    'BTC': 'bc1qx8sxckvayvyz4u3cz79s9xptlnjafz8jshd0w6',  # Замени
 }
 
 PLANS = {
