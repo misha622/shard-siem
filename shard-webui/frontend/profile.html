@@ -247,7 +247,7 @@
                         <td><label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label></td>
                         <td><label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label></td></tr>
                 </tbody></table>
-                <button class="btn btn-primary" style="margin-top:15px;">💾 Save Preferences</button>
+                <button class="btn btn-primary" style="margin-top:15px;" onclick="saveNotifications()">💾 Save Preferences</button>
             </div>
         </div>
         
@@ -314,7 +314,7 @@
                     <span>🕐 Timezone</span>
                     <select style="padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:#fff;">
                         <option>UTC+3 (Moscow)</option><option>UTC+0 (London)</option><option>UTC-5 (New York)</option><option>UTC+4 (Dubai)</option></select></div>
-                <button class="btn btn-primary" style="margin-top:15px;">💾 Save Preferences</button>
+                <button class="btn btn-primary" style="margin-top:15px;" onclick="savePreferences()">💾 Save Preferences</button>
             </div>
         </div>
     </div>
@@ -389,10 +389,10 @@
     // ── AUDIT LOG ──
     async function loadAuditLog() {
         try {
-            const r = await fetch('/api/settings/logs?lines=30', { headers: H });
+            const r = await fetch('/api/profile/audit', { headers: H });
             const d = await r.json();
             document.getElementById('auditLogTable').innerHTML = (d.logs || []).map(l =>
-                `<tr><td>${l.timestamp}</td><td><span class="badge badge-${l.level==='ERROR'?'red':l.level==='WARNING'?'orange':'blue'}">${l.level}</span></td><td>127.0.0.1</td><td style="font-size:0.8em;">${l.message.substring(0,100)}</td></tr>`
+                `<tr><td>${l.timestamp}</td><td>${l.action}</td><td>${l.ip}</td><td style="font-size:0.8em;">${l.details || ''}</td></tr>`
             ).join('') || '<tr><td colspan="4" style="text-align:center;color:#888;">No audit logs</td></tr>';
         } catch(e) { document.getElementById('auditLogTable').innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;">Audit log unavailable</td></tr>'; }
     }
@@ -465,6 +465,40 @@
         toast.textContent = msg;
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 3000);
+    }
+
+    
+    async function saveNotifications() {
+        const settings = {
+            email: { CRITICAL: true, HIGH: true, MEDIUM: false, LOW: false },
+            telegram: { CRITICAL: true, HIGH: true, MEDIUM: false, LOW: false }
+        };
+        await fetch('/api/profile/notifications', { method: 'PUT', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify({ settings }) });
+        showToast('Notifications saved!', 'success');
+    }
+
+    async function savePreferences() {
+        const settings = {
+            dark_mode: true,
+            sound_alerts: false,
+            weekly_report: true,
+            timezone: 'UTC+3 (Moscow)'
+        };
+        await fetch('/api/profile/preferences', { method: 'PUT', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify({ settings }) });
+        showToast('Preferences saved!', 'success');
+    }
+
+    async function generateAPIKey() {
+        const r = await fetch('/api/profile/api-keys', { method: 'POST', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'API Key ' + new Date().toISOString() }) });
+        const d = await r.json();
+        showToast('API Key created! Secret: ' + d.key.secret, 'success');
+        loadAPIKeys();
+    }
+
+    async function revokeKey(id) {
+        await fetch('/api/profile/api-keys/' + id, { method: 'DELETE', headers: H });
+        showToast('Key revoked', 'success');
+        loadAPIKeys();
     }
 
     function logout() { localStorage.clear(); location.href = '/login.html'; }
