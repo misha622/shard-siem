@@ -133,3 +133,24 @@ async def change_pwd(request: ChangePasswordRequest, current_user: dict = Depend
 async def logout(current_user: dict = Depends(get_current_user)):
     """Logout — client drops tokens"""
     return {"message": "Logged out successfully"}
+@router.post("/send-code")
+async def send_verification_code(email: str):
+    """Отправляет код верификации на email"""
+    import re
+    if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+        raise HTTPException(400, "Invalid email format")
+    
+    from app.email_verification import send_verification_email
+    success = send_verification_email(email)
+    if success:
+        return {"status": "sent", "message": "Verification code sent"}
+    raise HTTPException(500, "Failed to send code")
+
+
+@router.post("/verify-code")
+async def verify_email_code(email: str, code: str):
+    """Проверяет код верификации"""
+    from app.email_verification import verify_code
+    if verify_code(email, code):
+        return {"status": "verified"}
+    return {"status": "error", "message": "Invalid or expired code"}

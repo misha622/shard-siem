@@ -24,7 +24,7 @@ class EmailNotifier:
             
             SCOPES = ['https://www.googleapis.com/auth/gmail.send']
             creds = None
-            token_path = Path('token.json')
+            token_path = Path('/mnt/c/Users/user/PycharmProjects/Shard/token.json')
             
             if token_path.exists():
                 creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
