@@ -90,7 +90,7 @@
 </div>
 <script src="js/utils.js"></script>
     <script>
-    if (localStorage.getItem('darkMode') === '0') { document.documentElement.classList.add('light-mode'); }
+    if (localStorage.getItem('darkMode') === '0') { document.documentElement.classList.add('light-mode'); } else { document.documentElement.classList.remove('light-mode'); }
 let captcha='',step=1;
 function genCaptcha(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';captcha='';for(let i=0;i<6;i++)captcha+=c[Math.floor(Math.random()*c.length)];document.getElementById('captchaText').textContent=captcha}
 genCaptcha();

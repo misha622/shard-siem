@@ -144,7 +144,7 @@
     </div>
 
     <script>
-    if (localStorage.getItem('darkMode') === '0') { document.documentElement.classList.add('light-mode'); }
+    if (localStorage.getItem('darkMode') === '0') { document.documentElement.classList.add('light-mode'); } else { document.documentElement.classList.remove('light-mode'); }
         function openPayment(plan) {
             document.getElementById('paymentModal').classList.add('active');
         }

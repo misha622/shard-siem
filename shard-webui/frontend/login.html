@@ -95,7 +95,7 @@
     </div>
     <script src="js/utils.js"></script>
     <script>
-    if (localStorage.getItem('darkMode') === '0') { document.documentElement.classList.add('light-mode'); }
+    if (localStorage.getItem('darkMode') === '0') { document.documentElement.classList.add('light-mode'); } else { document.documentElement.classList.remove('light-mode'); }
         async function handleLogin(e) {
             e.preventDefault();
             const btn = document.getElementById('loginBtn');
