@@ -1,61 +1,183 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SHARD - Settings</title>
-    <link rel="icon" href="assets/favicon.svg">
+    <title>SHARD — Settings</title>
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        .settings-container { padding: 20px; max-width: 1200px; margin: 0 auto; }
+        .card { background: #111827; border: 1px solid #1a1f2e; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+        .card h2 { color: #00d4ff; margin-bottom: 15px; font-size: 1.2em; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+        .stat-item { background: #0a0e17; padding: 15px; border-radius: 8px; }
+        .stat-label { color: #888; font-size: 0.8em; }
+        .stat-value { color: #fff; font-size: 1.1em; font-weight: 600; }
+        .progress-bar { height: 6px; background: #1a1f2e; border-radius: 3px; margin-top: 5px; }
+        .progress-fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
+        .log-entry { padding: 6px 10px; border-bottom: 1px solid #1a1f2e; font-size: 0.85em; font-family: monospace; }
+        .CRITICAL { color: #ff4757; } .ERROR { color: #ff6b6b; } .WARNING { color: #ffa502; }
+        .INFO { color: #888; } .DEBUG { color: #555; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #1a1f2e; font-size: 0.85em; }
+        th { color: #00d4ff; }
+    </style>
 </head>
 <body>
     <nav class="navbar">
-        <div class="nav-brand">
-            <svg class="nav-logo" viewBox="0 0 40 40" width="40" height="40"><polygon points="20,2 38,12 38,28 20,38 2,28 2,12" fill="none" stroke="#00d4ff" stroke-width="2"/><text x="20" y="24" text-anchor="middle" fill="#00d4ff" font-size="16" font-weight="bold">S</text></svg>
-            <div><div class="nav-title">SHARD Enterprise</div><div class="nav-subtitle">SIEM v5.2.0</div></div>
-        </div>
+        <div class="nav-brand"><div class="nav-title">SHARD Enterprise</div><div class="nav-subtitle">SIEM v6.5</div></div>
         <div class="nav-links">
-            <a href="dashboard.html" class="nav-link">Dashboard</a>
-            <a href="alerts.html" class="nav-link">Alerts</a>
-            <a href="blocked.html" class="nav-link">Blocked IPs</a>
-            <a href="map.html" class="nav-link">Map</a>
-            <a href="defense.html" class="nav-link">🛡️ Defense</a>
-            <a href="profile.html" class="nav-link">Profile</a>
-            <a href="settings.html" class="nav-link active">Settings</a>
+            <a href="/dashboard.html" class="nav-link">Dashboard</a>
+            <a href="/alerts.html" class="nav-link">Alerts</a>
+            <a href="/blocked.html" class="nav-link">Blocked IPs</a>
+            <a href="/map.html" class="nav-link">Map</a>
+            <a href="/defense.html" class="nav-link">🛡️ Defense</a>
+            <a href="/profile.html" class="nav-link">Profile</a>
+            <a href="/settings.html" class="nav-link active">Settings</a>
         </div>
-        <div class="nav-actions"><span id="usernameDisplay" class="username"></span><button onclick="logout()" class="logout-btn">Sign Out</button></div>
+        <div class="nav-actions"><span id="usernameDisplay"></span><button onclick="logout()" class="logout-btn">Sign Out</button></div>
     </nav>
-    <main class="main-content">
-        <h1>⚙️ Settings</h1>
-        <div class="charts-grid">
-            <div class="card">
-                <h3 class="card-title">System Information</h3>
-                <div id="sysInfo">Loading...</div>
-            </div>
-            <div class="card">
-                <h3 class="card-title">System Logs</h3>
-                <div class="logs-container" id="logsContainer">Loading...</div>
-                <button onclick="loadLogs()" class="refresh-btn">🔄 Refresh</button>
+
+    <div class="settings-container">
+        <h1 style="color:#00d4ff;margin-bottom:20px;">⚙️ Admin Panel</h1>
+
+        <!-- System Health -->
+        <div class="card">
+            <h2>🖥️ System Health</h2>
+            <div class="stats-grid" id="sysHealth">
+                <div class="stat-item"><div class="stat-label">CPU</div><div class="stat-value" id="cpuVal">-</div><div class="progress-bar"><div class="progress-fill" id="cpuBar" style="width:0%;background:#00d4ff;"></div></div></div>
+                <div class="stat-item"><div class="stat-label">Memory</div><div class="stat-value" id="memVal">-</div><div class="progress-bar"><div class="progress-fill" id="memBar" style="width:0%;background:#ffa502;"></div></div></div>
+                <div class="stat-item"><div class="stat-label">Disk</div><div class="stat-value" id="diskVal">-</div><div class="progress-bar"><div class="progress-fill" id="diskBar" style="width:0%;background:#2ed573;"></div></div></div>
+                <div class="stat-item"><div class="stat-label">Uptime</div><div class="stat-value" id="uptimeVal">-</div></div>
+                <div class="stat-item"><div class="stat-label">Hostname</div><div class="stat-value" id="hostVal">-</div></div>
+                <div class="stat-item"><div class="stat-label">OS</div><div class="stat-value" id="osVal">-</div></div>
             </div>
         </div>
-    </main>
-<script src="js/utils.js"></script>
+
+        <!-- Database Stats -->
+        <div class="card">
+            <h2>🗄️ Database</h2>
+            <div class="stats-grid" id="dbStats">
+                <div class="stat-item"><div class="stat-label">Total Alerts</div><div class="stat-value" id="dbAlerts">-</div></div>
+                <div class="stat-item"><div class="stat-label">Alerts (24h)</div><div class="stat-value" id="dbAlerts24">-</div></div>
+                <div class="stat-item"><div class="stat-label">Users</div><div class="stat-value" id="dbUsers">-</div></div>
+                <div class="stat-item"><div class="stat-label">Blocked IPs</div><div class="stat-value" id="dbBlocked">-</div></div>
+                <div class="stat-item"><div class="stat-label">DB Size</div><div class="stat-value" id="dbSize">-</div></div>
+            </div>
+        </div>
+
+        <!-- ML Models -->
+        <div class="card">
+            <h2>🧠 ML Models</h2>
+            <div class="stats-grid" id="mlStats">
+                <div class="stat-item"><div class="stat-label">Total Models</div><div class="stat-value" id="mlTotal">-</div></div>
+                <div class="stat-item"><div class="stat-label">Categories</div><div class="stat-value" id="mlCats">-</div></div>
+            </div>
+        </div>
+
+        <!-- Firewall -->
+        <div class="card">
+            <h2>🛡️ Firewall</h2>
+            <div class="stats-grid" id="fwStats">
+                <div class="stat-item"><div class="stat-label">Total Blocks</div><div class="stat-value" id="fwBlocks">-</div></div>
+                <div class="stat-item"><div class="stat-label">Active Blocks</div><div class="stat-value" id="fwActive">-</div></div>
+            </div>
+        </div>
+
+        <!-- Top Processes -->
+        <div class="card">
+            <h2>📊 Top Processes</h2>
+            <table id="procTable"><thead><tr><th>PID</th><th>Name</th><th>CPU %</th><th>Memory %</th></tr></thead><tbody></tbody></table>
+        </div>
+
+        <!-- Logs -->
+        <div class="card">
+            <h2>📋 System Logs</h2>
+            <div id="logsContainer" style="max-height:400px;overflow-y:auto;font-size:0.8em;">Loading...</div>
+        </div>
+        
+        <button onclick="loadAll()" style="background:#00d4ff;color:#000;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:600;">🔄 Refresh All</button>
+    </div>
+
+    <script src="js/utils.js"></script>
     <script>
-// auth check in nav.js
-const H={Authorization:'Bearer '+T};
-const user=JSON.parse(localStorage.getItem('user')||'{}');
-// username in nav.js
-if(user.role!=='admin')location.href='/index.html';
+        const T = localStorage.getItem('access_token') || '';
+        const H = { 'Authorization': 'Bearer ' + T };
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        if (user.role !== 'admin') location.href = '/index.html';
 
-fetch('/api/settings/system-info',{headers:H}).then(r=>r.json()).then(d=>{
-    document.getElementById('sysInfo').innerHTML=`<p>OS: ${d.os}</p><p>Hostname: ${d.hostname}</p><p>CPU Cores: ${d.cpu_count}</p><p>Python: ${d.python_version}</p>`;
-});
+        async function loadAll() {
+            await loadSystemInfo();
+            await loadDBStats();
+            await loadModels();
+            await loadFirewall();
+            await loadLogs();
+        }
 
-async function loadLogs(){
-    const r=await fetch('/api/settings/logs?lines=50',{headers:H});
-    const d=await r.json();
-    document.getElementById('logsContainer').innerHTML=(d.logs||[]).map(l=>`<div class="log-entry"><span class="log-time">${new Date(l.timestamp).toLocaleTimeString()}</span> [${l.level}] ${l.message}</div>`).join('');
-}
-// logout in nav.js
-loadLogs();
-</script>
+        async function loadSystemInfo() {
+            try {
+                const r = await fetch('/api/settings/system-info', { headers: H });
+                const d = await r.json();
+                document.getElementById('cpuVal').textContent = d.cpu.percent + '%';
+                document.getElementById('cpuBar').style.width = d.cpu.percent + '%';
+                document.getElementById('memVal').textContent = d.memory.percent + '% (' + d.memory.used_gb + '/' + d.memory.total_gb + ' GB)';
+                document.getElementById('memBar').style.width = d.memory.percent + '%';
+                document.getElementById('diskVal').textContent = d.disk.percent + '% (' + d.disk.used_gb + '/' + d.disk.total_gb + ' GB)';
+                document.getElementById('diskBar').style.width = d.disk.percent + '%';
+                document.getElementById('uptimeVal').textContent = d.uptime.formatted;
+                document.getElementById('hostVal').textContent = d.hostname;
+                document.getElementById('osVal').textContent = d.os;
+
+                // Processes
+                const tbody = document.querySelector('#procTable tbody');
+                tbody.innerHTML = d.processes.map(p => 
+                    `<tr><td>${p.pid}</td><td>${p.name}</td><td>${p.cpu}%</td><td>${p.memory}%</td></tr>`
+                ).join('');
+            } catch (e) { console.error(e); }
+        }
+
+        async function loadDBStats() {
+            try {
+                const r = await fetch('/api/settings/db-stats', { headers: H });
+                const d = await r.json();
+                document.getElementById('dbAlerts').textContent = d.total_alerts?.toLocaleString() || '-';
+                document.getElementById('dbAlerts24').textContent = d.alerts_24h?.toLocaleString() || '-';
+                document.getElementById('dbUsers').textContent = d.total_users || '-';
+                document.getElementById('dbBlocked').textContent = d.total_blocked || '-';
+                document.getElementById('dbSize').textContent = (d.db_size_mb || 0) + ' MB';
+            } catch (e) { console.error(e); }
+        }
+
+        async function loadModels() {
+            try {
+                const r = await fetch('/api/settings/models', { headers: H });
+                const d = await r.json();
+                document.getElementById('mlTotal').textContent = d.total_models;
+                document.getElementById('mlCats').textContent = Object.entries(d.categories || {}).map(([k,v]) => k + ': ' + v).join(', ');
+            } catch (e) { console.error(e); }
+        }
+
+        async function loadFirewall() {
+            try {
+                const r = await fetch('/api/settings/firewall', { headers: H });
+                const d = await r.json();
+                document.getElementById('fwBlocks').textContent = d.total_blocks || 0;
+                document.getElementById('fwActive').textContent = d.active_blocks || 0;
+            } catch (e) { console.error(e); }
+        }
+
+        async function loadLogs() {
+            try {
+                const r = await fetch('/api/settings/logs?lines=100', { headers: H });
+                const d = await r.json();
+                document.getElementById('logsContainer').innerHTML = (d.logs || []).map(l =>
+                    `<div class="log-entry"><span class="${l.level}">[${l.level}]</span> ${l.message}</div>`
+                ).join('') || 'No logs';
+            } catch (e) { console.error(e); }
+        }
+
+        function logout() { localStorage.clear(); location.href = '/login.html'; }
+        loadAll();
+        setInterval(loadAll, 30000);
+    </script>
 </body>
 </html>
