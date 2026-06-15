@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHARD — Pricing</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .pricing-container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+        .pricing-header { text-align: center; margin-bottom: 50px; }
+        .pricing-header h1 { font-size: 2.5em; color: #00d4ff; }
+        .pricing-header p { color: #888; margin-top: 10px; }
+        .plans { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; }
+        .plan-card { background: #111827; border: 1px solid #1a1f2e; border-radius: 16px; padding: 35px 30px; 
+                     flex: 1; min-width: 300px; max-width: 380px; transition: all 0.3s; position: relative; }
+        .plan-card:hover { border-color: #00d4ff; transform: translateY(-4px); }
+        .plan-card.featured { border-color: #00d4ff; box-shadow: 0 0 30px rgba(0,212,255,0.15); }
+        .plan-name { font-size: 1.3em; font-weight: 600; color: #fff; }
+        .plan-price { font-size: 3em; font-weight: 700; color: #00d4ff; margin: 15px 0; }
+        .plan-price span { font-size: 0.4em; color: #888; }
+        .plan-features { list-style: none; padding: 0; margin: 25px 0; }
+        .plan-features li { padding: 8px 0; color: #ccc; font-size: 0.95em; border-bottom: 1px solid #1a1f2e; }
+        .plan-features li:before { content: "✅ "; }
+        .btn { display: block; width: 100%; padding: 14px; border-radius: 10px; font-size: 1em; 
+               font-weight: 600; cursor: pointer; text-align: center; text-decoration: none; border: none; }
+        .btn-primary { background: #00d4ff; color: #000; }
+        .btn-primary:hover { background: #00b8e0; }
+        .btn-outline { background: transparent; border: 1px solid #00d4ff; color: #00d4ff; }
+        .badge { position: absolute; top: -12px; right: 20px; background: #00d4ff; color: #000; 
+                 padding: 4px 12px; border-radius: 12px; font-size: 0.8em; font-weight: 600; }
+        
+        .payment-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                         background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; }
+        .payment-modal.active { display: flex; }
+        .modal-content { background: #111827; border: 1px solid #1a1f2e; border-radius: 16px; 
+                         padding: 30px; max-width: 500px; width: 90%; }
+        .modal-content h3 { color: #00d4ff; margin-bottom: 20px; }
+        .crypto-address { background: #0a0e17; padding: 15px; border-radius: 8px; word-break: break-all; 
+                          font-family: monospace; font-size: 0.85em; margin: 15px 0; color: #2ed573; }
+        .copy-btn { background: #1a2a3a; color: #00d4ff; border: none; padding: 8px 16px; 
+                    border-radius: 6px; cursor: pointer; font-size: 0.85em; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <div class="nav-title">SHARD Enterprise</div>
+            <div class="nav-subtitle">SIEM v6.5</div>
+        </div>
+        <div class="nav-links">
+            <a href="/dashboard.html" class="nav-link">Dashboard</a>
+            <a href="/defense.html" class="nav-link">🛡️ Defense</a>
+            <a href="/pricing.html" class="nav-link active">💰 Pricing</a>
+        </div>
+    </nav>
+
+    <div class="pricing-container">
+        <div class="pricing-header">
+            <h1>💰 Simple Pricing</h1>
+            <p>One-time payment. No hidden fees. Cancel anytime.</p>
+        </div>
+
+        <div class="plans">
+            <!-- Community -->
+            <div class="plan-card">
+                <div class="plan-name">🆓 Community</div>
+                <div class="plan-price">$0<span>/forever</span></div>
+                <ul class="plan-features">
+                    <li>Core engine</li>
+                    <li>5 ML models</li>
+                    <li>Single user</li>
+                    <li>Community support</li>
+                    <li>1,000 alerts/day</li>
+                </ul>
+                <a href="/register.html" class="btn btn-outline">Get Started</a>
+            </div>
+
+            <!-- Professional -->
+            <div class="plan-card featured">
+                <div class="badge">POPULAR</div>
+                <div class="plan-name">💼 Professional</div>
+                <div class="plan-price">$299<span>/month</span></div>
+                <ul class="plan-features">
+                    <li>All 50 ML models</li>
+                    <li>DecisionFusion AI</li>
+                    <li>Telegram bot</li>
+                    <li>Email alerts</li>
+                    <li>Up to 10 users</li>
+                    <li>50,000 alerts/day</li>
+                    <li>Priority support</li>
+                </ul>
+                <button class="btn btn-primary" onclick="openPayment('professional')">Buy Now — $299</button>
+            </div>
+
+            <!-- Enterprise -->
+            <div class="plan-card">
+                <div class="plan-name">🏢 Enterprise</div>
+                <div class="plan-price">$999<span>/month</span></div>
+                <ul class="plan-features">
+                    <li>Everything in Professional</li>
+                    <li>Unlimited users</li>
+                    <li>Federated learning</li>
+                    <li>Custom integrations</li>
+                    <li>On-premise deployment</li>
+                    <li>SLA 99.9%</li>
+                    <li>24/7 phone support</li>
+                </ul>
+                <button class="btn btn-primary" onclick="openPayment('enterprise')">Buy Now — $999</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div class="payment-modal" id="paymentModal">
+        <div class="modal-content">
+            <h3>💳 Complete Payment</h3>
+            <p style="color:#ccc;">Send exact amount to one of these addresses:</p>
+            
+            <div style="margin:15px 0;">
+                <strong style="color:#00d4ff;">USDT (TRC-20) — Recommended</strong>
+                <div class="crypto-address" id="addrUSDT_TRC">THVqXJHryY6975tNFrqhYH5UNVipoNiDDN</div>
+                <button class="copy-btn" onclick="copyAddr('addrUSDT_TRC')">📋 Copy</button>
+            </div>
+            
+            <div style="margin:15px 0;">
+                <strong style="color:#00d4ff;">USDT (ERC-20)</strong>
+                <div class="crypto-address" id="addrUSDT_ERC">0xD5a40E4d339668D8D9b746074a128716405Ab34c</div>
+                <button class="copy-btn" onclick="copyAddr('addrUSDT_ERC')">📋 Copy</button>
+            </div>
+            
+            <div style="margin:15px 0;">
+                <strong style="color:#00d4ff;">Bitcoin</strong>
+                <div class="crypto-address" id="addrBTC">bc1qx8sxckvayvyz4u3cz79s9xptlnjafz8jshd0w6</div>
+                <button class="copy-btn" onclick="copyAddr('addrBTC')">📋 Copy</button>
+            </div>
+
+            <p style="color:#888;font-size:0.85em;margin-top:15px;">
+                After payment, email <strong>shard019@mail.ru</strong> with your transaction hash. 
+                License key will be sent within 24 hours.
+            </p>
+            
+            <button class="btn btn-outline" onclick="closePayment()" style="margin-top:15px;">Close</button>
+        </div>
+    </div>
+
+    <script>
+        function openPayment(plan) {
+            document.getElementById('paymentModal').classList.add('active');
+        }
+        function closePayment() {
+            document.getElementById('paymentModal').classList.remove('active');
+        }
+        function copyAddr(id) {
+            var text = document.getElementById(id).textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Address copied!');
+            });
+        }
+    </script>
+</body>
+</html>

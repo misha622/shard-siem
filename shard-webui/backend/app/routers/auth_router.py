@@ -154,3 +154,20 @@ async def verify_email_code(email: str, code: str):
     if verify_code(email, code):
         return {"status": "verified"}
     return {"status": "error", "message": "Invalid or expired code"}
+
+@router.get("/license")
+async def check_license(license_key: str):
+    """Проверяет действительность лицензии"""
+    import sys
+    sys.path.insert(0, '/mnt/c/Users/user/PycharmProjects/Shard')
+    from modules.payment import verify_license, get_plans, get_wallets
+    return verify_license(license_key)
+
+
+@router.get("/plans")
+async def list_plans():
+    """Возвращает список тарифов"""
+    import sys
+    sys.path.insert(0, '/mnt/c/Users/user/PycharmProjects/Shard')
+    from modules.payment import get_plans, get_wallets
+    return {"plans": get_plans(), "wallets": get_wallets()}
