@@ -434,7 +434,7 @@
         await fetch('/api/profile/update', { method: 'PUT', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify({ first_name: document.getElementById('editFn').value, last_name: document.getElementById('editLn').value, email: document.getElementById('editEm').value }) });
         showToast('Profile updated!', 'success');
         init();
-    if (localStorage.getItem('darkMode') === '0') { document.body.style.filter = 'invert(1) hue-rotate(180deg)'; }
+    if (localStorage.getItem('darkMode') === '0') { document.documentElement.classList.add('light-mode'); }
     }
 
     async function changePassword() {
@@ -454,7 +454,7 @@
         document.getElementById('page-' + page).classList.add('active');
         if (el) el.classList.add('active');
         if (page === 'activity') init();
-    if (localStorage.getItem('darkMode') === '0') { document.body.style.filter = 'invert(1) hue-rotate(180deg)'; }
+    if (localStorage.getItem('darkMode') === '0') { document.documentElement.classList.add('light-mode'); }
         if (page === 'alerts') loadMyAlerts();
         if (page === 'audit') loadAuditLog();
         if (page === 'security') loadSessions();
@@ -527,11 +527,13 @@
 
     function applyDarkMode() {
         const isDark = document.getElementById('prefDark').checked;
-        document.body.style.filter = isDark ? 'none' : 'invert(1) hue-rotate(180deg)';
-        document.querySelectorAll('img, canvas, [style*="background"]').forEach(el => {
-            if (isDark) el.style.filter = 'none';
-            else el.style.filter = 'invert(1) hue-rotate(180deg)';
-        });
+        if (isDark) {
+            document.documentElement.classList.remove('light-mode');
+            document.documentElement.classList.add('dark-mode');
+        } else {
+            document.documentElement.classList.remove('dark-mode');
+            document.documentElement.classList.add('light-mode');
+        }
         localStorage.setItem('darkMode', isDark ? '1' : '0');
     }
 
@@ -561,7 +563,7 @@
 
     function logout() { localStorage.clear(); location.href = '/login.html'; }
     init();
-    if (localStorage.getItem('darkMode') === '0') { document.body.style.filter = 'invert(1) hue-rotate(180deg)'; }
+    if (localStorage.getItem('darkMode') === '0') { document.documentElement.classList.add('light-mode'); }
 </script>
 </body>
 </html>

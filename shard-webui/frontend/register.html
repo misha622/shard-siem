@@ -57,7 +57,7 @@
         <h3 style="margin-bottom:12px">📧 Verify Email</h3>
         <p style="color:rgba(255,255,255,.5);font-size:13px;margin-bottom:16px">Code sent to <strong id="emailDisplay"></strong></p>
         <div class="form-group"><input id="code" placeholder="000000" maxlength="6" style="text-align:center;font-size:24px;letter-spacing:8px"></div>
-        <button type="button" class="btn btn-primary" onclick="verifyEmail()">✅ Verify</button>
+        <button type="button" class="btn btn-primary" id="verifyBtn" onclick="sendCodeDirect()" disabled>✅ Verify</button>
         <button type="button" class="btn btn-outline" onclick="prevStep()">← Back</button>
     </form>
     
@@ -90,6 +90,7 @@
 </div>
 <script src="js/utils.js"></script>
     <script>
+    if (localStorage.getItem('darkMode') === '0') { document.documentElement.classList.add('light-mode'); }
 let captcha='',step=1;
 function genCaptcha(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';captcha='';for(let i=0;i<6;i++)captcha+=c[Math.floor(Math.random()*c.length)];document.getElementById('captchaText').textContent=captcha}
 genCaptcha();
@@ -110,6 +111,23 @@ function prevStep(){
     document.getElementById('step'+(step-1)).classList.add('active');
     document.getElementById('d'+(step-1)).classList.add('active');document.getElementById('d'+step).classList.remove('active');step--;
 }
+async function sendCodeDirect(){
+    var em=document.getElementById('em').value;
+    if(!em) return showErr('Enter email first');
+    try {
+        var r=await fetch('/api/auth/send-code?email='+encodeURIComponent(em),{method:'POST'});
+        var d=await r.json();
+        console.log('Send code response:', d);
+        if(d.status==='sent'){
+            document.getElementById('step2').classList.remove('active');
+            document.getElementById('step2_5').classList.add('active');
+            document.getElementById('d2').classList.remove('active');
+            document.getElementById('d2').classList.add('done');
+            step=2.5;
+        } else { showErr('Failed to send code'); }
+    } catch(e) { showErr('Error: '+e.message); }
+}
+
 async function verifyEmail(){
     var em=document.getElementById('em').value;
     try {
@@ -150,6 +168,10 @@ async function resendCode(){
 
 function showErr2(m){var e=document.getElementById('vcodeErr');e.textContent=m;e.style.display='block';}
 async function register(){
+    if(step < 3){
+        showErr('Please verify your email first');
+        return;
+    }
     if(!document.getElementById('agree').checked)return showErr('Accept Terms of Service');
     try{
         const r=await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:document.getElementById('u').value.trim(),first_name:document.getElementById('fn').value.trim(),last_name:document.getElementById('ln').value.trim(),email:document.getElementById('em').value.trim(),password:document.getElementById('pw').value,company:'',job_title:'',reason:'',agree_updates:false})});
