@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """SHARD Payment System — Crypto payments with verification"""
 
+import os
 import hashlib, time, json, logging
 from pathlib import Path
 from datetime import datetime
@@ -75,9 +76,9 @@ PLANS = {
 # КРИПТО-АДРЕСА
 # ============================================================
 WALLETS = {
-    'USDT_TRC20': 'THVqXJHryY6975tNFrqhYH5UNVipoNiDDN',
-    'USDT_ERC20': '0xD5a40E4d339668D8D9b746074a128716405Ab34c',
-    'BTC': 'bc1qx8sxckvayvyz4u3cz79s9xptlnjafz8jshd0w6'
+    'USDT_TRC20': os.getenv('WALLET_USDT_TRC20', 'THVqXJHryY6975tNFrqhYH5UNVipoNiDDN'),
+    'USDT_ERC20': os.getenv('WALLET_USDT_ERC20', '0xD5a40E4d339668D8D9b746074a128716405Ab34c'),
+    'BTC': os.getenv('WALLET_BTC', 'bc1qx8sxckvayvyz4u3cz79s9xptlnjafz8jshd0w6')
 }
 
 # ============================================================
